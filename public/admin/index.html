@@ -1,0 +1,675 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Lean blueprints</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme:light;
+  --forest:#1c2024; --bright:#3dd68c; --bright-ink:#0f2a1e; --mint:#e3f8ee;
+  --paper:#f6f7f6; --card:#ffffff; --ink:#1c2024; --muted:#646b75; --line:#e3e6e9; --warn:#b4232c;
+  --font:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root{color-scheme:dark;--paper:#121518;--card:#1a1e22;--ink:#e8eaed;--muted:#9aa2ad;--line:#2c3238;--mint:#16382a;--warn:#ff7b84}
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 var(--font)}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:inherit}
+.bar{background:var(--forest);color:#fff;display:flex;align-items:center;gap:14px;padding:14px 28px}
+.bar .mark{width:26px;height:26px;border-radius:7px;background:var(--bright);display:grid;place-items:center;color:var(--bright-ink);font-weight:800;font-size:14px}
+.bar h1{font-size:16px;font-weight:700;margin:0;letter-spacing:.01em}
+.bar .spacer{flex:1}
+.bar button{background:transparent;border:1px solid #3a4148;color:#d6dade;border-radius:8px;padding:6px 12px;cursor:pointer}
+.bar button:hover{border-color:var(--bright);color:#fff}
+.signin{max-width:380px;margin:12vh auto;padding:0 20px}
+.signin h2{font-size:26px;font-weight:800;margin:0 0 6px;letter-spacing:-.01em}
+.signin p{color:var(--muted);margin:0 0 22px}
+label{display:block;font-weight:600;font-size:13px;margin:0 0 6px}
+input[type=text],input[type=password],input[type=url],select,textarea{width:100%;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:0 12px}
+input[type=text],input[type=password],input[type=url],select{height:44px}
+textarea{padding:10px 12px;min-height:76px;resize:vertical;line-height:1.5}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px solid var(--bright);outline-offset:2px}
+.primary{background:var(--bright);color:var(--bright-ink);border:0;border-radius:10px;height:44px;padding:0 16px;font-weight:700;cursor:pointer;white-space:nowrap}
+.primary:hover{filter:brightness(.95)}
+.primary[disabled],.ghost[disabled]{opacity:.55;cursor:default}
+.ghost{background:transparent;border:1px solid var(--line);border-radius:8px;padding:6px 11px;cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap}
+.ghost:hover{border-color:var(--bright)}
+.ghost.danger:hover{border-color:var(--warn);color:var(--warn)}
+.err{color:var(--warn);font-size:13.5px;margin-top:10px;min-height:1.4em}
+.err:empty{min-height:0;margin:0}
+.app{display:grid;grid-template-columns:300px minmax(0,1fr);min-height:calc(100vh - 54px)}
+.side{border-right:1px solid var(--line);padding:22px 16px;background:var(--card)}
+.side h2{font-size:13px;font-weight:700;color:var(--muted);margin:0 8px 10px}
+.addbp{width:100%;margin:0 0 12px;text-align:left;padding:10px 12px;border-radius:10px;font-size:14px}
+.bp{display:block;width:100%;text-align:left;border:0;background:transparent;border-radius:10px;padding:11px 12px;cursor:pointer;margin-bottom:2px}
+.bp:hover{background:var(--paper)}
+.bp[aria-current="true"]{background:var(--mint)}
+.bp .t{font-weight:700;font-size:14px;line-height:1.35;display:block}
+.bp .s{font-size:12.5px;color:var(--muted)}
+.meter{height:4px;background:var(--line);border-radius:4px;margin-top:8px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--bright)}
+.main{padding:28px 36px 80px;max-width:1100px;min-width:0}
+.main h2{overflow-wrap:anywhere;font-size:28px;font-weight:800;margin:0 0 4px;letter-spacing:-.015em;line-height:1.2}
+.main .sub{color:var(--muted);margin:0 0 26px}
+section.blk{margin-bottom:34px}
+section.blk h3{font-size:16px;font-weight:700;margin:0 0 12px}
+.share{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;display:grid;grid-template-columns:2fr 1fr 1.3fr auto;gap:12px;align-items:end}
+.created{margin-top:12px;background:var(--mint);border-radius:12px;padding:12px 14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.created code{font:13px ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all;flex:1;min-width:200px}
+.tablewrap{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:14px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-size:12.5px;font-weight:600;color:var(--muted);padding:11px 14px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td .who{font-weight:700}
+td .by{font-size:12.5px;color:var(--muted)}
+.tag{display:inline-block;font-size:12px;font-weight:600;border-radius:999px;padding:2px 9px;background:var(--paper);border:1px solid var(--line);white-space:nowrap}
+.tag.client{background:var(--mint);border-color:transparent;color:var(--ink)}
+.tag.warn{background:#fff4e5;border-color:transparent;color:#7a4b00}
+.revoked td{opacity:.55}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.never{color:var(--muted)}
+.actions{display:flex;gap:6px;justify-content:flex-end;white-space:nowrap}
+.empty{background:var(--card);border:1px dashed var(--line);border-radius:14px;padding:22px;color:var(--muted)}
+.visit{display:grid;grid-template-columns:160px 1fr auto;gap:14px;padding:12px 16px;border-bottom:1px solid var(--line);align-items:baseline}
+.visit:last-child{border-bottom:0}
+.visit time,.visit .d{font-size:13px;color:var(--muted)}
+.list{background:var(--card);border:1px solid var(--line);border-radius:14px}
+.metaline{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 26px}
+.metaline .sub{margin:0}
+.warnbox{background:#fff4e5;color:#7a4b00;border-radius:12px;padding:12px 14px;font-size:13.5px;margin:0 0 24px}
+@media (prefers-color-scheme:dark){.warnbox,.tag.warn{background:#3a2a10;color:#ffd699}}
+.status{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--forest);color:#fff;padding:10px 16px;border-radius:10px;font-size:13.5px;font-weight:600;z-index:50}
+/* add a blueprint */
+.choices{display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:900px}
+.choice{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;display:grid;gap:14px;align-content:start}
+.choice h3{margin:0;font-size:17px}
+.choice p{margin:0;color:var(--muted);font-size:14px}
+.hint{font-size:12.5px;color:var(--muted);margin-top:5px}
+input[type=file]{width:100%;font-size:14px}
+/* editor */
+.edbar{position:sticky;top:0;z-index:20;background:var(--paper);display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 0;margin:-14px 0 18px;border-bottom:1px solid var(--line)}
+.edbar h2{font-size:22px !important;margin:0 !important;flex:1;min-width:200px}
+.pill-st{font-size:12.5px;font-weight:600;border-radius:999px;padding:3px 10px;background:var(--line)}
+.pill-st.live{background:var(--mint)}
+.pill-st.dirty{background:#fff4e5;color:#7a4b00}
+details.sec{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:14px}
+details.sec>summary{cursor:pointer;list-style:none;padding:16px 20px;font-weight:700;font-size:16px;display:flex;justify-content:space-between;gap:12px}
+details.sec>summary::-webkit-details-marker{display:none}
+details.sec>summary .cnt{font-weight:500;font-size:13px;color:var(--muted)}
+details.sec>summary::after{content:"Show";font-size:13px;font-weight:600;color:var(--muted)}
+details.sec[open]>summary::after{content:"Hide"}
+.secbody{padding:0 20px 20px;display:grid;gap:16px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.item{border:1px solid var(--line);border-radius:12px;padding:14px;display:grid;gap:14px;background:var(--paper)}
+.itemhead{display:flex;align-items:center;gap:8px}
+.itemhead strong{flex:1;font-size:14px}
+.subhead{font-size:13px;font-weight:700;margin:4px 0 -4px}
+.opts{display:flex;gap:16px;flex-wrap:wrap}
+.opt{display:flex;align-items:center;gap:7px;font-weight:500;font-size:14px;margin:0;cursor:pointer}
+.opt input{margin:0;width:16px;height:16px;accent-color:var(--bright)}
+.checks{display:flex;flex-wrap:wrap;gap:8px 16px}
+.thumbs{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.thumb img{display:block;max-height:120px;max-width:160px;border-radius:8px;border:1px solid var(--line);background:#1c2024}
+.thumb{display:grid;gap:6px;justify-items:start}
+.thumb button{padding:2px 8px;font-size:12px}
+.colorrow{display:flex;gap:10px;align-items:center}
+.colorrow input[type=color]{width:52px;height:44px;border:1px solid var(--line);border-radius:10px;padding:3px;background:var(--card)}
+.colorrow input[type=text]{max-width:140px}
+.tp{border-radius:12px;overflow:hidden;border:1px solid var(--line);max-width:460px}
+.tp-band{background:#1c2024;border-top:3px solid var(--a);padding:12px 16px;display:flex;align-items:center;justify-content:center;gap:10px;color:#fff;font-weight:800}
+.tp-band .x{color:#7a828b;font-weight:700}
+.tp-band img{height:20px;width:auto;max-width:120px}
+.tp-hero{background:#1c2024;padding:4px 16px 16px;color:#fff}
+.tp-hero .g{color:var(--a);font-weight:900;font-size:22px;letter-spacing:.02em;text-transform:uppercase}
+.tp-body{background:#fff;padding:14px 16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tp-pill{background:var(--a);color:var(--ink2);font-size:12px;font-weight:700;border-radius:999px;padding:3px 10px}
+.tp-chip{border:1px solid var(--a);color:#1c2024;font-size:12px;border-radius:999px;padding:3px 10px;background:color-mix(in srgb,var(--a) 14%,#fff)}
+.tp-note{font-size:12.5px;color:var(--muted);margin-top:6px}
+@media (max-width:860px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .side{border-right:0;border-bottom:1px solid var(--line)}
+  .main{padding:22px 18px 60px}
+  .share,.choices,.g2,.g3{grid-template-columns:1fr}
+  .visit{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none !important}}
+</style>
+</head>
+<body>
+<div class="bar"><div class="mark" aria-hidden="true">L</div><h1>Lean blueprints</h1><div class="spacer"></div><button id="signout" hidden>Sign out</button></div>
+
+<div id="signin" class="signin" hidden>
+  <h2>Sign in</h2>
+  <p>Use the admin password your team set for this site.</p>
+  <form id="signinForm">
+    <label for="pw">Admin password</label>
+    <input id="pw" type="password" autocomplete="current-password" required>
+    <div style="margin-top:14px"><button class="primary" type="submit">Sign in</button></div>
+    <div class="err" id="signinErr" role="alert"></div>
+  </form>
+</div>
+
+<div id="app" class="app" hidden>
+  <nav class="side" aria-label="Blueprints">
+    <h2>Blueprints</h2>
+    <div id="bpList"></div>
+  </nav>
+  <main class="main" id="main"></main>
+</div>
+<script type="module">
+import { resolveAccent, LEAN_ACCENT } from '/theme.js';
+
+const KEY = 'leanbp-admin';
+let password = sessionStorage.getItem(KEY) || '';
+let data = null;
+let products = [];
+const NEW = '__new';
+let selected = location.hash === '#new' ? NEW : (location.hash.slice(1).replace(/^edit:/, '') || null);
+let editor = null; // { slug, draft, dirty, row, open:Set }
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const byName = () => localStorage.getItem('leanbp-by') || '';
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, { ...opts, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + password, ...(opts.headers || {}) } });
+  const body = await r.json().catch(() => ({}));
+  if (r.status === 401) { signOut(); throw new Error('Wrong admin password'); }
+  if (!r.ok) throw new Error(body.error || 'Request failed');
+  return body;
+}
+function signOut() {
+  password = ''; sessionStorage.removeItem(KEY);
+  $('app').hidden = true; $('signout').hidden = true; $('signin').hidden = false;
+}
+$('signinForm').addEventListener('submit', async (e) => {
+  e.preventDefault(); password = $('pw').value; $('signinErr').textContent = '';
+  try { await load(); sessionStorage.setItem(KEY, password); } catch (err) { $('signinErr').textContent = err.message; }
+});
+$('signout').addEventListener('click', () => { if (confirmLeave()) signOut(); });
+
+async function load() {
+  const [ov, lib] = await Promise.all([api('/api/admin/overview'), products.length ? null : api('/api/admin/products')]);
+  data = ov; if (lib) products = lib.products;
+  $('signin').hidden = true; $('app').hidden = false; $('signout').hidden = false;
+  if (!editor && selected !== NEW && !data.blueprints.some((b) => b.slug === selected)) selected = data.blueprints[0]?.slug || NEW;
+  render();
+}
+
+// ---------- formatting ----------
+const when = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso); const mins = Math.round((Date.now() - d) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return mins + ' min ago';
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return hrs + (hrs === 1 ? ' hour ago' : ' hours ago');
+  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
+};
+const full = (iso) => iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '';
+const dur = (s) => { s = Number(s) || 0; if (s < 60) return s + ' sec'; const m = Math.round(s / 60); return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + (m % 60) + ' min'; };
+const device = (ua) => {
+  ua = ua || '';
+  const os = /iPhone|iPad/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android' : /Mac OS X/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : /Linux/.test(ua) ? 'Linux' : '';
+  const br = /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : '';
+  return [br, os].filter(Boolean).join(' on ');
+};
+const slugify = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 63);
+
+// ---------- top-level render ----------
+function render() {
+  $('bpList').innerHTML = `<button class="ghost addbp" id="addBp" aria-current="${selected === NEW}">Add a blueprint</button>` + (data.blueprints.length
+    ? data.blueprints.map((b) => `
+      <button class="bp" data-slug="${esc(b.slug)}" aria-current="${b.slug === selected}">
+        <span class="t">${esc(b.title)}</span>
+        <span class="s">${!b.published ? 'Not published yet' : b.items ? `${b.done} of ${b.items} checklist items done` : 'No checklist items'}${b.unpublished_changes && b.published ? ', unpublished changes' : ''}</span>
+        ${b.published && b.items ? `<div class="meter" aria-hidden="true"><i style="width:${Math.round((b.done / b.items) * 100)}%"></i></div>` : ''}
+      </button>`).join('')
+    : '<p class="s" style="margin:0 8px;color:var(--muted)">No blueprints yet.</p>');
+  $('addBp').addEventListener('click', () => go(NEW));
+  document.querySelectorAll('.bp').forEach((el) => el.addEventListener('click', () => go(el.dataset.slug)));
+  if (editor) return renderEditor();
+  if (selected === NEW) return renderAdd();
+  const bp = data.blueprints.find((b) => b.slug === selected);
+  if (!bp) return renderAdd();
+  renderDetail(bp);
+}
+function go(slug) {
+  if (!confirmLeave()) return;
+  editor = null; selected = slug;
+  history.replaceState(null, '', slug === NEW ? '#new' : '#' + slug);
+  render();
+}
+function confirmLeave() { return !editor || !editor.dirty || confirm('You have unsaved changes. Leave without saving?'); }
+window.addEventListener('beforeunload', (e) => { if (editor && editor.dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+// ---------- add a blueprint ----------
+function renderAdd() {
+  $('main').innerHTML = `
+    <h2>Add a blueprint</h2>
+    <p class="sub">Build one with the form, or upload a finished HTML file.</p>
+    <div class="choices">
+      <form class="choice" id="buildForm">
+        <h3>Build with the form</h3>
+        <p>Fill in each section, preview it as the client will see it, then publish.</p>
+        <div><label for="bName">Client name</label><input id="bName" type="text" maxlength="80" placeholder="e.g. Acme Remit" required></div>
+        <div><label for="bSlug">Short name</label><input id="bSlug" type="text" maxlength="63" placeholder="e.g. acme-remit" required>
+          <div class="hint">Lowercase letters, digits and hyphens. Only your team sees it.</div></div>
+        <div><label for="bBy">Your name</label><input id="bBy" type="text" maxlength="80" value="${esc(byName())}"></div>
+        <div><button class="primary" type="submit">Start blueprint</button></div>
+        <div class="err" id="bErr" role="alert"></div>
+      </form>
+      <form class="choice" id="uploadForm">
+        <h3>Upload an HTML file</h3>
+        <p>For a blueprint that already exists as a single HTML page, like Wise’s.</p>
+        <div><label for="upFile">Blueprint file</label><input id="upFile" type="file" accept=".html,.htm,text/html" required>
+          <div class="hint">One self-contained HTML page under 4 MB, with a &lt;title&gt;. Checklist items need a data-check key.</div></div>
+        <div><label for="upSlug">Short name</label><input id="upSlug" type="text" maxlength="63" placeholder="e.g. acme-remit" required></div>
+        <div><label for="upBy">Your name</label><input id="upBy" type="text" maxlength="80" value="${esc(byName())}"></div>
+        <div><button class="primary" type="submit">Upload blueprint</button></div>
+        <div class="err" id="upErr" role="alert"></div>
+      </form>
+    </div>`;
+  let slugTouched = false;
+  $('bSlug').addEventListener('input', () => { slugTouched = true; });
+  $('bName').addEventListener('input', () => { if (!slugTouched) $('bSlug').value = slugify($('bName').value); });
+  $('buildForm').addEventListener('submit', async (e) => {
+    e.preventDefault(); const btn = e.submitter; btn.disabled = true; $('bErr').textContent = '';
+    const by = $('bBy').value.trim(); localStorage.setItem('leanbp-by', by);
+    const slug = $('bSlug').value.trim();
+    try {
+      const content = newContent($('bName').value.trim(), by);
+      const row = await api('/api/admin/builder', { method: 'POST', body: JSON.stringify({ action: 'create', slug, content, by }) });
+      await load(); openEditor(row);
+    } catch (err) { $('bErr').textContent = err.message; } finally { btn.disabled = false; }
+  });
+  $('upFile').addEventListener('change', (e) => { const f = e.target.files[0]; if (f && !$('upSlug').value) $('upSlug').value = slugify(f.name.replace(/\.html?$/i, '')); });
+  $('uploadForm').addEventListener('submit', async (e) => {
+    e.preventDefault(); const btn = e.submitter; btn.disabled = true; $('upErr').textContent = '';
+    const by = $('upBy').value.trim(); localStorage.setItem('leanbp-by', by);
+    try {
+      const file = $('upFile').files[0];
+      if (file.size > 4_000_000) throw new Error('The file is over 4 MB. Compress or resize its embedded images, then try again.');
+      const r = await api('/api/admin/blueprints', { method: 'POST', body: JSON.stringify({ slug: $('upSlug').value.trim(), html: await file.text(), uploadedBy: by }) });
+      selected = r.slug; history.replaceState(null, '', '#' + r.slug); await load(); status('Blueprint uploaded');
+    } catch (err) { $('upErr').textContent = err.message; } finally { btn.disabled = false; }
+  });
+}
+
+// ---------- blueprint page (links and visits) ----------
+function renderDetail(bp) {
+  const links = data.links.filter((l) => l.slug === bp.slug);
+  const visits = data.recent.filter((v) => v.slug === bp.slug);
+  const lastClient = visits.find((v) => v.kind === 'client');
+  const built = bp.source === 'builder';
+  const stateLine = !bp.published ? 'Not published yet.' : built ? `Published ${esc(when(bp.published_at))}${bp.uploaded_by ? ' by ' + esc(bp.uploaded_by) : ''}.` : `File ${bp.uploaded_by ? 'uploaded by ' + esc(bp.uploaded_by) + ', ' : 'updated '}${esc(when(bp.updated_at))}.`;
+  $('main').innerHTML = `
+    <h2>${esc(bp.title)}</h2>
+    <div class="metaline">
+      <p class="sub">${bp.published ? (lastClient ? `Last opened by ${esc(lastClient.label)}, ${esc(when(lastClient.opened_at))}. ` : 'Not opened by a client yet. ') : ''}${stateLine}</p>
+      ${built ? `<button class="primary" id="editBp" style="height:36px">Edit blueprint</button>` : `<label class="ghost" style="margin:0;cursor:pointer">Replace file<input id="replaceFile" type="file" accept=".html,.htm,text/html" hidden></label>`}
+    </div>
+    ${built && bp.unpublished_changes && bp.published ? '<div class="warnbox">This blueprint has saved changes that aren’t published yet. Clients still see the last published version.</div>' : ''}
+    <div id="replaceMsg"></div>
+    ${bp.published ? `
+    <section class="blk">
+      <h3>Share a link</h3>
+      <form class="share" id="shareForm">
+        <div><label for="label">Who is it for</label><input id="label" type="text" maxlength="80" placeholder="Name and company, e.g. David at Wise" required></div>
+        <div><label for="kind">Type</label><select id="kind"><option value="client">Client</option><option value="internal">Lean teammate</option></select></div>
+        <div><label for="by">Your name</label><input id="by" type="text" maxlength="80" value="${esc(byName())}"></div>
+        <div><button class="primary" type="submit">Create link</button></div>
+      </form>
+      <div class="err" id="shareErr" role="alert"></div>
+      <div id="created"></div>
+    </section>` : '<div class="empty" style="margin-bottom:34px">Publish this blueprint from the editor before sharing links.</div>'}
+    <section class="blk">
+      <h3>Links</h3>
+      ${links.length ? `<div class="tablewrap"><table>
+        <thead><tr><th>Who</th><th>Type</th><th>Visits</th><th>Last opened</th><th>Time on page</th><th></th></tr></thead>
+        <tbody>${links.map((l) => `
+          <tr class="${l.revoked_at ? 'revoked' : ''}">
+            <td><div class="who">${esc(l.label)}</div><div class="by">${l.created_by ? 'Created by ' + esc(l.created_by) + ', ' : 'Created '}${esc(when(l.created_at))}${l.revoked_at ? ', revoked' : ''}</div></td>
+            <td><span class="tag ${l.kind}">${l.kind === 'client' ? 'Client' : 'Lean'}</span></td>
+            <td class="num">${l.views}</td>
+            <td class="num" title="${esc(full(l.last_view))}">${l.last_view ? esc(when(l.last_view)) : '<span class="never">Not opened</span>'}</td>
+            <td class="num">${l.views ? dur(l.seconds) : ''}</td>
+            <td><div class="actions">
+              ${l.revoked_at ? '' : `<button class="ghost" data-copy="${esc(l.token)}">Copy link</button>`}
+              <button class="ghost ${l.revoked_at ? '' : 'danger'}" data-revoke="${esc(l.token)}" data-state="${l.revoked_at ? 'revoked' : 'active'}">${l.revoked_at ? 'Restore' : 'Revoke'}</button>
+            </div></td>
+          </tr>`).join('')}</tbody></table></div>`
+        : '<div class="empty">No links yet.</div>'}
+    </section>
+    <section class="blk">
+      <h3>Recent visits</h3>
+      ${visits.length ? `<div class="list">${visits.slice(0, 40).map((v) => `
+        <div class="visit">
+          <time datetime="${esc(v.opened_at)}" title="${esc(full(v.opened_at))}">${esc(full(v.opened_at))}</time>
+          <div><strong>${esc(v.label)}</strong> ${v.kind === 'internal' ? '<span class="tag">Lean</span>' : ''}<div class="d">${esc([device(v.user_agent), v.country].filter(Boolean).join(', '))}</div></div>
+          <div class="num d">${dur(v.seconds_visible)} on page</div>
+        </div>`).join('')}</div>`
+        : '<div class="empty">No visits yet. A visit is recorded once someone keeps the page open for 10 seconds.</div>'}
+    </section>`;
+
+  if (built) $('editBp').addEventListener('click', async () => {
+    try { openEditor(await api('/api/admin/builder?slug=' + encodeURIComponent(bp.slug))); } catch (err) { status(err.message); }
+  });
+  else $('replaceFile').addEventListener('change', async (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    if (!confirm(`Replace the file for "${bp.title}" with ${file.name}? Clients with a link will see the new version straight away.`)) { e.target.value = ''; return; }
+    try {
+      const r = await api('/api/admin/blueprints', { method: 'POST', body: JSON.stringify({ slug: bp.slug, html: await file.text(), uploadedBy: byName(), replace: true }) });
+      await load(); status('File replaced');
+      if (r.droppedTicks.length) $('replaceMsg').innerHTML = `<div class="warnbox">These ticked items aren’t in the new file, so their ticks no longer show: ${esc(r.droppedTicks.join(', '))}. Restore the keys in the file to bring them back.</div>`;
+    } catch (err) { $('replaceMsg').innerHTML = `<div class="warnbox">${esc(err.message)}</div>`; }
+  });
+  if (bp.published) $('shareForm').addEventListener('submit', async (e) => {
+    e.preventDefault(); const btn = e.submitter; btn.disabled = true; $('shareErr').textContent = '';
+    const by = $('by').value.trim(); localStorage.setItem('leanbp-by', by);
+    try {
+      const link = await api('/api/admin/links', { method: 'POST', body: JSON.stringify({ slug: bp.slug, label: $('label').value, kind: $('kind').value, createdBy: by }) });
+      await load();
+      $('created').innerHTML = `<div class="created"><code>${esc(link.url)}</code><button class="ghost" id="copyNew">Copy link</button></div>`;
+      $('copyNew').addEventListener('click', () => copy(link.url));
+    } catch (err) { $('shareErr').textContent = err.message; } finally { btn.disabled = false; }
+  });
+  document.querySelectorAll('[data-copy]').forEach((el) => el.addEventListener('click', () => copy(location.origin + '/b/' + el.dataset.copy)));
+  document.querySelectorAll('[data-revoke]').forEach((el) => el.addEventListener('click', async () => {
+    const revoking = el.dataset.state === 'active';
+    if (revoking && !confirm('Revoke this link? Anyone using it will see an "isn’t active" page.')) return;
+    try { await api('/api/admin/links', { method: 'PATCH', body: JSON.stringify({ token: el.dataset.revoke, revoked: revoking }) }); await load(); status(revoking ? 'Link revoked' : 'Link restored'); }
+    catch (err) { status(err.message); }
+  }));
+}
+
+// ================= blueprint form =================
+const TPL = {
+  painRow: () => ({ group: 'business', pain: '', solve: '', advantage: '' }),
+  journey: () => ({ tag: '', title: '', feature: '', need: '', products: [], otherProducts: '', powers: '', alsoCovers: '', alsoImage: '', images: [], unconfirmed: false }),
+  flow: () => ({ name: '', description: '', url: '' }),
+  card: () => ({ product: products[0]?.id || 'custom', status: 'scope', card: '', custom: { name: '', card: '' } }),
+  phase: (n) => ({ label: 'Phase ' + n, title: '', chip: '', bullets: '', unconfirmed: false, rows: [] }),
+  row: () => ({ product: products[0]?.id || 'custom', effort: '', note: '', link: { label: '', url: '' }, custom: { name: '', sub: '', apis: '' } }),
+  total: () => ({ label: '', value: '' }),
+};
+function newContent(name, by) {
+  return {
+    client: { name, logo: '' }, header: { mode: 'name', logoSize: 'medium' }, theme: { mode: 'lean', color: LEAN_ACCENT },
+    meta: { preparedBy: by, market: '', vertical: '' }, hero: { subtitle: '' }, summary: '',
+    pain: { intro: '', rows: [] },
+    journeys: { title: '', intro: '', useCases: [], items: [] },
+    design: { enabled: false, title: '', subtitle: '', name: '', description: '', fileUrl: '', images: [], flows: [] },
+    launch: { intro: '', products: [], phases: [TPL.phase(1)], note: '', totals: [], summary: '' },
+  };
+}
+// Fill any fields missing from older drafts.
+function withDefaults(c) {
+  const base = newContent('', '');
+  const merge = (a, b) => { for (const k of Object.keys(a)) { if (b[k] === undefined) b[k] = a[k]; else if (a[k] && typeof a[k] === 'object' && !Array.isArray(a[k])) merge(a[k], b[k]); } return b; };
+  return merge(base, c || {});
+}
+const getP = (o, path) => path.split('.').reduce((x, k) => (x == null ? x : x[k]), o);
+function setP(o, path, v) { const ks = path.split('.'); const last = ks.pop(); const t = ks.reduce((x, k) => x[k], o); t[last] = v; }
+const lib = (id) => products.find((p) => p.id === id) || null;
+
+function openEditor(row) {
+  editor = { slug: row.slug, draft: withDefaults(row.draft), dirty: false, row, open: new Set(['basics']) };
+  selected = row.slug; history.replaceState(null, '', '#edit:' + row.slug);
+  render();
+}
+
+// ---------- field helpers ----------
+const val = (p) => getP(editor.draft, p) ?? '';
+const fText = (p, label, o = {}) => `<div${o.wide ? ' style="grid-column:1/-1"' : ''}><label>${label}</label><input type="${o.type || 'text'}" data-k="${p}" value="${esc(val(p))}" placeholder="${esc(o.ph || '')}" maxlength="${o.max || 300}">${o.hint ? `<div class="hint">${o.hint}</div>` : ''}</div>`;
+const fArea = (p, label, o = {}) => `<div${o.wide !== false ? ' style="grid-column:1/-1"' : ''}><label>${label}</label><textarea data-k="${p}" rows="${o.rows || 3}" placeholder="${esc(o.ph || '')}" maxlength="${o.max || 3000}">${esc(val(p))}</textarea>${o.hint ? `<div class="hint">${o.hint}</div>` : ''}</div>`;
+const fLines = (p, label, o = {}) => `<div style="grid-column:1/-1"><label>${label}</label><textarea data-k="${p}" data-lines="1" rows="${o.rows || 3}" placeholder="${esc(o.ph || '')}">${esc((val(p) || []).join('\n'))}</textarea>${o.hint ? `<div class="hint">${o.hint}</div>` : ''}</div>`;
+const fSelect = (p, label, opts, o = {}) => `<div><label>${label}</label><select data-k="${p}"${o.rerender ? ' data-rerender="1"' : ''}>${opts.map(([v, t]) => `<option value="${esc(v)}"${String(val(p)) === String(v) ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></div>`;
+const fCheck = (p, label, o = {}) => `<label class="opt"><input type="checkbox" data-k="${p}"${o.rerender ? ' data-rerender="1"' : ''}${val(p) ? ' checked' : ''}> ${label}</label>`;
+const fRadio = (p, opts) => `<div class="opts">${opts.map(([v, t]) => `<label class="opt"><input type="radio" name="${p}" data-k="${p}" value="${v}" data-rerender="1"${val(p) === v ? ' checked' : ''}> ${t}</label>`).join('')}</div>`;
+function fImages(p, label, o) {
+  const v = val(p); const imgs = o.single ? (v ? [v] : []) : (v || []);
+  const room = o.single ? 1 : o.max - imgs.length;
+  return `<div style="grid-column:1/-1"><label>${label}</label>
+    <div class="thumbs">${imgs.map((src, i) => `<div class="thumb"><img src="${src}" alt=""><button type="button" class="ghost" data-delimg="${p}" data-i="${i}" aria-label="Remove image">Remove</button></div>`).join('')}
+    ${room > 0 ? `<label class="ghost" style="margin:0;cursor:pointer">${imgs.length && o.single ? 'Replace' : 'Add image'}<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden data-img="${p}" data-w="${o.width}" data-kind="${o.kind || 'shot'}"${o.single ? ' data-single="1"' : ''}${!o.single && room > 1 ? ' multiple' : ''}></label>` : ''}</div>
+    ${o.hint ? `<div class="hint">${o.hint}</div>` : ''}</div>`;
+}
+const itemHead = (listPath, i, n, title) => `<div class="itemhead"><strong>${esc(title)}</strong>
+  <button type="button" class="ghost" data-move="${listPath}" data-i="${i}" data-d="-1"${i === 0 ? ' disabled' : ''} aria-label="Move up">Up</button>
+  <button type="button" class="ghost" data-move="${listPath}" data-i="${i}" data-d="1"${i === n - 1 ? ' disabled' : ''} aria-label="Move down">Down</button>
+  <button type="button" class="ghost danger" data-del="${listPath}" data-i="${i}">Remove</button></div>`;
+const productOpts = () => products.map((p) => [p.id, p.name]).concat([['custom', 'Custom product']]);
+const BOLD = 'Use **double asterisks** for bold.';
+const section = (id, title, count, body) => `<details class="sec" data-sec="${id}"${editor.open.has(id) ? ' open' : ''}><summary><span>${title}${count ? ` <span class="cnt">${count}</span>` : ''}</span></summary><div class="secbody">${body}</div></details>`;
+
+function themePreview() {
+  const d = editor.draft; const t = d.theme.mode === 'client' ? resolveAccent(d.theme.color) : { accent: LEAN_ACCENT, ink: '#0f2a1e', note: '' };
+  const logo = d.header.mode === 'logo' && d.client.logo ? `<img src="${d.client.logo}" alt="">` : `<span>${esc(d.client.name || 'Client')}</span>`;
+  return `<div class="tp" style="--a:${t.accent};--ink2:${t.ink}">
+    <div class="tp-band"><span>Lean</span><span class="x">x</span>${logo}</div>
+    <div class="tp-hero"><span class="g">Blueprint</span></div>
+    <div class="tp-body"><span class="tp-pill">One-Time Payments</span><span class="tp-chip">Pay a request</span></div>
+  </div><div class="tp-note" id="tpNote">${d.theme.mode === 'client' ? (t.note ? esc(t.note) + ` Used: ${t.accent}.` : `Readable as chosen: ${t.accent}.`) : 'Lean green.'}</div>`;
+}
+
+// ---------- editor ----------
+function renderEditor() {
+  const d = editor.draft; const row = editor.row;
+  const st = editor.dirty ? ['dirty', 'Unsaved changes'] : !row.published ? ['', 'Draft, not published'] : (row.draft_updated_at && row.published_at && new Date(row.draft_updated_at) > new Date(row.published_at)) ? ['dirty', 'Saved, not published'] : ['live', 'Published'];
+  const basics = `
+    <div class="g2">${fText('client.name', 'Client name', { max: 80 })}${fText('meta.preparedBy', 'Prepared by', { max: 80 })}${fText('meta.market', 'Market', { ph: 'e.g. UAE', max: 40 })}${fText('meta.vertical', 'Vertical', { ph: 'e.g. Remittance', max: 60 })}</div>
+    <div><div class="subhead">Header</div>${fRadio('header.mode', [['logo', 'Lean and client logos'], ['name', 'Lean logo and client name']])}</div>
+    ${d.header.mode === 'logo' ? `<div class="g2">${fImages('client.logo', 'Client logo', { single: true, width: 480, kind: 'logo', hint: 'SVG or PNG on a transparent background works best. Shown in its own colours.' })}${fSelect('header.logoSize', 'Logo size', [['small', 'Small'], ['medium', 'Medium'], ['large', 'Large']])}</div>${d.client.logo ? '' : '<div class="hint">Until a logo is added, the client name is shown.</div>'}` : ''}
+    <div><div class="subhead">Colours</div>${fRadio('theme.mode', [['lean', 'Lean colours'], ['client', 'Client colour']])}</div>
+    ${d.theme.mode === 'client' ? `<div class="colorrow"><input type="color" id="tColor" value="${esc(resolveAccent(d.theme.color).accent)}" aria-label="Pick a colour"><input type="text" id="tHex" value="${esc(d.theme.color)}" maxlength="7" aria-label="Hex code" placeholder="#3dd68c"></div>` : ''}
+    <div id="tp">${themePreview()}</div>
+    ${fArea('hero.subtitle', 'Subtitle', { rows: 2, ph: 'One sentence under the title: what this blueprint maps for the client.', hint: BOLD })}
+    ${fArea('summary', 'Summary', { rows: 4, ph: 'The opening paragraph: what the client gains and what this blueprint covers.' })}`;
+  const pain = `
+    ${fArea('pain.intro', 'Introduction', { rows: 3 })}
+    ${d.pain.rows.map((r, i) => `<div class="item">${itemHead('pain.rows', i, d.pain.rows.length, 'Row ' + (i + 1))}
+      <div class="g2">${fSelect(`pain.rows.${i}.group`, 'Group', [['business', 'Business impact'], ['technical', 'Technical & operational']])}</div>
+      <div class="g3">${fArea(`pain.rows.${i}.pain`, 'Pain point or opportunity', { wide: false })}${fArea(`pain.rows.${i}.solve`, 'How Lean solves it', { wide: false, hint: BOLD })}${fArea(`pain.rows.${i}.advantage`, 'Advantage', { wide: false })}</div></div>`).join('')}
+    <div><button type="button" class="ghost" data-add="pain.rows" data-tpl="painRow">Add a row</button></div>`;
+  const journeys = `
+    <div class="g2">${fText('journeys.title', 'Section title', { ph: 'The customer journey, end to end', max: 100 })}</div>
+    ${fArea('journeys.intro', 'Introduction', { rows: 3, hint: BOLD })}
+    ${fLines('journeys.useCases', 'Use cases', { rows: 3, ph: 'One per line, e.g. Wallet top-up', hint: 'Shown as chips under the introduction.' })}
+    ${d.journeys.items.map((x, i) => `<div class="item">${itemHead('journeys.items', i, d.journeys.items.length, 'Journey ' + (i + 1) + (x.title ? ': ' + x.title : ''))}
+      <div class="g2">${fText(`journeys.items.${i}.tag`, 'Label', { ph: 'e.g. Funding a balance', max: 60 })}${fText(`journeys.items.${i}.title`, 'Title', { ph: 'e.g. Top up from your bank', max: 80 })}</div>
+      ${fArea(`journeys.items.${i}.feature`, `${esc(d.client.name || 'Client')} feature`, { rows: 2, hint: 'The existing client experience this journey starts from.' })}
+      ${fArea(`journeys.items.${i}.need`, 'The need', { rows: 2 })}
+      <div><div class="subhead">Lean products</div><div class="checks" style="margin-top:10px">${products.map((p) => `<label class="opt"><input type="checkbox" data-k="journeys.items.${i}.products" data-multi="${p.id}"${(x.products || []).includes(p.id) ? ' checked' : ''}> ${esc(p.name)}</label>`).join('')}</div></div>
+      ${fArea(`journeys.items.${i}.otherProducts`, 'Other products', { rows: 1, ph: 'One per line, for products not in the list' })}
+      ${fArea(`journeys.items.${i}.powers`, 'How Lean powers it', { rows: 2, hint: BOLD })}
+      ${fImages(`journeys.items.${i}.images`, 'Screenshots', { max: 2, width: 450, hint: 'Up to two app screens. Resized automatically.' })}
+      ${fArea(`journeys.items.${i}.alsoCovers`, 'Also covers (optional)', { rows: 2 })}
+      ${fImages(`journeys.items.${i}.alsoImage`, 'Image for “Also covers” (optional)', { single: true, width: 240 })}
+      <div>${fCheck(`journeys.items.${i}.unconfirmed`, 'Not confirmed yet (dashed outline)')}</div></div>`).join('')}
+    <div><button type="button" class="ghost" data-add="journeys.items" data-tpl="journey">Add a journey</button></div>`;
+  const design = `
+    <div>${fCheck('design.enabled', 'Include a design reference', { rerender: true })}</div>
+    ${d.design.enabled ? `<div class="g2">${fText('design.title', 'Title', { ph: 'Design reference: UX best practices', max: 100 })}${fText('design.name', 'File name', { ph: `Lean x ${d.client.name || 'Client'}`, max: 100 })}</div>
+    ${fText('design.fileUrl', 'Figma file link', { type: 'url', ph: 'https://www.figma.com/design/...', wide: true, max: 600, hint: 'Also used for Consent Management Interface rows that link to the Figma screens.' })}
+    ${fArea('design.subtitle', 'Subtitle', { rows: 2 })}${fArea('design.description', 'Description', { rows: 2 })}
+    ${fImages('design.images', 'Preview images', { max: 3, width: 360, hint: 'Up to three screens.' })}
+    <div class="subhead">Flows</div>
+    ${d.design.flows.map((f, i) => `<div class="item">${itemHead('design.flows', i, d.design.flows.length, 'Flow ' + (i + 1))}
+      <div class="g3">${fText(`design.flows.${i}.name`, 'Name', { max: 80 })}${fText(`design.flows.${i}.description`, 'Description', { max: 200 })}${fText(`design.flows.${i}.url`, 'Figma link', { type: 'url', max: 600 })}</div></div>`).join('')}
+    <div><button type="button" class="ghost" data-add="design.flows" data-tpl="flow">Add a flow</button></div>` : ''}`;
+  const L = d.launch;
+  const rowEditor = (pi, r, ri, n) => {
+    const p = lib(r.product); const base = `launch.phases.${pi}.rows.${ri}`;
+    return `<div class="item" style="background:var(--card)">${itemHead(`launch.phases.${pi}.rows`, ri, n, p ? p.name : (r.custom.name || 'Custom product'))}
+      <div class="g2">${fSelect(`${base}.product`, 'Product', productOpts(), { rerender: true })}${fText(`${base}.effort`, 'Effort', { ph: p ? p.effort : 'e.g. ~1 week', max: 60 })}</div>
+      ${r.product === 'custom' ? `<div class="g2">${fText(`${base}.custom.name`, 'Name', { max: 80 })}${fText(`${base}.custom.sub`, 'Short label', { max: 80 })}</div>${fArea(`${base}.custom.apis`, 'APIs', { rows: 2, ph: 'One endpoint per line' })}` : ''}
+      ${fArea(`${base}.note`, 'Note under the APIs (optional)', { rows: 2, ph: p && p.apiNote ? p.apiNote.replaceAll('{client}', d.client.name || 'Client') : '', hint: p && p.apiNote ? 'Leave empty to use the standard note shown.' : '' })}
+      ${p && p.hasGuide ? '<div class="hint">The implementation guide is added automatically.</div>' : `<div class="g2">${fText(`${base}.link.label`, 'Link label (optional)', { max: 60, ph: p && p.linkFromDesign ? p.linkFromDesign : 'e.g. Checklist' })}${fText(`${base}.link.url`, 'Link', { type: 'url', max: 600, ph: p && p.linkFromDesign ? 'Uses the Figma file link if empty' : 'https://...' })}</div>`}</div>`;
+  };
+  const launch = `
+    ${fArea('launch.intro', 'Introduction', { rows: 2, ph: 'How the integration is delivered: the Lean products involved, what ships in each phase, the APIs behind it, and the effort to build.' })}
+    <div class="subhead">Lean products</div>
+    ${L.products.map((c, i) => { const p = lib(c.product); return `<div class="item">${itemHead('launch.products', i, L.products.length, p ? p.name : (c.custom.name || 'Custom product'))}
+      <div class="g2">${fSelect(`launch.products.${i}.product`, 'Product', productOpts(), { rerender: true })}${fSelect(`launch.products.${i}.status`, 'Status', [['scope', 'In scope'], ['future', 'Future']])}</div>
+      ${c.product === 'custom' ? fText(`launch.products.${i}.custom.name`, 'Name', { max: 80, wide: true }) : ''}
+      ${fArea(`launch.products.${i}.card`, 'Description (optional)', { rows: 2, ph: p ? p.card : 'What this product does for the client', hint: p ? 'Leave empty to use the standard description shown.' : '' })}</div>`; }).join('')}
+    <div><button type="button" class="ghost" data-add="launch.products" data-tpl="card">Add a product</button></div>
+    <div class="subhead">Phases and table</div>
+    ${L.phases.map((ph, i) => `<div class="item">${itemHead('launch.phases', i, L.phases.length, (ph.label || 'Phase') + (ph.title ? ': ' + ph.title : ''))}
+      <div class="g3">${fText(`launch.phases.${i}.label`, 'Label', { ph: 'Phase ' + (i + 1), max: 40 })}${fText(`launch.phases.${i}.title`, 'Title', { ph: 'e.g. Funding journey', max: 80 })}${fText(`launch.phases.${i}.chip`, 'Status tag in the table (optional)', { ph: 'e.g. In development, Q4', max: 40 })}</div>
+      ${fArea(`launch.phases.${i}.bullets`, 'Bullets', { rows: 2, ph: 'One per line', hint: BOLD })}
+      <div>${fCheck(`launch.phases.${i}.unconfirmed`, 'Not confirmed yet (dashed outline)')}</div>
+      <div class="subhead">Table rows</div>
+      ${ph.rows.map((r, ri) => rowEditor(i, r, ri, ph.rows.length)).join('')}
+      <div><button type="button" class="ghost" data-add="launch.phases.${i}.rows" data-tpl="row">Add a table row</button></div></div>`).join('')}
+    <div><button type="button" class="ghost" data-add="launch.phases" data-tpl="phase">Add a phase</button></div>
+    ${fArea('launch.note', 'Note under the table (optional)', { rows: 3, hint: BOLD })}
+    <div class="subhead">Total implementation time</div>
+    ${L.totals.map((t, i) => `<div class="item">${itemHead('launch.totals', i, L.totals.length, 'Line ' + (i + 1))}<div class="g2">${fText(`launch.totals.${i}.label`, 'Label', { ph: 'e.g. Phase 1, Funding', max: 120 })}${fText(`launch.totals.${i}.value`, 'Time', { ph: 'e.g. ~1-2 weeks', max: 120 })}</div></div>`).join('')}
+    <div><button type="button" class="ghost" data-add="launch.totals" data-tpl="total">Add a line</button></div>
+    ${fArea('launch.summary', 'Summary line (optional)', { rows: 2, hint: BOLD })}`;
+
+  $('main').innerHTML = `
+    <div class="edbar"><h2>${esc(d.client.name || row.title || row.slug)}</h2><span class="pill-st ${st[0]}" id="edState">${st[1]}</span>
+      <button class="ghost" id="edClose">Close</button><button class="ghost" id="edSave">Save draft</button><button class="ghost" id="edPreview">Preview</button><button class="primary" id="edPublish" style="height:36px">Publish</button></div>
+    <div class="err" id="edErr" role="alert"></div>
+    <div id="edForm">
+      ${section('basics', 'Basics', '', basics)}
+      ${section('pain', 'Pain points & opportunities', d.pain.rows.length ? d.pain.rows.length + ' rows' : '', pain)}
+      ${section('journeys', 'Journeys', d.journeys.items.length ? d.journeys.items.length + ' journeys' : '', journeys)}
+      ${section('design', 'Design reference', d.design.enabled ? 'included' : 'not included', design)}
+      ${section('launch', 'Launch plan', L.phases.length + (L.phases.length === 1 ? ' phase' : ' phases'), launch)}
+    </div>`;
+  wireEditor();
+}
+
+function rerender() { const y = window.scrollY; renderEditor(); window.scrollTo(0, y); }
+function markDirty() { if (!editor.dirty) { editor.dirty = true; const s = $('edState'); if (s) { s.className = 'pill-st dirty'; s.textContent = 'Unsaved changes'; } } }
+
+function wireEditor() {
+  const form = $('edForm');
+  form.querySelectorAll('details.sec').forEach((el) => el.addEventListener('toggle', () => { el.open ? editor.open.add(el.dataset.sec) : editor.open.delete(el.dataset.sec); }));
+  form.addEventListener('input', onField);
+  form.addEventListener('change', onField);
+  form.addEventListener('click', onClick);
+  const tColor = $('tColor'); const tHex = $('tHex');
+  if (tColor) {
+    tColor.addEventListener('input', () => { editor.draft.theme.color = tColor.value; tHex.value = tColor.value; markDirty(); $('tp').innerHTML = themePreview(); });
+    tHex.addEventListener('input', () => { editor.draft.theme.color = tHex.value.trim(); markDirty(); $('tp').innerHTML = themePreview(); const r = resolveAccent(tHex.value); if (!/not a valid/i.test(r.note)) tColor.value = r.accent; });
+  }
+  $('edClose').addEventListener('click', () => { if (!confirmLeave()) return; const slug = editor.slug; editor = null; go(slug); });
+  $('edSave').addEventListener('click', () => save('save'));
+  $('edPublish').addEventListener('click', () => {
+    if (!confirm('Publish this blueprint? Anyone with a link will see this version straight away.')) return;
+    save('publish');
+  });
+  $('edPreview').addEventListener('click', preview);
+}
+document.addEventListener('keydown', (e) => { if (editor && (e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); save('save'); } });
+
+function onField(e) {
+  const el = e.target; const p = el.dataset && el.dataset.k; if (!p) return;
+  if (e.type === 'input' && (el.type === 'checkbox' || el.type === 'radio' || el.tagName === 'SELECT')) return;
+  let v;
+  if (el.dataset.multi) { const arr = new Set(getP(editor.draft, p) || []); el.checked ? arr.add(el.dataset.multi) : arr.delete(el.dataset.multi); v = [...arr]; }
+  else if (el.type === 'checkbox') v = el.checked;
+  else if (el.dataset.lines) v = el.value.split('\n').map((s) => s.trim()).filter(Boolean);
+  else v = el.value;
+  setP(editor.draft, p, v); markDirty();
+  if (p === 'client.name') { $('tp').innerHTML = themePreview(); return; }
+  if (el.dataset.rerender) rerender();
+}
+
+async function onClick(e) {
+  const b = e.target.closest('button'); if (!b) return;
+  const d = editor.draft;
+  if (b.dataset.add) {
+    const listv = getP(d, b.dataset.add); listv.push(TPL[b.dataset.tpl](listv.length + 1)); markDirty(); rerender();
+  } else if (b.dataset.del) {
+    if (!confirm('Remove this?')) return; getP(d, b.dataset.del).splice(+b.dataset.i, 1); markDirty(); rerender();
+  } else if (b.dataset.move) {
+    const l = getP(d, b.dataset.move); const i = +b.dataset.i; const j = i + +b.dataset.d; [l[i], l[j]] = [l[j], l[i]]; markDirty(); rerender();
+  } else if (b.dataset.delimg) {
+    const p = b.dataset.delimg; const v = getP(d, p);
+    Array.isArray(v) ? v.splice(+b.dataset.i, 1) : setP(d, p, ''); markDirty(); rerender();
+  }
+}
+
+document.addEventListener('change', async (e) => {
+  const el = e.target; if (!editor || !el.dataset || !el.dataset.img) return;
+  const files = [...el.files]; if (!files.length) return;
+  try {
+    const out = [];
+    for (const f of files) out.push(await shrink(f, +el.dataset.w, el.dataset.kind));
+    const p = el.dataset.img;
+    if (el.dataset.single) { setP(editor.draft, p, out[0]); if (p === 'client.logo') editor.draft.header.mode = 'logo'; }
+    else { const cur = getP(editor.draft, p) || []; setP(editor.draft, p, cur.concat(out).slice(0, p.endsWith('images') && p.startsWith('design') ? 3 : 2)); }
+    markDirty(); rerender();
+  } catch (err) { status(err.message); }
+});
+
+// Resizes screenshots to the size the page shows them at, so blueprints stay light.
+function shrink(file, maxW, kind) {
+  return new Promise((resolve, reject) => {
+    if (file.size > 15_000_000) return reject(new Error('That image is over 15 MB. Use a smaller one.'));
+    if (file.type === 'image/svg+xml') {
+      if (file.size > 300_000) return reject(new Error('That SVG is over 300 KB. Use a simpler logo file.'));
+      const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(new Error('Could not read that file.')); r.readAsDataURL(file); return;
+    }
+    const url = URL.createObjectURL(file); const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxW / img.width, kind === 'logo' ? 160 / img.height : 1);
+      const c = document.createElement('canvas'); c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+      const ctx = c.getContext('2d'); if (kind !== 'logo') { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); }
+      ctx.drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+      resolve(kind === 'logo' ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', 0.85));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('That file isn’t an image the browser can read.')); };
+    img.src = url;
+  });
+}
+
+async function save(action) {
+  const btns = ['edSave', 'edPublish', 'edPreview'].map($); btns.forEach((b) => b && (b.disabled = true)); $('edErr').textContent = '';
+  try {
+    const row = await api('/api/admin/builder', { method: 'POST', body: JSON.stringify({ action, slug: editor.slug, content: editor.draft, by: byName() }) });
+    editor.row = row; editor.dirty = false;
+    const ov = await api('/api/admin/overview'); data = ov;
+    status(action === 'publish' ? 'Published. Links show this version now.' : 'Draft saved');
+    rerender();
+  } catch (err) { $('edErr').textContent = err.message; btns.forEach((b) => b && (b.disabled = false)); }
+}
+
+async function preview() {
+  const w = window.open('', '_blank');
+  try {
+    const { html } = await api('/api/admin/builder', { method: 'POST', body: JSON.stringify({ action: 'preview', content: editor.draft }) });
+    const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+    if (w) w.location = url; else location.assign(url);
+  } catch (err) { if (w) w.close(); $('edErr').textContent = err.message; }
+}
+
+function copy(text) { navigator.clipboard.writeText(text).then(() => status('Link copied'), () => prompt('Copy this link:', text)); }
+let st;
+function status(msg) {
+  let el = document.querySelector('.status');
+  if (!el) { el = document.createElement('div'); el.className = 'status'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
+  el.textContent = msg; clearTimeout(st); st = setTimeout(() => el.remove(), 3000);
+}
+
+if (password) load().then(() => {
+  const m = location.hash.match(/^#edit:(.+)$/);
+  if (m) api('/api/admin/builder?slug=' + encodeURIComponent(m[1])).then(openEditor).catch(() => {});
+}).catch(signOut); else signOut();
+</script>
+</body>
+</html>
