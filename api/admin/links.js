@@ -1,14 +1,15 @@
 // POST  /api/admin/links  { slug, label, kind, createdBy } -> new link with its URL
 // PATCH /api/admin/links  { token, revoked: true|false }   -> revoke or restore a link
+// DELETE /api/admin/links { token }                        -> delete a revoked link with its visits and ticks
 import { randomBytes } from 'node:crypto';
 import { handler, readJson, send, httpError, baseUrl } from '../../lib/http.js';
 import { requireAdmin } from '../../lib/auth.js';
-import { query } from '../../lib/db.js';
+import { query, withTransaction } from '../../lib/db.js';
 import { loadMeta, TOKEN_RE } from '../../lib/blueprints.js';
 
 const clean = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 
-export default handler(['POST', 'PATCH'], async (req, res) => {
+export default handler(['POST', 'PATCH', 'DELETE'], async (req, res) => {
   requireAdmin(req);
   const body = await readJson(req);
 
@@ -39,6 +40,20 @@ export default handler(['POST', 'PATCH'], async (req, res) => {
   }
 
   if (typeof body.token !== 'string' || !TOKEN_RE.test(body.token)) throw httpError(400, 'Bad token');
+
+  if (req.method === 'DELETE') {
+    const removed = await withTransaction(async (db) => {
+      const { rows } = await db.query('SELECT revoked_at FROM links WHERE token = $1 FOR UPDATE', [body.token]);
+      if (!rows.length) throw httpError(404, 'Link not found');
+      if (!rows[0].revoked_at) throw httpError(409, 'Revoke the link before deleting it.');
+      const v = await db.query('DELETE FROM views WHERE token = $1', [body.token]);
+      const t = await db.query('DELETE FROM team_checklist WHERE token = $1', [body.token]);
+      await db.query('DELETE FROM links WHERE token = $1', [body.token]);
+      return { visits: v.rowCount, ticks: t.rowCount };
+    });
+    return send(res, 200, { deleted: true, ...removed });
+  }
+
   const { rows } = await query(
     `UPDATE links SET revoked_at = CASE WHEN $2 THEN coalesce(revoked_at, now()) ELSE NULL END
      WHERE token = $1 RETURNING token, revoked_at`,

@@ -70,7 +70,9 @@ Use `**double asterisks**` for bold text. Screenshots are resized automatically,
 - **One link per team.** Create one **Client team** link per client team, plus a **Lean team** link for your own previews. Everyone on a team uses the same link. Creating a link for a team that already has one on that blueprint returns the existing link.
 - **Each client team has its own checklist.** Ticks made through one team's link never show on another team's link, and a new team starts with an empty checklist.
 - **Lean team links are read only.** They show each client team's ticks, with a switcher when there are several client teams, and can't change them. Lean visits are labelled separately and never trigger client alerts.
-- **Revoking a team's link** keeps its checklist and visit history. Restore the link to bring them back.
+- **Revoking a team's link** keeps its checklist and visit history. Restore the link to bring them back. Revoked links are hidden from the Links table unless you tick **Show revoked links**.
+- **Deleting a link** is only possible once it's revoked. It permanently removes the link with its visits and checklist ticks.
+- **Deleting a blueprint** (at the bottom of its page) permanently removes it with all its links, visits and checklist ticks. You type its short name to confirm.
 
 ## The product library
 

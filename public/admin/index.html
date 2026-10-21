@@ -69,16 +69,17 @@ th{text-align:left;font-size:12.5px;font-weight:600;color:var(--muted);padding:1
 td{padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top}
 tr:last-child td{border-bottom:0}
 td .who{font-weight:700}
-.tablewrap td:first-child{min-width:170px}
+.tablewrap td:first-child{min-width:150px}
+.tablewrap td:last-child{width:1%}
 .tablewrap td .by{white-space:nowrap}
 td .by{font-size:12.5px;color:var(--muted)}
 .tag{display:inline-block;font-size:12px;font-weight:600;border-radius:999px;padding:2px 9px;background:var(--paper);border:1px solid var(--line);white-space:nowrap}
 .tag.client{background:var(--mint);border-color:transparent;color:var(--ink)}
 .tag.warn{background:#fff4e5;border-color:transparent;color:#7a4b00}
-.revoked td{opacity:.55}
+.revoked td:not(:last-child){opacity:.55}
 .num{font-variant-numeric:tabular-nums;white-space:nowrap}
 .never{color:var(--muted)}
-.actions{display:flex;gap:6px;justify-content:flex-end;white-space:nowrap}
+.actions{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
 .empty{background:var(--card);border:1px dashed var(--line);border-radius:14px;padding:22px;color:var(--muted)}
 .visit{display:grid;grid-template-columns:160px 1fr auto;gap:14px;padding:12px 16px;border-bottom:1px solid var(--line);align-items:baseline}
 .visit:last-child{border-bottom:0}
@@ -177,6 +178,7 @@ let products = [];
 const NEW = '__new';
 let selected = location.hash === '#new' ? NEW : (location.hash.slice(1).replace(/^edit:/, '') || null);
 let editor = null; // { slug, draft, dirty, row, open:Set }
+let showRevoked = false;
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const byName = () => localStorage.getItem('leanbp-by') || '';
@@ -317,7 +319,9 @@ function renderAdd() {
 
 // ---------- blueprint page (links and visits) ----------
 function renderDetail(bp) {
-  const links = data.links.filter((l) => l.slug === bp.slug);
+  const allLinks = data.links.filter((l) => l.slug === bp.slug);
+  const revokedCount = allLinks.filter((l) => l.revoked_at).length;
+  const links = showRevoked ? allLinks : allLinks.filter((l) => !l.revoked_at);
   const visits = data.recent.filter((v) => v.slug === bp.slug);
   const lastClient = visits.find((v) => v.kind === 'client');
   const built = bp.source === 'builder';
@@ -345,23 +349,24 @@ function renderDetail(bp) {
     </section>` : '<div class="empty" style="margin-bottom:34px">Publish this blueprint from the editor before sharing links.</div>'}
     <section class="blk">
       <h3>Links</h3>
+      ${revokedCount ? `<label class="opt" style="margin:-4px 0 12px"><input type="checkbox" id="showRevoked"${showRevoked ? ' checked' : ''}> Show revoked links (${revokedCount})</label>` : ''}
       ${links.length ? `<div class="tablewrap"><table>
-        <thead><tr><th>Team</th><th>Type</th><th>Visits</th><th>Time on page</th><th>Average per visit</th><th>Last opened</th><th>Checklist</th><th></th></tr></thead>
+        <thead><tr><th>Team</th><th>Type</th><th>Visits</th><th>Time on page</th><th>Last opened</th><th>Checklist</th><th></th></tr></thead>
         <tbody>${links.map((l) => `
           <tr class="${l.revoked_at ? 'revoked' : ''}">
             <td><div class="who">${esc(l.label)}</div><div class="by">${l.created_by ? 'Created by ' + esc(l.created_by) + ', ' : 'Created '}${esc(when(l.created_at))}${l.revoked_at ? ', revoked' : ''}</div></td>
             <td><span class="tag ${l.kind}">${l.kind === 'client' ? 'Client' : 'Lean'}</span></td>
             <td class="num">${l.views}</td>
-            <td class="num">${l.views ? dur(l.seconds) : ''}</td>
-            <td class="num">${l.views ? dur(Math.round(l.seconds / l.views)) : ''}</td>
+            <td class="num">${l.views ? `${dur(l.seconds)}<div class="by">${dur(Math.round(l.seconds / l.views))} per visit</div>` : ''}</td>
             <td class="num" title="${esc(full(l.last_view))}">${l.last_view ? esc(when(l.last_view)) : '<span class="never">Not opened</span>'}</td>
             <td class="num">${l.kind === 'client' ? (bp.items ? `${l.done} of ${bp.items}` : '') : '<span class="never">Read only</span>'}</td>
             <td><div class="actions">
               ${l.revoked_at ? '' : `<button class="ghost" data-copy="${esc(l.token)}">Copy link</button>`}
               <button class="ghost ${l.revoked_at ? '' : 'danger'}" data-revoke="${esc(l.token)}" data-state="${l.revoked_at ? 'revoked' : 'active'}">${l.revoked_at ? 'Restore' : 'Revoke'}</button>
+              ${l.revoked_at ? `<button class="ghost danger" data-dellink="${esc(l.token)}" data-label="${esc(l.label)}" data-views="${l.views}">Delete</button>` : ''}
             </div></td>
           </tr>`).join('')}</tbody></table></div>`
-        : '<div class="empty">No links yet.</div>'}
+        : `<div class="empty">${revokedCount ? `No active links. Tick “Show revoked links” to see the ${revokedCount} revoked.` : 'No links yet.'}</div>`}
     </section>
     <section class="blk">
       <h3>Recent visits</h3>
@@ -372,6 +377,13 @@ function renderDetail(bp) {
           <div class="num d">${dur(v.seconds_visible)} on page</div>
         </div>`).join('')}</div>`
         : '<div class="empty">No visits yet. A visit is recorded once someone keeps the page open for 10 seconds.</div>'}
+    </section>
+    <section class="blk">
+      <h3>Delete blueprint</h3>
+      <div class="list" style="padding:16px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;justify-content:space-between">
+        <span class="d" style="color:var(--muted);font-size:14px;max-width:640px">Permanently deletes this blueprint, its ${allLinks.length} ${allLinks.length === 1 ? 'link' : 'links'}, every visit and every team’s checklist ticks. Links stop working straight away. This can’t be undone.</span>
+        <button class="ghost danger" id="delBp">Delete blueprint</button>
+      </div>
     </section>`;
 
   if (built) $('editBp').addEventListener('click', async () => {
@@ -395,6 +407,22 @@ function renderDetail(bp) {
       $('created').innerHTML = `<div class="created">${link.existing ? `<span>${esc(link.label)} already has a link:</span>` : ''}<code>${esc(link.url)}</code><button class="ghost" id="copyNew">Copy link</button></div>`;
       $('copyNew').addEventListener('click', () => copy(link.url));
     } catch (err) { $('shareErr').textContent = err.message; } finally { btn.disabled = false; }
+  });
+  const sr = $('showRevoked'); if (sr) sr.addEventListener('change', () => { showRevoked = sr.checked; render(); });
+  document.querySelectorAll('[data-dellink]').forEach((el) => el.addEventListener('click', async () => {
+    const n = Number(el.dataset.views);
+    if (!confirm(`Delete the link for ${el.dataset.label}? Its ${n} ${n === 1 ? 'visit' : 'visits'} and its checklist ticks are deleted too. This can’t be undone.`)) return;
+    try { await api('/api/admin/links', { method: 'DELETE', body: JSON.stringify({ token: el.dataset.dellink }) }); await load(); status('Link deleted'); }
+    catch (err) { status(err.message); }
+  }));
+  $('delBp').addEventListener('click', async () => {
+    const typed = prompt(`To delete "${bp.title}" and everything attached to it, type its short name: ${bp.slug}`);
+    if (typed === null) return;
+    if (typed.trim() !== bp.slug) { status('The short name didn’t match, so nothing was deleted.'); return; }
+    try {
+      await api('/api/admin/blueprints', { method: 'DELETE', body: JSON.stringify({ slug: bp.slug, confirm: typed.trim() }) });
+      selected = null; history.replaceState(null, '', '#'); await load(); status('Blueprint deleted');
+    } catch (err) { status(err.message); }
   });
   document.querySelectorAll('[data-copy]').forEach((el) => el.addEventListener('click', () => copy(location.origin + '/b/' + el.dataset.copy)));
   document.querySelectorAll('[data-revoke]').forEach((el) => el.addEventListener('click', async () => {

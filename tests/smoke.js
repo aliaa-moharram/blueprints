@@ -169,6 +169,34 @@ try {
   assert.equal((await upload({ slug: B, html: sample, replace: true })).status, 409); ok('a form blueprint cannot be overwritten by a file upload');
   assert.equal((await admin('/api/admin/products')).status, 200); ok('product library loads');
 
+  // Deleting links and blueprints
+  const D = 'del-' + Date.now().toString(36);
+  await upload({ slug: D, html: sample });
+  const dl = await (await admin('/api/admin/links', { method: 'POST', body: JSON.stringify({ slug: D, label: 'Delete me', kind: 'client' }) })).json();
+  const keep = await (await admin('/api/admin/links', { method: 'POST', body: JSON.stringify({ slug: D, label: 'Keep me', kind: 'client' }) })).json();
+  await json('/api/track', { token: dl.token, session: 'del-sess-' + Date.now(), event: 'open' });
+  await json('/api/checklist', { token: dl.token, item: 'sample-1', done: true });
+  await json('/api/checklist', { token: keep.token, item: 'sample-2', done: true });
+  const delLink = (token) => admin('/api/admin/links', { method: 'DELETE', body: JSON.stringify({ token }) });
+  assert.equal((await delLink(dl.token)).status, 409); ok('an active link cannot be deleted before it is revoked');
+  await admin('/api/admin/links', { method: 'PATCH', body: JSON.stringify({ token: dl.token, revoked: true }) });
+  r = await delLink(dl.token);
+  const gone = await r.json();
+  assert.equal(r.status, 200); assert.equal(gone.visits, 1); assert.equal(gone.ticks, 1); ok('deleting a revoked link removes its visits and ticks');
+  ov = await (await admin('/api/admin/overview')).json();
+  assert.ok(!ov.links.some((l) => l.token === dl.token)); assert.ok(!ov.recent.some((v) => v.label === 'Delete me')); ok('a deleted link is gone from the admin page');
+  assert.equal((await fetch(`${BASE}/api/checklist?token=${keep.token}`).then((x) => x.json())).items['sample-2'].done, true); ok('other teams on the blueprint are untouched');
+  assert.equal((await delLink(dl.token)).status, 404); ok('deleting the same link twice reports it is gone');
+  const delBp = (slug, confirm) => admin('/api/admin/blueprints', { method: 'DELETE', body: JSON.stringify({ slug, confirm }) });
+  assert.equal((await delBp(D, 'wrong')).status, 400); ok('a blueprint is only deleted when its short name is typed correctly');
+  r = await delBp(D, D);
+  assert.equal(r.status, 200); assert.equal((await r.json()).links, 1); ok('deleting a blueprint removes it with its links');
+  ov = await (await admin('/api/admin/overview')).json();
+  assert.ok(!ov.blueprints.some((b) => b.slug === D) && !ov.links.some((l) => l.slug === D)); ok('a deleted blueprint is gone from the admin page');
+  assert.equal((await fetch(`${BASE}/b/${keep.token}`)).status, 404); ok('links to a deleted blueprint stop working');
+  assert.equal((await delBp(D, D)).status, 404); ok('deleting the same blueprint twice reports it is gone');
+  assert.ok(ov.blueprints.some((b) => b.slug === SLUG)); ok('other blueprints are untouched');
+
   // Static
   assert.equal((await fetch(BASE + '/admin')).status, 200); ok('admin page loads');
   assert.equal((await fetch(BASE + '/theme.js')).status, 200); ok('theme script loads');

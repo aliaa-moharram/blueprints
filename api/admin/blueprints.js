@@ -1,15 +1,34 @@
 // POST /api/admin/blueprints  { slug, html, uploadedBy, replace }  (admin)
 // Adds a new blueprint, or replaces the file of an existing one when replace is true.
 // Checklist ticks are kept for every key that still exists in the new file.
+// DELETE /api/admin/blueprints  { slug, confirm }  (admin)
+// Deletes a blueprint with all its links, visits and checklist ticks. "confirm" must equal the slug.
 import { handler, readJson, send, httpError } from '../../lib/http.js';
 import { requireAdmin } from '../../lib/auth.js';
-import { query } from '../../lib/db.js';
+import { query, withTransaction } from '../../lib/db.js';
 import { SLUG_RE, MAX_BYTES, inspectHtml, loadMeta } from '../../lib/blueprints.js';
 
-export default handler(['POST'], async (req, res) => {
+export default handler(['POST', 'DELETE'], async (req, res) => {
   requireAdmin(req);
   const body = await readJson(req, MAX_BYTES + 512 * 1024);
   const slug = typeof body.slug === 'string' ? body.slug.trim() : '';
+
+  if (req.method === 'DELETE') {
+    if (!SLUG_RE.test(slug)) throw httpError(400, 'Bad short name');
+    if (body.confirm !== slug) throw httpError(400, `Type the short name "${slug}" to confirm.`);
+    const removed = await withTransaction(async (db) => {
+      const b = await db.query('SELECT slug FROM blueprints WHERE slug = $1 FOR UPDATE', [slug]);
+      if (!b.rows.length) throw httpError(404, 'That blueprint no longer exists.');
+      const t = await db.query('DELETE FROM team_checklist WHERE token IN (SELECT token FROM links WHERE slug = $1)', [slug]);
+      const v = await db.query('DELETE FROM views WHERE slug = $1', [slug]);
+      const l = await db.query('DELETE FROM links WHERE slug = $1', [slug]);
+      await db.query('DELETE FROM checklist WHERE slug = $1', [slug]);
+      await db.query('DELETE FROM blueprints WHERE slug = $1', [slug]);
+      return { links: l.rowCount, visits: v.rowCount, ticks: t.rowCount };
+    });
+    return send(res, 200, { deleted: true, ...removed });
+  }
+
   if (!SLUG_RE.test(slug)) {
     throw httpError(400, 'Use a short name with lowercase letters, digits and hyphens, e.g. "acme-remit".');
   }
