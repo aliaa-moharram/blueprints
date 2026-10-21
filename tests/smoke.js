@@ -183,6 +183,7 @@ try {
   assert.ok(pv.includes('<span class="client-name">Acme Remit</span>')); ok('name-only header shows the client name');
   assert.ok(pv.includes('<div class="phase" data-panels="otp">')); ok('phase cards list their guide checklists for phase progress');
   assert.ok(!/footer \.row2\{[^}]*border-top/.test(pv)); ok('the footer has a single divider');
+  assert.ok(!pv.includes('Prepared by Lean for') && pv.includes('Confidential, for discussion')); ok('the footer has no “Prepared by Lean for” line');
   r = await builder({ action: 'save', slug: B, content: { ...content, summary: 'Saved draft.' } });
   assert.equal(r.status, 200); ok('saves a draft');
   r = await builder({ action: 'publish', slug: B, content, by: 'Smoke test' });
@@ -193,6 +194,16 @@ try {
   const built = await r.json();
   let page = await (await fetch(`${BASE}/b/${built.token}`)).text();
   assert.ok(page.includes('Acme Remit') && page.includes('window.__LEAN_BP=')); ok('a published form blueprint is served through its link with tracking');
+  ov = await (await admin('/api/admin/overview')).json();
+  const builtBp = ov.blueprints.find((b) => b.slug === B);
+  const doneBefore = ov.links.find((l) => l.token === built.token).done;
+  r = await json('/api/checklist', { token: built.token, item: 'dev-prod-1', done: true });
+  assert.equal(r.status, 200); ok('production steps can be ticked');
+  ov = await (await admin('/api/admin/overview')).json();
+  assert.equal(ov.links.find((l) => l.token === built.token).done, doneBefore); ok('a production tick isn’t counted in progress');
+  const builtItems = (await (await admin(`/api/admin/progress?slug=${B}`)).json()).structure.panels;
+  const allKeys = Object.values(builtItems).flatMap((p) => p.items.map((i) => i.key));
+  assert.equal(builtBp.items, allKeys.filter((k) => !k.includes('-prod-')).length); ok('the item total leaves production steps out');
   r = await json('/api/checklist', { token: built.token, item: 'otp-2', done: true });
   assert.equal((await json('/api/checklist', { token: built.token, item: 'otp-2', done: true })).status, 200);
   assert.equal(r.status, 200); ok('its guide checklist ticks save');
@@ -271,9 +282,23 @@ try {
   const epv = (await (await builder({ action: 'preview', content: planned, edit: true })).json()).html;
   assert.ok(epv.includes('data-edit="launch.phases.0.title"') && epv.includes('data-edit="launch.assign.otp.effort"') && epv.includes("type: 'lb-edit'")); ok('edit mode marks text with its form field');
   assert.ok(!ppv.includes('data-edit=')); ok('normal pages carry no edit marks');
-  assert.equal((ppv.match(/<div class="apiref">/g) || []).length, 1); assert.ok(ppv.includes('reference/postoauth2token') && ppv.includes('reference/getcustomers') && ppv.includes('reference/createpaymentagreement')); ok('blueprints with v4 payments products get the API reference block');
+  assert.ok(ppv.includes('<a class="apilink" href="https://docs.leantech.me/v4.0-GLOBAL/reference/createpaymentcharge"')); ok('endpoints in the table link to the API reference');
+  assert.ok(/<div class="sp-codes"><a class="apilink" href="[^"]+getpaymentcharge"/.test(ppv) || ppv.includes('reference/getpaymentcharge')); ok('endpoints in the guides link to the API reference');
+  assert.ok(ppv.includes('<code>Hosted authentication (redirect)</code>') && !ppv.includes('>Hosted authentication (redirect)</code></a>')); ok('items that aren’t endpoints stay plain');
+  assert.ok(ppv.includes('Phase 0 · Setup</td>') && ppv.includes('reference/postoauth2token') && ppv.includes('reference/createcustomer') && ppv.includes('reference/getbanks') && ppv.includes('reference/getevents')); ok('a Prerequisites row covers the access token and core resources');
+  assert.ok(ppv.indexOf('Phase 0 · Setup</td>') < ppv.indexOf('Phase 1 &middot;')); ok('Phase 0 · Setup comes first in the table');
+  assert.ok(ppv.indexOf('<td>Developer portal setup') < ppv.indexOf('<td>Prerequisites')); ok('Phase 0 lists Developer portal setup, then Prerequisites');
+  assert.ok(ppv.includes(`openPanel('dev')`) && ['dev-1', 'dev-4', 'dev-prod-1', 'dev-prod-3'].every((k) => ppv.includes(`data-check="${k}"`))); ok('Developer portal setup has its own guide, with sandbox and production steps');
+  assert.ok(ppv.includes('href="https://dev.leantech.me/"') && ppv.includes('sandbox</b> app token') && ppv.includes('production</b> application ID')); ok('the guide covers the dev portal, the sandbox app token and the production one');
+  assert.ok(ppv.indexOf('id="panel-dev"') < ppv.indexOf('id="panel-start"')); ok('the setup guides come in order: portal setup, then getting started');
+  assert.ok(!ppv.includes('class="apiref"') && !ppv.includes('API reference: ')); ok('no separate API reference block or links at the end');
+  assert.ok(ppv.includes(`openPanel('start')`) && ppv.includes('id="panel-start"') && ppv.includes('data-check="start-5"')); ok('the Prerequisites row opens a Getting started guide with its own checklist');
+  assert.ok(ppv.includes('docs/introduction') && ppv.includes('docs/sandbox-testing') && ppv.includes('https://dev.leantech.me')); ok('the guide links to the intro, Sandbox testing and the Lean Dashboard');
+  assert.ok(ppv.includes('only for the Data APIs') && !ppv.includes('Create a Customer for each user before')); ok('the Customer note matches the intro guide');
+  const startPanel = ppv.slice(ppv.indexOf('id="panel-start"'), ppv.indexOf('</aside>', ppv.indexOf('id="panel-start"')));
+  assert.ok(!startPanel.includes('How it works')); ok('a guide without a diagram has no empty How it works box');
   const noPay = (await (await builder({ action: 'preview', content: { client: { name: 'Data Co' }, launch: { phases: [{ label: 'Phase 1', title: 'Data' }], assign: { data: { phase: 0 } } } } })).json()).html;
-  assert.ok(!noPay.includes('class="apiref"')); ok('blueprints without them don’t');
+  assert.ok(!noPay.includes('Phase 0 · Setup</td>')); ok('blueprints without v4 payments products have no Phase 0');
 
   // Verticals: maintained in the admin page, used by new blueprints
   assert.equal((await fetch(BASE + '/api/admin/verticals')).status, 401); ok('verticals need the admin password');

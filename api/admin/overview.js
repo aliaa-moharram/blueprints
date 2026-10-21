@@ -9,7 +9,7 @@ export default handler(['GET'], async (req, res) => {
     `SELECT b.slug, b.title, coalesce(b.name, b.title) AS name, b.size_bytes, b.uploaded_by, b.created_at, b.updated_at, b.source,
             b.published_at, b.draft_updated_at, (b.html IS NOT NULL) AS published,
             (b.source = 'builder' AND b.draft_updated_at > coalesce(b.published_at, 'epoch')) AS unpublished_changes,
-            cardinality(b.items)::int AS items
+            (SELECT count(*)::int FROM unnest(b.items) i WHERE i NOT LIKE '%-prod-%') AS items
        FROM blueprints b ORDER BY lower(coalesce(b.name, b.title))`,
   );
   const links = await query(
@@ -17,7 +17,7 @@ export default handler(['GET'], async (req, res) => {
             count(v.id)::int AS views, min(v.opened_at) AS first_view, max(v.opened_at) AS last_view,
             coalesce(sum(v.seconds_visible), 0)::int AS seconds,
             (SELECT count(*)::int FROM team_checklist t JOIN blueprints b ON b.slug = l.slug
-              WHERE t.token = l.token AND t.done AND t.item = ANY(b.items)) AS done
+              WHERE t.token = l.token AND t.done AND t.item = ANY(b.items) AND t.item NOT LIKE '%-prod-%') AS done
        FROM links l LEFT JOIN views v ON v.token = l.token
       GROUP BY l.token ORDER BY l.created_at DESC`,
   );

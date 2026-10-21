@@ -940,7 +940,8 @@ async function loadProgress(bp) {
   catch (err) { const el = $('progressBody'); if (el) el.innerHTML = `<div class="empty">${esc(err.message)}</div>`; return; }
   const el = $('progressBody'); if (!el || selected !== bp.slug) return;
   const st = pg.structure;
-  const totalItems = Object.values(st.panels).reduce((n, p) => n + p.items.length, 0) + st.loose.length;
+  const counts = (i) => !i.key.includes('-prod-'); // production steps aren't counted
+  const totalItems = Object.values(st.panels).reduce((n, p) => n + p.items.filter(counts).length, 0) + st.loose.filter(counts).length;
   if (!pg.teams.length) { el.innerHTML = '<div class="empty">No client team link yet. Progress shows here once a client team has a link.</div>'; return; }
   if (!totalItems) { el.innerHTML = '<div class="empty">This blueprint has no checklist items.</div>'; return; }
   const chosen = pg.teams.find((t) => t.token === progressTeam[bp.slug]) || pg.teams[0];
@@ -950,10 +951,10 @@ async function loadProgress(bp) {
   const lastAt = Object.values(ticks).filter((t) => t.done).map((t) => t.at).sort().pop();
   const bar = (d, n) => `<div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="${n}" aria-valuenow="${d}"><i style="width:${n ? Math.round((d / n) * 100) : 0}%"></i></div>`;
   const itemList = (items) => `<ul class="pg-items">${items.map((i) => `<li class="${isDone(i.key) ? 'done' : ''}"><span class="mk" aria-label="${isDone(i.key) ? 'Done' : 'Not done'}">${isDone(i.key) ? '✓' : ''}</span><span class="tx">${esc(i.text)}</span><span class="dt">${isDone(i.key) ? esc(short(ticks[i.key].at)) : ''}</span></li>`).join('')}</ul>`;
-  const guide = (id) => { const p = st.panels[id]; const d = p.items.filter((i) => isDone(i.key)).length;
-    return `<details class="pg-guide"><summary><span class="nm">${esc(p.name)}</span>${bar(d, p.items.length)}<span class="n">${d} of ${p.items.length}</span></summary>${itemList(p.items)}</details>`; };
+  const guide = (id) => { const p = st.panels[id]; const c = p.items.filter(counts); const extra = p.items.filter((i) => !counts(i)); const d = c.filter((i) => isDone(i.key)).length;
+    return `<details class="pg-guide"><summary><span class="nm">${esc(p.name)}</span>${bar(d, c.length)}<span class="n">${d} of ${c.length}</span></summary>${itemList(c)}${extra.length ? `<div class="pg-none" style="margin-top:12px"><b>Production</b>, not counted in progress:</div>${itemList(extra)}` : ''}</details>`; };
   const phaseCard = (title, ids, extra) => {
-    const items = ids.flatMap((id) => st.panels[id].items).concat(extra || []);
+    const items = ids.flatMap((id) => st.panels[id].items).concat(extra || []).filter(counts);
     const d = items.filter((i) => isDone(i.key)).length;
     if (!items.length) return `<div class="pg-phase"><div class="pg-head"><strong>${esc(title)}</strong></div><div class="pg-none">No checklist items in this phase.</div></div>`;
     return `<div class="pg-phase"><div class="pg-head"><strong>${esc(title)}</strong><span class="n">${d} of ${items.length}</span></div>${bar(d, items.length)}
@@ -962,9 +963,13 @@ async function loadProgress(bp) {
   // Guides not attached to any phase (e.g. files without phase markers) still get a card.
   const used = new Set(st.phases.flatMap((p) => p.panels));
   const unphased = Object.keys(st.panels).filter((id) => !used.has(id));
-  const cards = st.phases.map((p) => phaseCard(`${p.label} · ${p.title}`, p.panels))
-    .concat(unphased.length || st.loose.length ? [phaseCard(st.phases.length ? 'Other checklists' : 'Checklist', unphased, st.loose)] : []);
-  const allDone = Object.values(st.panels).flatMap((p) => p.items).concat(st.loose).filter((i) => isDone(i.key)).length;
+  const SETUP = ['dev', 'start'];
+  const startIds = SETUP.filter((id) => unphased.includes(id));
+  const otherIds = unphased.filter((id) => !SETUP.includes(id));
+  const cards = (startIds.length ? [phaseCard('Phase 0 · Setup', startIds)] : [])
+    .concat(st.phases.map((p) => phaseCard(`${p.label} · ${p.title}`, p.panels)))
+    .concat(otherIds.length || st.loose.length ? [phaseCard(st.phases.length ? 'Other checklists' : 'Checklist', otherIds, st.loose)] : []);
+  const allDone = Object.values(st.panels).flatMap((p) => p.items).concat(st.loose).filter(counts).filter((i) => isDone(i.key)).length;
   el.innerHTML = `<div class="pg-top">
       ${pg.teams.length > 1 ? `<label for="pgTeam" style="margin:0">Client team</label><select id="pgTeam">${pg.teams.map((t) => `<option value="${esc(t.token)}"${t.token === chosen.token ? ' selected' : ''}>${esc(t.label)}</option>`).join('')}</select>` : `<strong style="color:var(--ink)">${esc(chosen.label)}</strong>`}
       <span>${allDone} of ${totalItems} checklist items done overall${lastAt ? `, last ticked ${esc(short(lastAt))}` : ''}.</span>

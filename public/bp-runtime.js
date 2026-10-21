@@ -131,6 +131,8 @@
   let teamIndex = 0;
   const buttons = new Map();
   const lists = new Set(items.map((li) => li.parentElement));
+  // Production steps (keys containing "-prod-") can be ticked but aren't counted in any progress.
+  const counted = (k) => !k.includes('-prod-');
 
   const fmtDate = (iso) => { try { return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }); } catch { return ''; } };
 
@@ -155,7 +157,7 @@
   // Phase cards list their guide checklists in data-panels="otp rec"; show progress across them.
   const phaseCards = [...document.querySelectorAll('.phase[data-panels]')].map((card) => {
     const ids = card.dataset.panels.split(/\s+/).filter(Boolean);
-    const keys = items.map((li) => li.dataset.check).filter((k) => ids.some((id) => k.startsWith(id + '-')));
+    const keys = items.map((li) => li.dataset.check).filter((k) => counted(k) && ids.some((id) => k.startsWith(id + '-')));
     return { card, keys };
   }).filter((p) => p.keys.length);
   function paintPhases() {
@@ -183,9 +185,10 @@
     for (const list of lists) {
       const h = heading(list);
       if (!h) continue;
-      const keys = [...list.querySelectorAll('[data-check]')].map((li) => li.dataset.check);
+      const keys = [...list.querySelectorAll('[data-check]')].map((li) => li.dataset.check).filter(counted);
       const done = keys.filter((k) => state[k] && state[k].done).length;
       let pill = h.querySelector('.bp-progress');
+      if (!keys.length) { if (pill) pill.remove(); continue; }
       if (!pill) { pill = document.createElement('span'); pill.className = 'bp-progress'; h.appendChild(pill); }
       pill.textContent = `${done} of ${keys.length} done`;
     }

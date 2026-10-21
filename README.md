@@ -97,9 +97,14 @@ Each published blueprint's page in `/admin` has a **Progress** section. For the 
 
 Each card under **Delivery phases** shows how many guide checklist items in that phase are done, for the team whose page it is. Form-built blueprints set this up automatically from the products in each phase. In an uploaded file, add `data-panels` to a phase card with the ids of its guide panels, for example `<div class="phase" data-panels="otp rec">`. Phases without guide checklists show no progress.
 
-## API reference block
+## API reference links
 
-Blueprints that include One-Time Payments, Recurring Payments, CMI or Name match get an **API reference** block in the Launch Plan: Lean's v4 endpoints for Authentication, Payments and Core resources, grouped as in the docs, each linking to its reference page. The list lives in `API_REFERENCE` in `lib/products.js`; update it when the API reference changes, then republish.
+Endpoints in the plan table and in the implementation guides link to their page in Lean's v4 API reference (marked ↗). Blueprints that include One-Time Payments, Recurring Payments, CMI or Name match also get **Phase 0 · Setup** at the top of the table, with two rows:
+
+- **Developer portal setup:** create an account and an application on the Lean dev portal, copy the sandbox application ID (app token) and share it with Lean. Its guide also lists the production steps (switch the portal to production mode, copy the production app token, start calling production endpoints). Production steps can be ticked but are never counted in progress.
+- **Prerequisites:** the access token and the core resources (Customer, Banks, Events), with a **Getting started** guide (client secret, authentication, webhooks, Sandbox testing, idempotency) based on Lean's v4 intro guide.
+
+Checklist keys containing `-prod-` are left out of every progress figure: guide counts, phase progress, the admin Progress section and the sidebar. The links live in `ENDPOINT_LINKS` and the row in `PREREQUISITES`, both in `lib/products.js`; update them when the API reference changes, then republish.
 
 ## The product library
 
