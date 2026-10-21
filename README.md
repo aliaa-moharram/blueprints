@@ -79,6 +79,10 @@ Blueprints are listed by client name, in two groups: **Published** and **Not pub
 - **Deleting a link** permanently removes it with its visits and checklist ticks. An active link stops working straight away, so use **Revoke** instead if you might want it back.
 - **Deleting a blueprint** (at the bottom of its page) permanently removes it with all its links, visits and checklist ticks. You type its short name to confirm.
 
+## Phase progress
+
+Each card under **Delivery phases** shows how many guide checklist items in that phase are done, for the team whose page it is. Form-built blueprints set this up automatically from the products in each phase. In an uploaded file, add `data-panels` to a phase card with the ids of its guide panels, for example `<div class="phase" data-panels="otp rec">`. Phases without guide checklists show no progress.
+
 ## The product library
 
 `lib/products.js` lists every Lean product the form offers: name, short label, card description, endpoints, the standard note under the endpoints, default effort and, where there is one, the guide panel. Change it when Lean's products or docs change; blueprints pick up the change the next time they're published.

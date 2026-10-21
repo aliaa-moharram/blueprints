@@ -110,6 +110,15 @@
     .bp-toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
       background:#1c2024;color:#fff;font:600 13px/1.4 system-ui,sans-serif;padding:10px 16px;border-radius:10px;z-index:200;
       box-shadow:0 8px 24px rgba(0,0,0,.25)}
+    .phase[data-panels]{display:flex;flex-direction:column}
+    .phase[data-panels] > .ph{align-self:flex-start}
+    .bp-phase{margin-top:auto;padding-top:12px;border-top:1px solid #e5e7eb}
+    .phase[data-panels] > ul{margin-bottom:16px}
+    .bp-phase .bar{height:6px;border-radius:6px;background:#eef0f2;overflow:hidden}
+    .bp-phase .bar i{display:block;height:100%;width:0;background:var(--bright,#3dd68c);border-radius:6px;transition:width .3s}
+    .bp-phase .txt{display:block;margin-top:7px;font:600 12.5px/1.4 system-ui,sans-serif;color:#4b5563}
+    .bp-phase .txt b{color:#1c2024}
+    @media (prefers-reduced-motion:reduce){.bp-phase .bar i{transition:none}}
     @media print{.bp-check,.bp-progress,.bp-view{display:none}}
   `;
   document.head.appendChild(style);
@@ -143,7 +152,33 @@
     return h;
   }
 
+  // Phase cards list their guide checklists in data-panels="otp rec"; show progress across them.
+  const phaseCards = [...document.querySelectorAll('.phase[data-panels]')].map((card) => {
+    const ids = card.dataset.panels.split(/\s+/).filter(Boolean);
+    const keys = items.map((li) => li.dataset.check).filter((k) => ids.some((id) => k.startsWith(id + '-')));
+    return { card, keys };
+  }).filter((p) => p.keys.length);
+  function paintPhases() {
+    for (const { card, keys } of phaseCards) {
+      const done = keys.filter((k) => state[k] && state[k].done).length;
+      let box = card.querySelector('.bp-phase');
+      if (!box) {
+        box = document.createElement('div');
+        box.className = 'bp-phase';
+        box.innerHTML = '<div class="bar" role="progressbar" aria-valuemin="0"><i></i></div><span class="txt"></span>';
+        card.appendChild(box);
+      }
+      const bar = box.querySelector('.bar');
+      bar.setAttribute('aria-valuemax', String(keys.length));
+      bar.setAttribute('aria-valuenow', String(done));
+      bar.setAttribute('aria-label', 'Checklist progress for this phase');
+      box.querySelector('i').style.width = Math.round((done / keys.length) * 100) + '%';
+      box.querySelector('.txt').innerHTML = `<b>${done} of ${keys.length}</b> checklist items done`;
+    }
+  }
+
   function paintAll() {
+    paintPhases();
     for (const key of buttons.keys()) paint(key);
     for (const list of lists) {
       const h = heading(list);

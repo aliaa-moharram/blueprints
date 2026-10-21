@@ -158,6 +158,8 @@ try {
   assert.equal((pv.match(/data-check="otp-/g) || []).length, 6); ok('guide checklist items get stable keys');
   assert.ok(pv.includes('Reconciliation') && pv.includes('GET /recon')); ok('custom products render in cards and table');
   assert.ok(pv.includes('<span class="client-name">Acme Remit</span>')); ok('name-only header shows the client name');
+  assert.ok(pv.includes('<div class="phase" data-panels="otp">')); ok('phase cards list their guide checklists for phase progress');
+  assert.ok(!/footer \.row2\{[^}]*border-top/.test(pv)); ok('the footer has a single divider');
   r = await builder({ action: 'save', slug: B, content: { ...content, summary: 'Saved draft.' } });
   assert.equal(r.status, 200); ok('saves a draft');
   r = await builder({ action: 'publish', slug: B, content, by: 'Smoke test' });
