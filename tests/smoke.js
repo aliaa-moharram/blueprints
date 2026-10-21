@@ -72,13 +72,37 @@ try {
 
   // Checklist
   r = await json('/api/checklist', { token: client.token, item: 'sample-1', done: true });
-  assert.equal((await r.json()).by, 'Test client'); ok('ticking an item records who ticked it');
+  assert.equal((await r.json()).done, true); ok('a client team can tick an item');
   await json('/api/checklist', { token: client.token, item: 'sample-3', done: true });
   const state = await (await fetch(`${BASE}/api/checklist?token=${client.token}`)).json();
   assert.equal(state.items['sample-1'].done, true); ok('ticks persist and read back');
   assert.equal((await json('/api/checklist', { token: client.token, item: 'made-up', done: true })).status, 400); ok('refuses items that are not in the blueprint');
   ov = await (await admin('/api/admin/overview')).json();
-  assert.equal(ov.blueprints.find((b) => b.slug === SLUG).done, 2); ok('admin overview shows checklist progress');
+  assert.equal(ov.links.find((l) => l.token === client.token).done, 2); ok('admin overview shows each team’s checklist progress');
+
+  // One link per team, state per team, Lean links read only
+  r = await admin('/api/admin/links', { method: 'POST', body: JSON.stringify({ slug: SLUG, label: 'test CLIENT', kind: 'client' }) });
+  const again = await r.json();
+  assert.equal(r.status, 200); assert.equal(again.existing, true); assert.equal(again.token, client.token); ok('a team that already has a link gets the same link back');
+  r = await admin('/api/admin/links', { method: 'POST', body: JSON.stringify({ slug: SLUG, label: 'Second team', kind: 'client' }) });
+  const team2 = await r.json();
+  assert.notEqual(team2.token, client.token);
+  let t2 = await (await fetch(`${BASE}/api/checklist?token=${team2.token}`)).json();
+  assert.equal(t2.mode, 'edit'); assert.deepEqual(t2.items, {}); ok('a new client team starts with an empty checklist');
+  await json('/api/checklist', { token: team2.token, item: 'sample-2', done: true });
+  const t1 = await (await fetch(`${BASE}/api/checklist?token=${client.token}`)).json();
+  assert.equal(t1.items['sample-2'], undefined); ok('one team’s ticks never show on another team’s link');
+  r = await admin('/api/admin/links', { method: 'POST', body: JSON.stringify({ slug: SLUG, label: 'Lean', kind: 'internal' }) });
+  const lean = await r.json();
+  assert.equal((await json('/api/checklist', { token: lean.token, item: 'sample-1', done: false })).status, 403); ok('a Lean team link cannot tick');
+  const lv = await (await fetch(`${BASE}/api/checklist?token=${lean.token}`)).json();
+  assert.equal(lv.mode, 'view');
+  assert.deepEqual(lv.teams.map((t) => t.name), ['Test client', 'Second team']);
+  assert.equal(lv.teams[0].items['sample-1'].done, true); ok('a Lean team link sees each client team’s progress');
+  assert.ok(!JSON.stringify(lv).includes(client.token) && !JSON.stringify(lv).includes(team2.token)); ok('the Lean view never reveals client team links');
+  await admin('/api/admin/links', { method: 'PATCH', body: JSON.stringify({ token: team2.token, revoked: true }) });
+  const lv2 = await (await fetch(`${BASE}/api/checklist?token=${lean.token}`)).json();
+  assert.deepEqual(lv2.teams.map((t) => t.name), ['Test client']); ok('revoked teams drop out of the Lean view');
 
   // Replace the file: keeps ticks for keys that remain, reports the ones that went
   const v2 = sample.replace('<li data-check="sample-3">Listen for payment webhooks.</li>', '').replace('Sample Client', 'Sample Client v2');
@@ -135,6 +159,7 @@ try {
   let page = await (await fetch(`${BASE}/b/${built.token}`)).text();
   assert.ok(page.includes('Acme Remit') && page.includes('window.__LEAN_BP=')); ok('a published form blueprint is served through its link with tracking');
   r = await json('/api/checklist', { token: built.token, item: 'otp-2', done: true });
+  assert.equal((await json('/api/checklist', { token: built.token, item: 'otp-2', done: true })).status, 200);
   assert.equal(r.status, 200); ok('its guide checklist ticks save');
   await builder({ action: 'save', slug: B, content: { ...content, summary: 'Unpublished edit.' } });
   page = await (await fetch(`${BASE}/b/${built.token}`)).text();

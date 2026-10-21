@@ -38,7 +38,8 @@ export default handler(['POST'], async (req, res) => {
   let droppedTicks = [];
   if (existing) {
     const { rows } = await query(
-      'SELECT item FROM checklist WHERE slug = $1 AND done = true AND NOT (item = ANY($2::text[]))',
+      `SELECT DISTINCT t.item FROM team_checklist t JOIN links l ON l.token = t.token
+        WHERE l.slug = $1 AND t.done = true AND NOT (t.item = ANY($2::text[])) ORDER BY t.item`,
       [slug, info.items],
     );
     droppedTicks = rows.map((r) => r.item);

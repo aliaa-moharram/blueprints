@@ -19,7 +19,16 @@ export default handler(['POST', 'PATCH'], async (req, res) => {
     const meta = await loadMeta(slug);
     if (!meta) throw httpError(400, 'No blueprint with that name');
     if (!meta.published) throw httpError(400, 'Publish the blueprint before sharing a link.');
-    if (!label) throw httpError(400, 'Add who the link is for');
+    if (!label) throw httpError(400, 'Add the team name');
+    const existing = await query(
+      `SELECT token, slug, label, kind, created_by, created_at FROM links
+        WHERE slug = $1 AND lower(label) = lower($2) AND revoked_at IS NULL LIMIT 1`,
+      [slug, label],
+    );
+    if (existing.rows.length) {
+      // One link per team: hand back the team's existing link instead of a second one.
+      return send(res, 200, { ...existing.rows[0], url: `${baseUrl(req)}/b/${existing.rows[0].token}`, existing: true });
+    }
     const token = randomBytes(18).toString('base64url');
     const { rows } = await query(
       `INSERT INTO links (token, slug, label, kind, created_by) VALUES ($1, $2, $3, $4, $5)

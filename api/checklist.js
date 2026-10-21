@@ -1,9 +1,18 @@
-// GET  /api/checklist?token=...                 -> { items: { <item>: { done, by, at } } }
-// POST /api/checklist  { token, item, done }    -> { item, done, by, at }
-// Anyone holding an active link can tick items; each change records the link's label.
+// Checklist state belongs to a client team (one link = one team).
+// GET  /api/checklist?token=...
+//   client team link -> { mode: "edit", team, items: { <item>: { done, at } } }
+//   Lean team link   -> { mode: "view", teams: [ { name, items } ] }   (every client team on the blueprint)
+// POST /api/checklist  { token, item, done }   client team links only
 import { handler, getQuery, readJson, send, httpError } from '../lib/http.js';
 import { query } from '../lib/db.js';
 import { findActiveLink, loadMeta, ITEM_RE } from '../lib/blueprints.js';
+
+async function itemsFor(token, allowed) {
+  const { rows } = await query('SELECT item, done, updated_at FROM team_checklist WHERE token = $1', [token]);
+  const items = {};
+  for (const r of rows) if (allowed.includes(r.item)) items[r.item] = { done: r.done, at: r.updated_at };
+  return items;
+}
 
 export default handler(['GET', 'POST'], async (req, res) => {
   const input = req.method === 'GET' ? getQuery(req) : await readJson(req);
@@ -13,24 +22,26 @@ export default handler(['GET', 'POST'], async (req, res) => {
   if (!bp) throw httpError(404, 'Blueprint not found');
 
   if (req.method === 'GET') {
-    const { rows } = await query('SELECT item, done, updated_by, updated_at FROM checklist WHERE slug = $1', [link.slug]);
-    const items = {};
-    for (const r of rows) {
-      if (bp.items.includes(r.item)) items[r.item] = { done: r.done, by: r.updated_by, at: r.updated_at };
-    }
-    return send(res, 200, { items });
+    if (link.kind === 'client') return send(res, 200, { mode: 'edit', team: link.label, items: await itemsFor(link.token, bp.items) });
+    const { rows } = await query(
+      `SELECT token, label FROM links WHERE slug = $1 AND kind = 'client' AND revoked_at IS NULL ORDER BY created_at`,
+      [link.slug],
+    );
+    const teams = [];
+    for (const t of rows) teams.push({ name: t.label, items: await itemsFor(t.token, bp.items) });
+    return send(res, 200, { mode: 'view', teams });
   }
 
+  if (link.kind !== 'client') throw httpError(403, 'Lean team links can view checklist progress but not change it.');
   if (typeof input.item !== 'string' || !ITEM_RE.test(input.item) || !bp.items.includes(input.item)) {
     throw httpError(400, 'Unknown checklist item');
   }
   if (typeof input.done !== 'boolean') throw httpError(400, '"done" must be true or false');
   const { rows } = await query(
-    `INSERT INTO checklist (slug, item, done, updated_by, updated_at) VALUES ($1, $2, $3, $4, now())
-     ON CONFLICT (slug, item) DO UPDATE SET done = EXCLUDED.done, updated_by = EXCLUDED.updated_by, updated_at = now()
-     RETURNING item, done, updated_by, updated_at`,
-    [link.slug, input.item, input.done, link.label],
+    `INSERT INTO team_checklist (token, item, done, updated_at) VALUES ($1, $2, $3, now())
+     ON CONFLICT (token, item) DO UPDATE SET done = EXCLUDED.done, updated_at = now()
+     RETURNING item, done, updated_at`,
+    [link.token, input.item, input.done],
   );
-  const r = rows[0];
-  send(res, 200, { item: r.item, done: r.done, by: r.updated_by, at: r.updated_at });
+  send(res, 200, { item: rows[0].item, done: rows[0].done, at: rows[0].updated_at });
 });

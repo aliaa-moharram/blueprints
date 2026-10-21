@@ -59,3 +59,13 @@ ALTER TABLE blueprints ADD COLUMN IF NOT EXISTS draft_updated_at TIMESTAMPTZ;
 ALTER TABLE blueprints ADD COLUMN IF NOT EXISTS published_at TIMESTAMPTZ;
 ALTER TABLE blueprints ALTER COLUMN html DROP NOT NULL;
 ALTER TABLE blueprints ALTER COLUMN size_bytes DROP NOT NULL;
+
+-- Checklist state per client team (one link = one team). Replaces the per-blueprint
+-- "checklist" table, which is left in place but no longer used.
+CREATE TABLE IF NOT EXISTS team_checklist (
+  token       TEXT NOT NULL REFERENCES links (token),
+  item        TEXT NOT NULL,
+  done        BOOLEAN NOT NULL DEFAULT false,
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (token, item)
+);

@@ -71,6 +71,8 @@
   window.addEventListener('pagehide', onHide);
 
   // ---------- Checklists ----------
+  // Client team links tick their own team's checklist. Lean team links see a client
+  // team's ticks, read only, with a switcher when the blueprint has several client teams.
   const items = [...document.querySelectorAll('[data-check]')];
   if (!items.length) return;
 
@@ -79,72 +81,90 @@
     [data-check]{position:relative;padding-right:46px !important}
     .bp-check{position:absolute;right:12px;top:9px;width:22px;height:22px;border-radius:6px;cursor:pointer;
       border:1.5px solid #aeb7c2;background:#fff;display:grid;place-items:center;padding:0;transition:background .15s,border-color .15s}
-    .bp-check:hover{border-color:#3dd68c}
+    .bp-check:hover{border-color:var(--bright,#3dd68c)}
     .bp-check:focus-visible{outline:2px solid #1c2024;outline-offset:2px}
     .bp-check svg{width:13px;height:13px;opacity:0;transition:opacity .15s}
-    .bp-check[aria-pressed="true"]{background:#3dd68c;border-color:#3dd68c}
+    .bp-check svg path{stroke:var(--on-bright,#0f2a1e)}
+    .bp-check[aria-pressed="true"]{background:var(--bright,#3dd68c);border-color:var(--bright,#3dd68c)}
     .bp-check[aria-pressed="true"] svg{opacity:1}
-    .bp-check[disabled]{cursor:default;opacity:.6}
+    .bp-check[disabled]{cursor:default}
+    .bp-check.ro:hover{border-color:#aeb7c2}
+    .bp-check.ro[aria-pressed="true"]:hover{border-color:var(--bright,#3dd68c)}
     [data-check].is-done{color:#6b7280 !important}
     .bp-progress{font-family:inherit;font-size:11px;font-weight:700;letter-spacing:0;text-transform:none;
-      color:#0f2a1e;background:#e3f8ee;border-radius:999px;padding:2px 9px;white-space:nowrap}
+      color:#1c2024;background:color-mix(in srgb,var(--bright,#3dd68c) 18%,#fff);border-radius:999px;padding:2px 9px;white-space:nowrap}
+    .bp-view{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:-4px 0 12px;font:600 12.5px/1.4 system-ui,sans-serif;color:#4b5563}
+    .bp-view select{font:inherit;border:1px solid #d3d7dd;border-radius:8px;padding:3px 6px;background:#fff;color:#1c2024}
     .bp-toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
       background:#1c2024;color:#fff;font:600 13px/1.4 system-ui,sans-serif;padding:10px 16px;border-radius:10px;z-index:200;
       box-shadow:0 8px 24px rgba(0,0,0,.25)}
-    @media print{.bp-check,.bp-progress{display:none}}
+    @media print{.bp-check,.bp-progress,.bp-view{display:none}}
   `;
   document.head.appendChild(style);
 
   const TICK_SVG =
-    '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5" fill="none" stroke="#0f2a1e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  const state = {};
+    '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  let state = {};
+  let readOnly = true;
+  let teams = [];
+  let teamIndex = 0;
   const buttons = new Map();
+  const lists = new Set(items.map((li) => li.parentElement));
 
-  function fmtDate(iso) {
-    try {
-      return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
-    } catch {
-      return '';
-    }
-  }
+  const fmtDate = (iso) => { try { return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }); } catch { return ''; } };
 
   function paint(key) {
     const btn = buttons.get(key);
     const s = state[key];
     const done = !!(s && s.done);
     btn.setAttribute('aria-pressed', String(done));
+    btn.disabled = readOnly;
+    btn.classList.toggle('ro', readOnly);
     btn.closest('[data-check]').classList.toggle('is-done', done);
-    btn.title = s && s.by ? `${done ? 'Ticked' : 'Unticked'} by ${s.by}, ${fmtDate(s.at)}` : 'Mark as done';
+    if (readOnly) btn.title = done ? `Done${s.at ? ', ' + fmtDate(s.at) : ''}. Read only: the client team ticks these.` : 'Not done yet. Read only: the client team ticks these.';
+    else btn.title = done && s.at ? `Done, ${fmtDate(s.at)}. Click to untick.` : 'Mark as done';
   }
 
-  // Progress pill in the heading just before each checklist.
-  const lists = new Set(items.map((li) => li.parentElement));
-  function paintProgress() {
+  function heading(list) {
+    let h = list.previousElementSibling;
+    while (h && !h.classList.contains('sp-h')) h = h.previousElementSibling;
+    return h;
+  }
+
+  function paintAll() {
+    for (const key of buttons.keys()) paint(key);
     for (const list of lists) {
-      let heading = list.previousElementSibling;
-      while (heading && !heading.classList.contains('sp-h')) heading = heading.previousElementSibling;
-      if (!heading) continue;
+      const h = heading(list);
+      if (!h) continue;
       const keys = [...list.querySelectorAll('[data-check]')].map((li) => li.dataset.check);
       const done = keys.filter((k) => state[k] && state[k].done).length;
-      let pill = heading.querySelector('.bp-progress');
-      if (!pill) {
-        pill = document.createElement('span');
-        pill.className = 'bp-progress';
-        heading.appendChild(pill);
-      }
+      let pill = h.querySelector('.bp-progress');
+      if (!pill) { pill = document.createElement('span'); pill.className = 'bp-progress'; h.appendChild(pill); }
       pill.textContent = `${done} of ${keys.length} done`;
+    }
+  }
+
+  // Lean view: a line above each checklist saying whose progress is shown.
+  function paintViewLabels() {
+    for (const list of lists) {
+      let bar = list.previousElementSibling && list.previousElementSibling.classList.contains('bp-view') ? list.previousElementSibling : null;
+      if (!bar) { bar = document.createElement('div'); bar.className = 'bp-view'; list.parentElement.insertBefore(bar, list); }
+      if (!teams.length) { bar.textContent = 'Read only. No client team has a link to this blueprint yet.'; continue; }
+      if (teams.length === 1) { bar.textContent = `Showing ${teams[0].name}’s progress. Read only.`; continue; }
+      bar.innerHTML = '<span>Showing progress for</span>';
+      const sel = document.createElement('select');
+      sel.setAttribute('aria-label', 'Client team');
+      teams.forEach((t, i) => { const o = document.createElement('option'); o.value = String(i); o.textContent = t.name; if (i === teamIndex) o.selected = true; sel.appendChild(o); });
+      sel.addEventListener('change', () => { teamIndex = Number(sel.value); state = teams[teamIndex].items || {}; paintViewLabels(); paintAll(); });
+      bar.appendChild(sel);
+      const ro = document.createElement('span'); ro.textContent = 'Read only.'; bar.appendChild(ro);
     }
   }
 
   let toastTimer;
   function toast(msg) {
     let el = document.querySelector('.bp-toast');
-    if (!el) {
-      el = document.createElement('div');
-      el.className = 'bp-toast';
-      el.setAttribute('role', 'status');
-      document.body.appendChild(el);
-    }
+    if (!el) { el = document.createElement('div'); el.className = 'bp-toast'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
     el.textContent = msg;
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => el.remove(), 3500);
@@ -157,13 +177,13 @@
     btn.className = 'bp-check';
     btn.innerHTML = TICK_SVG;
     btn.setAttribute('aria-label', 'Mark as done: ' + li.textContent.trim().slice(0, 80));
-    btn.disabled = true; // enabled once saved state has loaded
+    btn.disabled = true; // enabled once saved state has loaded, for client team links only
     btn.addEventListener('click', async () => {
+      if (readOnly) return;
       const before = state[key];
       const next = !(before && before.done);
-      state[key] = { done: next, by: before && before.by, at: before && before.at };
-      paint(key);
-      paintProgress();
+      state[key] = { done: next, at: before && before.at };
+      paintAll();
       try {
         const r = await fetch('/api/checklist', {
           method: 'POST',
@@ -171,13 +191,13 @@
           body: JSON.stringify({ token, item: key, done: next }),
         });
         if (!r.ok) throw new Error();
-        state[key] = await r.json();
+        const saved = await r.json();
+        state[key] = { done: saved.done, at: saved.at };
       } catch {
         state[key] = before;
         toast('Couldn’t save that change. Check your connection and try again.');
       }
-      paint(key);
-      paintProgress();
+      paintAll();
     });
     li.appendChild(btn);
     buttons.set(key, btn);
@@ -186,16 +206,19 @@
   fetch('/api/checklist?token=' + encodeURIComponent(token))
     .then((r) => (r.ok ? r.json() : Promise.reject()))
     .then((data) => {
-      Object.assign(state, data.items || {});
-      for (const key of buttons.keys()) {
-        buttons.get(key).disabled = false;
-        paint(key);
+      if (data.mode === 'edit') {
+        readOnly = false;
+        state = data.items || {};
+      } else {
+        readOnly = true;
+        teams = data.teams || [];
+        state = teams.length ? teams[0].items || {} : {};
+        paintViewLabels();
       }
-      paintProgress();
+      paintAll();
     })
     .catch(() => {
-      for (const key of buttons.keys()) paint(key);
-      paintProgress();
+      paintAll();
       toast('Checklist progress couldn’t load. Reload the page to try again.');
     });
 })();

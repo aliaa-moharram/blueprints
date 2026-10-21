@@ -69,6 +69,8 @@ th{text-align:left;font-size:12.5px;font-weight:600;color:var(--muted);padding:1
 td{padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top}
 tr:last-child td{border-bottom:0}
 td .who{font-weight:700}
+.tablewrap td:first-child{min-width:170px}
+.tablewrap td .by{white-space:nowrap}
 td .by{font-size:12.5px;color:var(--muted)}
 .tag{display:inline-block;font-size:12px;font-weight:600;border-radius:999px;padding:2px 9px;background:var(--paper);border:1px solid var(--line);white-space:nowrap}
 .tag.client{background:var(--mint);border-color:transparent;color:var(--ink)}
@@ -224,14 +226,23 @@ const device = (ua) => {
 };
 const slugify = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 63);
 
+const clientTeams = (slug) => data.links.filter((l) => l.slug === slug && l.kind === 'client' && !l.revoked_at);
+function sideLine(b) {
+  if (!b.published) return 'Not published yet';
+  const t = clientTeams(b.slug);
+  if (!t.length) return 'No client team link yet';
+  if (t.length > 1) return t.length + ' client teams';
+  return b.items ? `${esc(t[0].label)}: ${t[0].done} of ${b.items} checklist items done` : esc(t[0].label);
+}
+
 // ---------- top-level render ----------
 function render() {
   $('bpList').innerHTML = `<button class="ghost addbp" id="addBp" aria-current="${selected === NEW}">Add a blueprint</button>` + (data.blueprints.length
     ? data.blueprints.map((b) => `
       <button class="bp" data-slug="${esc(b.slug)}" aria-current="${b.slug === selected}">
         <span class="t">${esc(b.title)}</span>
-        <span class="s">${!b.published ? 'Not published yet' : b.items ? `${b.done} of ${b.items} checklist items done` : 'No checklist items'}${b.unpublished_changes && b.published ? ', unpublished changes' : ''}</span>
-        ${b.published && b.items ? `<div class="meter" aria-hidden="true"><i style="width:${Math.round((b.done / b.items) * 100)}%"></i></div>` : ''}
+        <span class="s">${sideLine(b)}${b.unpublished_changes && b.published ? ', unpublished changes' : ''}</span>
+        ${(() => { const t = clientTeams(b.slug); return b.published && b.items && t.length === 1 ? `<div class="meter" aria-hidden="true"><i style="width:${Math.round((t[0].done / b.items) * 100)}%"></i></div>` : ''; })()}
       </button>`).join('')
     : '<p class="s" style="margin:0 8px;color:var(--muted)">No blueprints yet.</p>');
   $('addBp').addEventListener('click', () => go(NEW));
@@ -321,10 +332,11 @@ function renderDetail(bp) {
     <div id="replaceMsg"></div>
     ${bp.published ? `
     <section class="blk">
-      <h3>Share a link</h3>
+      <h3>Share a team link</h3>
+      <p class="sub" style="margin:-6px 0 12px">One link per team. Everyone on a client team uses the same link and ticks the same checklist. Lean team links show the client team’s progress, read only.</p>
       <form class="share" id="shareForm">
-        <div><label for="label">Who is it for</label><input id="label" type="text" maxlength="80" placeholder="Name and company, e.g. David at Wise" required></div>
-        <div><label for="kind">Type</label><select id="kind"><option value="client">Client</option><option value="internal">Lean teammate</option></select></div>
+        <div><label for="label">Team</label><input id="label" type="text" maxlength="80" placeholder="e.g. Wise" required></div>
+        <div><label for="kind">Type</label><select id="kind"><option value="client">Client team</option><option value="internal">Lean team</option></select></div>
         <div><label for="by">Your name</label><input id="by" type="text" maxlength="80" value="${esc(byName())}"></div>
         <div><button class="primary" type="submit">Create link</button></div>
       </form>
@@ -334,14 +346,16 @@ function renderDetail(bp) {
     <section class="blk">
       <h3>Links</h3>
       ${links.length ? `<div class="tablewrap"><table>
-        <thead><tr><th>Who</th><th>Type</th><th>Visits</th><th>Last opened</th><th>Time on page</th><th></th></tr></thead>
+        <thead><tr><th>Team</th><th>Type</th><th>Visits</th><th>Time on page</th><th>Average per visit</th><th>Last opened</th><th>Checklist</th><th></th></tr></thead>
         <tbody>${links.map((l) => `
           <tr class="${l.revoked_at ? 'revoked' : ''}">
             <td><div class="who">${esc(l.label)}</div><div class="by">${l.created_by ? 'Created by ' + esc(l.created_by) + ', ' : 'Created '}${esc(when(l.created_at))}${l.revoked_at ? ', revoked' : ''}</div></td>
             <td><span class="tag ${l.kind}">${l.kind === 'client' ? 'Client' : 'Lean'}</span></td>
             <td class="num">${l.views}</td>
-            <td class="num" title="${esc(full(l.last_view))}">${l.last_view ? esc(when(l.last_view)) : '<span class="never">Not opened</span>'}</td>
             <td class="num">${l.views ? dur(l.seconds) : ''}</td>
+            <td class="num">${l.views ? dur(Math.round(l.seconds / l.views)) : ''}</td>
+            <td class="num" title="${esc(full(l.last_view))}">${l.last_view ? esc(when(l.last_view)) : '<span class="never">Not opened</span>'}</td>
+            <td class="num">${l.kind === 'client' ? (bp.items ? `${l.done} of ${bp.items}` : '') : '<span class="never">Read only</span>'}</td>
             <td><div class="actions">
               ${l.revoked_at ? '' : `<button class="ghost" data-copy="${esc(l.token)}">Copy link</button>`}
               <button class="ghost ${l.revoked_at ? '' : 'danger'}" data-revoke="${esc(l.token)}" data-state="${l.revoked_at ? 'revoked' : 'active'}">${l.revoked_at ? 'Restore' : 'Revoke'}</button>
@@ -378,7 +392,7 @@ function renderDetail(bp) {
     try {
       const link = await api('/api/admin/links', { method: 'POST', body: JSON.stringify({ slug: bp.slug, label: $('label').value, kind: $('kind').value, createdBy: by }) });
       await load();
-      $('created').innerHTML = `<div class="created"><code>${esc(link.url)}</code><button class="ghost" id="copyNew">Copy link</button></div>`;
+      $('created').innerHTML = `<div class="created">${link.existing ? `<span>${esc(link.label)} already has a link:</span>` : ''}<code>${esc(link.url)}</code><button class="ghost" id="copyNew">Copy link</button></div>`;
       $('copyNew').addEventListener('click', () => copy(link.url));
     } catch (err) { $('shareErr').textContent = err.message; } finally { btn.disabled = false; }
   });

@@ -2,9 +2,9 @@
 
 Builds and hosts client integration blueprints behind private links. Teammates build a blueprint in a form in the admin page, or upload a finished HTML file. For each blueprint you can:
 
-- **Share a private link per client contact**, labelled with who it's for, and revoke it at any time.
-- **See who opened it**, when, and for how long. Optionally, get a Slack message when a client opens it.
-- **Keep checklist progress.** Ticks in a blueprint's checklists are saved and shown to everyone with a link, along with who ticked each item.
+- **Share one private link per team**, labelled with the team's name, and revoke it at any time.
+- **See which team opened it**, when, and for how long in total and per visit. Optionally, get a Slack message when a client opens it.
+- **Keep checklist progress per client team.** Each client team ticks its own checklist. Lean team links show a client team's progress, read only.
 
 Blueprints are uploaded from the admin page and stored in the database, never in this repository and never as public files. They are only served through their links, so nobody can open one by guessing a URL.
 
@@ -37,7 +37,7 @@ Blueprints are uploaded from the admin page and stored in the database, never in
 6. **Deploy, then check these things on the live site:**
    - `/admin` loads and accepts the password.
    - Upload a blueprint with **Add a blueprint**.
-   - Create a **Lean teammate** link for yourself and open it.
+   - Create a **Lean team** link for yourself and open it.
    - Tick a checklist item, reload, and confirm it's still ticked.
    - Keep the page open for 10 seconds, then refresh `/admin`: the visit appears under "Recent visits".
 
@@ -55,7 +55,7 @@ Anyone on the team with the admin password can do this. No GitHub or Vercel acce
    - **Design reference:** optional Figma card with preview images and flow links.
    - **Launch plan:** product cards, phases, table rows, totals and a note under the table. Products come from the library, with their endpoints and guide panels added automatically. Use "Custom product" for anything not in it.
 3. **Save draft** as you go. **Preview** opens the page exactly as the client will see it.
-4. **Publish** when it's ready, then create links. Later edits stay as a draft, and clients keep seeing the published version until you publish again.
+4. **Publish** when it's ready, then create team links. Later edits stay as a draft, and clients keep seeing the published version until you publish again.
 
 Use `**double asterisks**` for bold text. Screenshots are resized automatically, so add them at any size.
 
@@ -64,6 +64,13 @@ Use `**double asterisks**` for bold text. Screenshots are resized automatically,
 1. **Prepare the file.** One self-contained HTML page, with images embedded, under 4 MB. It needs a `<title>`. Add `data-check="<key>"` to each checklist item you want saved, with unique keys using lowercase letters, digits and hyphens.
 2. **Upload it** with a short name. The page tells you what to fix if the file is rejected.
 3. **To update it**, use **Replace file**. Ticks are kept for every checklist key still in the file.
+
+## Team links and checklists
+
+- **One link per team.** Create one **Client team** link per client team, plus a **Lean team** link for your own previews. Everyone on a team uses the same link. Creating a link for a team that already has one on that blueprint returns the existing link.
+- **Each client team has its own checklist.** Ticks made through one team's link never show on another team's link, and a new team starts with an empty checklist.
+- **Lean team links are read only.** They show each client team's ticks, with a switcher when there are several client teams, and can't change them. Lean visits are labelled separately and never trigger client alerts.
+- **Revoking a team's link** keeps its checklist and visit history. Restore the link to bring them back.
 
 ## The product library
 
@@ -79,9 +86,9 @@ When a new version of this tool changes the database, paste `db/schema-single-st
 
 - A visit counts once the page has been **visible for 10 seconds**, so email link scanners and quick previews don't inflate it.
 - Each page load is one visit. Time on page counts only while the tab is visible, capped at 4 hours per visit.
-- **Visits are attributed to the link, not the person.** If a client forwards their link, the colleague's visits show under the same label. Give each contact their own link.
+- **Visits and time are tracked per team link.** Individual people on a team aren't distinguished. If two people on the same team have the page open at once, both of their time counts toward the team total.
 - No IP addresses are stored. Each visit records the browser, operating system and country (from Vercel's location header).
-- Slack alerts go out for client links only, at most once every 12 hours per link.
+- Slack alerts go out for client team links only, at most once every 12 hours per link.
 
 Consider telling clients in your cover note that the link is personal to them.
 

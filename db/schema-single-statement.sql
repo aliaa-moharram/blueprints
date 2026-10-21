@@ -54,5 +54,14 @@ BEGIN
   ALTER TABLE blueprints ADD COLUMN IF NOT EXISTS published_at TIMESTAMPTZ;
   ALTER TABLE blueprints ALTER COLUMN html DROP NOT NULL;
   ALTER TABLE blueprints ALTER COLUMN size_bytes DROP NOT NULL;
+
+  -- Checklist state per client team (added in the team update).
+  CREATE TABLE IF NOT EXISTS team_checklist (
+    token       TEXT NOT NULL REFERENCES links (token),
+    item        TEXT NOT NULL,
+    done        BOOLEAN NOT NULL DEFAULT false,
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (token, item)
+  );
 END
 $$;
