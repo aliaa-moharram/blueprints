@@ -97,6 +97,10 @@ Each published blueprint's page in `/admin` has a **Progress** section. For the 
 
 Each card under **Delivery phases** shows how many guide checklist items in that phase are done, for the team whose page it is. Form-built blueprints set this up automatically from the products in each phase. In an uploaded file, add `data-panels` to a phase card with the ids of its guide panels, for example `<div class="phase" data-panels="otp rec">`. Phases without guide checklists show no progress.
 
+## API reference block
+
+Blueprints that include One-Time Payments, Recurring Payments, CMI or Name match get an **API reference** block in the Launch Plan: Lean's v4 endpoints for Authentication, Payments and Core resources, grouped as in the docs, each linking to its reference page. The list lives in `API_REFERENCE` in `lib/products.js`; update it when the API reference changes, then republish.
+
 ## The product library
 
 `lib/products.js` lists every Lean product the form offers: name, short label, card description, endpoints, the standard note under the endpoints, default effort and, where there is one, the guide panel. Change it when Lean's products or docs change; blueprints pick up the change the next time they're published.

@@ -271,6 +271,9 @@ try {
   const epv = (await (await builder({ action: 'preview', content: planned, edit: true })).json()).html;
   assert.ok(epv.includes('data-edit="launch.phases.0.title"') && epv.includes('data-edit="launch.assign.otp.effort"') && epv.includes("type: 'lb-edit'")); ok('edit mode marks text with its form field');
   assert.ok(!ppv.includes('data-edit=')); ok('normal pages carry no edit marks');
+  assert.equal((ppv.match(/<div class="apiref">/g) || []).length, 1); assert.ok(ppv.includes('reference/postoauth2token') && ppv.includes('reference/getcustomers') && ppv.includes('reference/createpaymentagreement')); ok('blueprints with v4 payments products get the API reference block');
+  const noPay = (await (await builder({ action: 'preview', content: { client: { name: 'Data Co' }, launch: { phases: [{ label: 'Phase 1', title: 'Data' }], assign: { data: { phase: 0 } } } } })).json()).html;
+  assert.ok(!noPay.includes('class="apiref"')); ok('blueprints without them don’t');
 
   // Verticals: maintained in the admin page, used by new blueprints
   assert.equal((await fetch(BASE + '/api/admin/verticals')).status, 401); ok('verticals need the admin password');
