@@ -654,7 +654,7 @@ a.apilink-inline:hover code{background:color-mix(in srgb,var(--bright) 22%,#fff)
         <tr class="grp"><td colspan="4">Phase 0 · Setup</td></tr>
         <tr>
           <td>Developer portal setup<br><span class="sub">sandbox, then production</span></td>
-          <td class="apis"><span class="api-refs"><a href="https://dev.leantech.me/" target="_blank" rel="noopener">Lean dev portal</a></span><span class="api-desc">Create an account and an application on the Lean dev portal. The portal generates the application ID (app token) for the sandbox: share it with Lean. Once Lean upgrades you to production, switch the portal to production mode to find the production app token.</span></td>
+          <td class="apis"><span class="api-refs"><a href="https://dev.leantech.me/" target="_blank" rel="noopener">Lean dev portal</a>, <a href="https://docs.leantech.me/docs/configuring-your-application" target="_blank" rel="noopener">Configuring your application</a></span><span class="api-desc">Create an account and an application on the Lean dev portal. The portal generates the application ID (app token) for the sandbox: share it with Lean. Then generate a client secret, set up your webhook destination and events, add redirect URLs, have Lean enable Open Finance, and add your purpose and benefit statements. Once Lean upgrades you to production, switch the portal to production mode to find the production app token.</span></td>
           <td class="eff">-</td>
           <td class="ck"><button class="guide-btn" onclick="openPanel('dev')">View guide</button></td>
         </tr>
@@ -742,20 +742,22 @@ a.apilink-inline:hover code{background:color-mix(in srgb,var(--bright) 22%,#fff)
   <div class="sp-head">
     <div class="sp-kicker">Phase 0 &middot; Implementation guide</div>
     <div class="sp-title">Developer portal setup</div>
-    <div class="sp-sub">Get your sandbox application ID (app token) from the Lean dev portal and share it with Lean. Production comes once Lean upgrades you.</div>
+    <div class="sp-sub">Set up your application on the Lean dev portal: sandbox app token, client secret, webhooks, redirect URLs and Open Finance settings. Production comes once Lean upgrades you.</div>
     <button class="sp-close" onclick="closePanels()" aria-label="Close">&#10005;</button>
   </div>
   <div class="sp-body">
     
     
     <div class="sp-h">Integration checklist</div>
-    <ol class="sp-check"><li data-check="dev-1">Create an account on the <a href="https://dev.leantech.me/" target="_blank" rel="noopener">Lean dev portal</a>.</li><li data-check="dev-2">Create your application on the dev portal.</li><li data-check="dev-3">Copy the application ID (app token) the portal generates: this is your <b>sandbox</b> app token.</li><li data-check="dev-4">Share the sandbox app token with Lean.</li></ol>
+    <ol class="sp-check"><li data-check="dev-1">Create an account on the <a href="https://dev.leantech.me/" target="_blank" rel="noopener">Lean dev portal</a>.</li><li data-check="dev-2">Create your application on the dev portal.</li><li data-check="dev-3">Copy the application ID (app token) the portal generates: this is your <b>sandbox</b> app token.</li><li data-check="dev-4">Share the sandbox app token with Lean.</li><li data-check="dev-5">Generate your client secret and store it securely on your backend. Retrieving it again invalidates the existing one.</li><li data-check="dev-6">Set up your webhook destination: the URL on your backend where Lean sends webhooks.</li><li data-check="dev-7">Subscribe to the webhook events you need, such as <code>charge.*</code> for payments and <code>agreement.*</code> for Payment Agreements.</li><li data-check="dev-8">Add your redirect URLs in the <b>Settings</b> tab: the host is enough, for example <code>https://app.yourcompany.com</code>. Lean only sends customers back to URLs set up here.</li><li data-check="dev-9">Ask Lean Support to enable Open Finance on your application.</li><li data-check="dev-10">In the <b>Settings</b> tab, add the purpose statement and the benefit statement customers see when they authorise a payment, in English and Arabic.</li></ol>
     <div class="sp-h">Production</div>
     <p class="sp-note" style="margin:-4px 0 10px">Once Lean upgrades you to production. These steps aren’t counted in Phase 0 progress.</p>
     <ol class="sp-check"><li data-check="dev-prod-1">Switch the dev portal to production mode.</li><li data-check="dev-prod-2">Copy the newly generated <b>production</b> application ID (app token).</li><li data-check="dev-prod-3">Start calling production endpoints with it.</li></ol>
+    <div class="sp-h">Also in the dev portal</div>
+    <ul class="sp-pre"><li>Your customers.</li><li>All payments made by your customers.</li><li>Your consumption and billing details.</li></ul>
     
     <div class="sp-h">Lean docs</div>
-    <div class="sp-links"><a href="https://dev.leantech.me/" target="_blank" rel="noopener">Lean dev portal</a></div>
+    <div class="sp-links"><a href="https://dev.leantech.me/" target="_blank" rel="noopener">Lean dev portal</a><a href="https://docs.leantech.me/docs/configuring-your-application" target="_blank" rel="noopener">Configuring your application</a></div>
     
   </div>
 </aside>
@@ -771,7 +773,8 @@ a.apilink-inline:hover code{background:color-mix(in srgb,var(--bright) 22%,#fff)
     <ul class="sp-pre"><li>Your application on the <a href="https://dev.leantech.me/" target="_blank" rel="noopener">Lean dev portal</a> (see Developer portal setup).</li><li>A backend that can store secrets and receive webhooks.</li></ul>
     
     <div class="sp-h">Integration checklist</div>
-    <ol class="sp-check"><li data-check="start-1">In the dev portal, find your client secret alongside your app token under <b>Development</b>, <b>Integration settings</b>.</li><li data-check="start-2">Generate an access token from your backend with <a class="apilink-inline" href="https://docs.leantech.me/v4.0-GLOBAL/reference/postoauth2token" target="_blank" rel="noopener"><code>POST /oauth2/token</code></a>, using your <code>client_id</code> and <code>client_secret</code>: scope <code>api</code> for backend calls, or <code>customer.&lt;customer_id&gt;</code> for customer-scoped calls.</li><li data-check="start-3">Set up webhooks so your backend hears when a payment or agreement changes state, and treat the resource's current state as the source of truth.</li><li data-check="start-4">Build and test the whole integration in the Sandbox environment before going live.</li><li data-check="start-5">Make create requests idempotent with an <code>Idempotency-Key</code>, so retries never create duplicate payments.</li></ol>
+    <ol class="sp-check"><li data-check="start-1">Have your app token (application ID) and client secret from Developer portal setup ready on your backend.</li><li data-check="start-2">Generate an access token from your backend with <a class="apilink-inline" href="https://docs.leantech.me/v4.0-GLOBAL/reference/postoauth2token" target="_blank" rel="noopener"><code>POST /oauth2/token</code></a>, using your <code>client_id</code> and <code>client_secret</code>: scope <code>api</code> for backend calls, or <code>customer.&lt;customer_id&gt;</code> for customer-scoped calls.</li><li data-check="start-3">Handle webhook events on your backend, and treat the resource's current state as the source of truth.</li><li data-check="start-4">Build and test the whole integration in the Sandbox environment before going live.</li><li data-check="start-5">Make create requests idempotent with an <code>Idempotency-Key</code>, so retries never create duplicate payments.</li></ol>
+    
     <div class="sp-h">Endpoints</div>
     <div class="sp-codes"><a class="apilink" href="https://docs.leantech.me/v4.0-GLOBAL/reference/postoauth2token" target="_blank" rel="noopener" title="Open in Lean’s API reference"><code>POST /oauth2/token</code></a></div>
     <div class="sp-h">Lean docs</div>
