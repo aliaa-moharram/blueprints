@@ -275,7 +275,7 @@ try {
   // Verticals: maintained in the admin page, used by new blueprints
   assert.equal((await fetch(BASE + '/api/admin/verticals')).status, 401); ok('verticals need the admin password');
   let vs = (await (await admin('/api/admin/verticals')).json()).verticals;
-  assert.deepEqual(vs.map((v) => v.name), ['Remittance', 'Trading & Gaming', 'Lending', 'Emerging Industries', 'Government']); ok('verticals are seeded: Remittance plus the other GTM verticals');
+  assert.deepEqual(vs.map((v) => v.name), ['Remittance', 'Trading & Gaming', 'Lending', 'Emerging Industries']); ok('verticals are seeded: Remittance plus the other GTM verticals');
   assert.ok(vs.slice(1).every((v) => !v.painRows.length)); ok('only Remittance comes with pain points; the others start empty');
   r = await builder({ action: 'create', slug: T + '-lend', template: 'standard', vertical: 'lending', clientName: 'Lendco' });
   let lrow = await (await admin(`/api/admin/builder?slug=${T}-lend`)).json();

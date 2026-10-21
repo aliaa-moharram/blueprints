@@ -63,7 +63,7 @@ Use `**double asterisks**` for bold text. Screenshots are resized automatically.
 
 The **Verticals** page holds each vertical's pain points, introduction and use cases. Blueprints started from the standard template copy them in, so keeping verticals up to date improves every new blueprint. Blueprints already made keep their own copy. Use `{client}` where the client's name should go.
 
-Remittance comes filled in from the Wise blueprint. Trading & Gaming, Lending, Emerging Industries and Government start empty, for the team to fill in.
+Remittance comes filled in from the Wise blueprint. Trading & Gaming, Lending and Emerging Industries start empty, for the team to fill in.
 
 ## Drafting from meeting notes (optional)
 
