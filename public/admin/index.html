@@ -352,7 +352,7 @@ function renderDetail(bp) {
     ${bp.published ? `
     <section class="blk">
       <h3>Share a team link</h3>
-      <p class="sub" style="margin:-6px 0 12px">One link per team. Everyone on a client team uses the same link and ticks the same checklist. To check a client team’s progress yourself, use <b>View progress</b> on their row: it opens their page read only and isn’t counted as a visit.</p>
+      <p class="sub" style="margin:-6px 0 12px">One link per team. Everyone on a client team uses the same link and ticks the same checklist. <b>Open</b> on a client team’s row shows their page and progress, read only, and isn’t counted as a visit.</p>
       <form class="share" id="shareForm">
         <div><label for="label">Team</label><input id="label" type="text" maxlength="80" placeholder="e.g. Wise" required></div>
         <div><label for="kind">Type</label><select id="kind"><option value="client">Client team</option><option value="internal">Lean team</option></select></div>
@@ -376,7 +376,7 @@ function renderDetail(bp) {
             <td class="num" title="${esc(full(l.last_view))}">${l.last_view ? esc(when(l.last_view)) : '<span class="never">Not opened</span>'}</td>
             <td class="num">${l.kind === 'client' ? (bp.items ? `${l.done} of ${bp.items}` : '') : '<span class="never">Read only</span>'}</td>
             <td><div class="actions">
-              ${!l.revoked_at && l.kind === 'client' ? `<button class="ghost" data-viewlink="${esc(l.token)}" title="Opens ${esc(l.label)}’s page with their progress, read only. Not counted as a visit.">View progress</button>` : ''}
+              ${l.revoked_at ? '' : `<button class="ghost" data-open="${esc(l.token)}" data-kind="${l.kind}" title="${l.kind === 'client' ? `Opens ${esc(l.label)}’s page with their progress, read only. Not counted as a visit.` : 'Opens this Lean team link.'}">Open</button>`}
               ${l.revoked_at ? '' : `<button class="ghost" data-copy="${esc(l.token)}">Copy link</button>`}
               <button class="ghost ${l.revoked_at ? '' : 'danger'}" data-revoke="${esc(l.token)}" data-state="${l.revoked_at ? 'revoked' : 'active'}">${l.revoked_at ? 'Restore' : 'Revoke'}</button>
               <button class="ghost danger" data-dellink="${esc(l.token)}" data-label="${esc(l.label)}" data-views="${l.views}" data-active="${l.revoked_at ? '' : '1'}">Delete</button>
@@ -426,18 +426,13 @@ function renderDetail(bp) {
     try {
       const link = await api('/api/admin/links', { method: 'POST', body: JSON.stringify({ slug: bp.slug, label: $('label').value, kind: $('kind').value, createdBy: by }) });
       await load();
-      $('created').innerHTML = `<div class="created">${link.existing ? `<span>${esc(link.label)} already has a link:</span>` : ''}<code>${esc(link.url)}</code><button class="ghost" id="copyNew">Copy link</button></div>`;
+      $('created').innerHTML = `<div class="created">${link.existing ? `<span>${esc(link.label)} already has a link:</span>` : ''}<code>${esc(link.url)}</code><button class="ghost" id="openNew">Open</button><button class="ghost" id="copyNew">Copy link</button></div>`;
       $('copyNew').addEventListener('click', () => copy(link.url));
+      $('openNew').addEventListener('click', () => openLink(link.token, link.kind));
     } catch (err) { $('shareErr').textContent = err.message; } finally { btn.disabled = false; }
   });
   const sr = $('showRevoked'); if (sr) sr.addEventListener('change', () => { showRevoked = sr.checked; render(); });
-  document.querySelectorAll('[data-viewlink]').forEach((el) => el.addEventListener('click', async () => {
-    const w = window.open('', '_blank');
-    try {
-      const { url } = await api('/api/admin/view', { method: 'POST', body: JSON.stringify({ token: el.dataset.viewlink }) });
-      if (w) w.location = url; else location.assign(url);
-    } catch (err) { if (w) w.close(); status(err.message); }
-  }));
+  document.querySelectorAll('[data-open]').forEach((el) => el.addEventListener('click', () => openLink(el.dataset.open, el.dataset.kind)));
   document.querySelectorAll('[data-dellink]').forEach((el) => el.addEventListener('click', async () => {
     const n = Number(el.dataset.views);
     const live = el.dataset.active ? `This link is active: it stops working for ${el.dataset.label} straight away. ` : '';
@@ -728,6 +723,16 @@ async function preview() {
     const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
     if (w) w.location = url; else location.assign(url);
   } catch (err) { if (w) w.close(); $('edErr').textContent = err.message; }
+}
+
+// Client team links open in Lean view (read only, not counted as a visit); Lean team links open as they are.
+async function openLink(token, kind) {
+  if (kind !== 'client') { window.open(location.origin + '/b/' + token, '_blank', 'noopener'); return; }
+  const w = window.open('', '_blank');
+  try {
+    const { url } = await api('/api/admin/view', { method: 'POST', body: JSON.stringify({ token }) });
+    if (w) w.location = url; else location.assign(url);
+  } catch (err) { if (w) w.close(); status(err.message); }
 }
 
 function copy(text) { navigator.clipboard.writeText(text).then(() => status('Link copied'), () => prompt('Copy this link:', text)); }
