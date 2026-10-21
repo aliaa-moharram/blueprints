@@ -1,17 +1,28 @@
 // POST /api/admin/blueprints  { slug, html, uploadedBy, replace }  (admin)
 // Adds a new blueprint, or replaces the file of an existing one when replace is true.
 // Checklist ticks are kept for every key that still exists in the new file.
+// PATCH  /api/admin/blueprints  { slug, name }     (admin) rename an uploaded blueprint in the admin page
 // DELETE /api/admin/blueprints  { slug, confirm }  (admin)
 // Deletes a blueprint with all its links, visits and checklist ticks. "confirm" must equal the slug.
 import { handler, readJson, send, httpError } from '../../lib/http.js';
 import { requireAdmin } from '../../lib/auth.js';
 import { query, withTransaction } from '../../lib/db.js';
-import { SLUG_RE, MAX_BYTES, inspectHtml, loadMeta } from '../../lib/blueprints.js';
+import { SLUG_RE, MAX_BYTES, inspectHtml, loadMeta, deriveName, cleanName } from '../../lib/blueprints.js';
 
-export default handler(['POST', 'DELETE'], async (req, res) => {
+export default handler(['POST', 'PATCH', 'DELETE'], async (req, res) => {
   requireAdmin(req);
   const body = await readJson(req, MAX_BYTES + 512 * 1024);
   const slug = typeof body.slug === 'string' ? body.slug.trim() : '';
+
+  if (req.method === 'PATCH') {
+    const name = cleanName(body.name);
+    if (!name) throw httpError(400, 'Add a name.');
+    const meta = await loadMeta(slug);
+    if (!meta) throw httpError(404, 'That blueprint no longer exists.');
+    if (meta.source === 'builder') throw httpError(409, 'This blueprint takes its name from the client name in the form. Change it in Basics.');
+    await query('UPDATE blueprints SET name = $2 WHERE slug = $1', [slug, name]);
+    return send(res, 200, { slug, name });
+  }
 
   if (req.method === 'DELETE') {
     if (!SLUG_RE.test(slug)) throw httpError(400, 'Bad short name');
@@ -45,12 +56,14 @@ export default handler(['POST', 'DELETE'], async (req, res) => {
   if (existing && existing.source === 'builder') throw httpError(409, 'This blueprint is built in the form. Edit it there instead of uploading a file.');
 
   const by = typeof body.uploadedBy === 'string' ? body.uploadedBy.trim().slice(0, 80) || null : null;
+  // Name: what was typed, else the existing name when replacing, else taken from the page title.
+  const name = cleanName(body.name) || (existing && existing.name !== existing.title ? existing.name : '') || deriveName(info.title);
   await query(
-    `INSERT INTO blueprints (slug, title, html, items, size_bytes, uploaded_by, published_at)
-     VALUES ($1, $2, $3, $4, $5, $6, now())
+    `INSERT INTO blueprints (slug, title, html, items, size_bytes, uploaded_by, published_at, name)
+     VALUES ($1, $2, $3, $4, $5, $6, now(), $7)
      ON CONFLICT (slug) DO UPDATE SET title = EXCLUDED.title, html = EXCLUDED.html, items = EXCLUDED.items,
-       size_bytes = EXCLUDED.size_bytes, uploaded_by = EXCLUDED.uploaded_by, updated_at = now(), published_at = now()`,
-    [slug, info.title, html, info.items, info.size, by],
+       size_bytes = EXCLUDED.size_bytes, uploaded_by = EXCLUDED.uploaded_by, updated_at = now(), published_at = now(), name = EXCLUDED.name`,
+    [slug, info.title, html, info.items, info.size, by, name],
   );
 
   // Keys that had saved ticks but are missing from the new file.
@@ -63,5 +76,5 @@ export default handler(['POST', 'DELETE'], async (req, res) => {
     );
     droppedTicks = rows.map((r) => r.item);
   }
-  send(res, existing ? 200 : 201, { slug, title: info.title, items: info.items.length, replaced: !!existing, droppedTicks });
+  send(res, existing ? 200 : 201, { slug, title: info.title, name, items: info.items.length, replaced: !!existing, droppedTicks });
 });

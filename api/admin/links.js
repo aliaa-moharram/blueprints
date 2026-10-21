@@ -1,6 +1,6 @@
 // POST  /api/admin/links  { slug, label, kind, createdBy } -> new link with its URL
 // PATCH /api/admin/links  { token, revoked: true|false }   -> revoke or restore a link
-// DELETE /api/admin/links { token }                        -> delete a revoked link with its visits and ticks
+// DELETE /api/admin/links { token }                        -> delete a link with its visits and ticks
 import { randomBytes } from 'node:crypto';
 import { handler, readJson, send, httpError, baseUrl } from '../../lib/http.js';
 import { requireAdmin } from '../../lib/auth.js';
@@ -45,7 +45,6 @@ export default handler(['POST', 'PATCH', 'DELETE'], async (req, res) => {
     const removed = await withTransaction(async (db) => {
       const { rows } = await db.query('SELECT revoked_at FROM links WHERE token = $1 FOR UPDATE', [body.token]);
       if (!rows.length) throw httpError(404, 'Link not found');
-      if (!rows[0].revoked_at) throw httpError(409, 'Revoke the link before deleting it.');
       const v = await db.query('DELETE FROM views WHERE token = $1', [body.token]);
       const t = await db.query('DELETE FROM team_checklist WHERE token = $1', [body.token]);
       await db.query('DELETE FROM links WHERE token = $1', [body.token]);

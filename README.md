@@ -65,13 +65,18 @@ Use `**double asterisks**` for bold text. Screenshots are resized automatically,
 2. **Upload it** with a short name. The page tells you what to fix if the file is rejected.
 3. **To update it**, use **Replace file**. Ticks are kept for every checklist key still in the file.
 
+## The admin sidebar
+
+Blueprints are listed by client name, in two groups: **Published** and **Not published yet**. Form-built blueprints take the client name from Basics. Uploaded files take it from the page title ("Wise UAE Integration Blueprint - Prepared by Lean" becomes "Wise"), or from the name you type when uploading. Use **Rename** on an uploaded blueprint to change it. The client's browser tab keeps the page's full title.
+
 ## Team links and checklists
 
 - **One link per team.** Create one **Client team** link per client team, plus a **Lean team** link for your own previews. Everyone on a team uses the same link. Creating a link for a team that already has one on that blueprint returns the existing link.
 - **Each client team has its own checklist.** Ticks made through one team's link never show on another team's link, and a new team starts with an empty checklist.
+- **View progress** on a client team's row opens that team's page with their real ticks, read only. It isn't counted as a visit and expires after 2 hours; open it again from the admin page when it does.
 - **Lean team links are read only.** They show each client team's ticks, with a switcher when there are several client teams, and can't change them. Lean visits are labelled separately and never trigger client alerts.
 - **Revoking a team's link** keeps its checklist and visit history. Restore the link to bring them back. Revoked links are hidden from the Links table unless you tick **Show revoked links**.
-- **Deleting a link** is only possible once it's revoked. It permanently removes the link with its visits and checklist ticks.
+- **Deleting a link** permanently removes it with its visits and checklist ticks. An active link stops working straight away, so use **Revoke** instead if you might want it back.
 - **Deleting a blueprint** (at the bottom of its page) permanently removes it with all its links, visits and checklist ticks. You type its short name to confirm.
 
 ## The product library

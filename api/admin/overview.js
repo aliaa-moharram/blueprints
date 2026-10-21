@@ -6,11 +6,11 @@ import { query } from '../../lib/db.js';
 export default handler(['GET'], async (req, res) => {
   requireAdmin(req);
   const blueprints = await query(
-    `SELECT b.slug, b.title, b.size_bytes, b.uploaded_by, b.created_at, b.updated_at, b.source,
+    `SELECT b.slug, b.title, coalesce(b.name, b.title) AS name, b.size_bytes, b.uploaded_by, b.created_at, b.updated_at, b.source,
             b.published_at, b.draft_updated_at, (b.html IS NOT NULL) AS published,
             (b.source = 'builder' AND b.draft_updated_at > coalesce(b.published_at, 'epoch')) AS unpublished_changes,
             cardinality(b.items)::int AS items
-       FROM blueprints b ORDER BY b.updated_at DESC`,
+       FROM blueprints b ORDER BY lower(coalesce(b.name, b.title))`,
   );
   const links = await query(
     `SELECT l.token, l.slug, l.label, l.kind, l.created_by, l.created_at, l.revoked_at,

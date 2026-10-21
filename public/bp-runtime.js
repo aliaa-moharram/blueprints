@@ -5,70 +5,82 @@
   const cfg = window.__LEAN_BP;
   if (!cfg || !cfg.token) return;
   const token = cfg.token;
+  const view = cfg.view || null; // set when Lean opens a client team's page from the admin page
   const session = crypto.randomUUID
     ? crypto.randomUUID()
     : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12);
 
-  // ---------- Visit tracking ----------
-  const OPEN_AFTER = 10; // seconds visible before a visit counts
-  const BEAT_EVERY = 30; // seconds of visible time per update
-  let visibleMs = 0;
-  let lastTick = document.visibilityState === 'visible' ? Date.now() : null;
-  let opened = false;
-  let reported = 0;
+  // ---------- Visit tracking (never in a Lean view) ----------
+  if (!view) {
+    const OPEN_AFTER = 10; // seconds visible before a visit counts
+    const BEAT_EVERY = 30; // seconds of visible time per update
+    let visibleMs = 0;
+    let lastTick = document.visibilityState === 'visible' ? Date.now() : null;
+    let opened = false;
+    let reported = 0;
 
-  function tick() {
-    if (lastTick === null) return;
-    const now = Date.now();
-    visibleMs += now - lastTick;
-    lastTick = now;
-  }
-
-  function post(body, useBeacon) {
-    const data = JSON.stringify({ token, session, ...body });
-    if (useBeacon && navigator.sendBeacon) {
-      navigator.sendBeacon('/api/track', new Blob([data], { type: 'text/plain' }));
-      return;
+    function tick() {
+      if (lastTick === null) return;
+      const now = Date.now();
+      visibleMs += now - lastTick;
+      lastTick = now;
     }
-    fetch('/api/track', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: data,
-      keepalive: true,
-    }).catch(() => {});
-  }
 
-  function report(event, useBeacon) {
-    tick();
-    const total = Math.floor(visibleMs / 1000);
-    if (!opened) {
-      if (total >= OPEN_AFTER) {
-        opened = true;
-        reported = OPEN_AFTER;
-        post({ event: 'open' });
+    function post(body, useBeacon) {
+      const data = JSON.stringify({ token, session, ...body });
+      if (useBeacon && navigator.sendBeacon) {
+        navigator.sendBeacon('/api/track', new Blob([data], { type: 'text/plain' }));
+        return;
       }
-      return;
+      fetch('/api/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: data,
+        keepalive: true,
+      }).catch(() => {});
     }
-    const delta = total - reported;
-    if (delta >= BEAT_EVERY || (event === 'leave' && delta > 0)) {
-      reported = total;
-      post({ event, seconds: delta }, useBeacon);
+
+    function report(event, useBeacon) {
+      tick();
+      const total = Math.floor(visibleMs / 1000);
+      if (!opened) {
+        if (total >= OPEN_AFTER) {
+          opened = true;
+          reported = OPEN_AFTER;
+          post({ event: 'open' });
+        }
+        return;
+      }
+      const delta = total - reported;
+      if (delta >= BEAT_EVERY || (event === 'leave' && delta > 0)) {
+        reported = total;
+        post({ event, seconds: delta }, useBeacon);
+      }
     }
-  }
 
-  setInterval(() => {
-    if (document.visibilityState === 'visible') report('beat');
-  }, 5000);
+    setInterval(() => {
+      if (document.visibilityState === 'visible') report('beat');
+    }, 5000);
 
-  function onHide() {
-    report('leave', true);
-    lastTick = null;
+    function onHide() {
+      report('leave', true);
+      lastTick = null;
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') onHide();
+      else lastTick = Date.now();
+    });
+    window.addEventListener('pagehide', onHide);
+  } else {
+    const bar = document.createElement('div');
+    bar.setAttribute('role', 'note');
+    bar.textContent = `Lean view of ${cfg.team || 'this team'}’s page: read only, not counted as a visit.`;
+    bar.style.cssText = 'position:fixed;left:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:300;background:#1c2024;color:#fff;' +
+      'font:600 13px/1.4 system-ui,sans-serif;padding:8px 14px;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.25);' +
+      'border:1px solid var(--bright,#3dd68c);max-width:calc(100vw - 24px)';
+    document.addEventListener('DOMContentLoaded', () => document.body.appendChild(bar));
+    if (document.readyState !== 'loading') document.body.appendChild(bar);
   }
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') onHide();
-    else lastTick = Date.now();
-  });
-  window.addEventListener('pagehide', onHide);
 
   // ---------- Checklists ----------
   // Client team links tick their own team's checklist. Lean team links see a client
@@ -203,7 +215,7 @@
     buttons.set(key, btn);
   }
 
-  fetch('/api/checklist?token=' + encodeURIComponent(token))
+  fetch('/api/checklist?token=' + encodeURIComponent(token) + (view ? '&view=' + encodeURIComponent(view) : ''))
     .then((r) => (r.ok ? r.json() : Promise.reject()))
     .then((data) => {
       if (data.mode === 'edit') {

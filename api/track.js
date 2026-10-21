@@ -11,6 +11,7 @@ const NOTIFY_GAP_HOURS = 12;
 
 export default handler(['POST'], async (req, res) => {
   const body = await readJson(req);
+  if (body.view !== undefined && body.view !== null) return send(res, 200, { ok: true, ignored: 'Lean view' });
   const link = await findActiveLink(body.token);
   if (!link) throw httpError(404, 'Link not active');
   if (typeof body.session !== 'string' || !SESSION_RE.test(body.session)) throw httpError(400, 'Bad session');
@@ -32,7 +33,7 @@ export default handler(['POST'], async (req, res) => {
       );
       if (!recent.rows.length) {
         const bp = await loadMeta(link.slug);
-        await notifySlack(`${link.label} opened “${bp ? bp.title : link.slug}”.`);
+        await notifySlack(`${link.label} opened the ${bp ? bp.name : link.slug} blueprint.`);
       }
     }
     return send(res, 200, { ok: true });

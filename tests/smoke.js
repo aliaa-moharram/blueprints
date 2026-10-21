@@ -40,6 +40,16 @@ try {
   assert.equal(r.status, 201);
   assert.equal((await r.json()).items, 3); ok('uploads a blueprint and finds its 3 checklist items');
   assert.equal((await upload({ slug: SLUG, html: sample })).status, 409); ok('will not overwrite an existing blueprint without "replace"');
+  let named = (await (await admin('/api/admin/overview')).json()).blueprints.find((b) => b.slug === SLUG);
+  assert.equal(named.name, 'Sample Client'); ok('an uploaded blueprint is named after the client, from its title');
+  const N = 'named-' + Date.now().toString(36);
+  await upload({ slug: N, html: sample, name: 'Northwind Pay' });
+  named = (await (await admin('/api/admin/overview')).json()).blueprints.find((b) => b.slug === N);
+  assert.equal(named.name, 'Northwind Pay'); ok('a name typed at upload is used');
+  assert.equal((await admin('/api/admin/blueprints', { method: 'PATCH', body: JSON.stringify({ slug: N, name: 'Northwind' }) })).status, 200);
+  await upload({ slug: N, html: sample.replace('Sample Client Integration', 'Other Integration'), replace: true });
+  named = (await (await admin('/api/admin/overview')).json()).blueprints.find((b) => b.slug === N);
+  assert.equal(named.name, 'Northwind'); ok('renaming works, and replacing the file keeps the name');
 
   // Links
   r = await admin('/api/admin/links', { method: 'POST', body: JSON.stringify({ slug: SLUG, label: 'Test client', kind: 'client', createdBy: 'Smoke test' }) });
@@ -167,7 +177,36 @@ try {
   ov = await (await admin('/api/admin/overview')).json();
   assert.equal(ov.blueprints.find((b) => b.slug === B).unpublished_changes, true); ok('admin shows unpublished changes');
   assert.equal((await upload({ slug: B, html: sample, replace: true })).status, 409); ok('a form blueprint cannot be overwritten by a file upload');
+  assert.equal(ov.blueprints.find((b) => b.slug === B).name, 'Acme Remit'); ok('a form blueprint is named after the client name in Basics');
+  assert.equal((await admin('/api/admin/blueprints', { method: 'PATCH', body: JSON.stringify({ slug: B, name: 'Other' }) })).status, 409); ok('a form blueprint is renamed through Basics, not Rename');
   assert.equal((await admin('/api/admin/products')).status, 200); ok('product library loads');
+
+  // Lean "View progress": a client team's real page, read only, never counted as a visit
+  assert.equal((await fetch(BASE + '/api/admin/view', { method: 'POST', body: JSON.stringify({ token: client.token }) })).status, 401); ok('view addresses need the admin password');
+  r = await admin('/api/admin/view', { method: 'POST', body: JSON.stringify({ token: client.token }) });
+  const viewUrl = (await r.json()).url;
+  const viewParam = new URL(viewUrl).searchParams.get('view');
+  assert.match(viewUrl, new RegExp(`/b/${client.token}\\?view=\\d{10}\\.`)); ok('creates a signed, expiring view address for a client team');
+  const vpage = await (await fetch(viewUrl)).text();
+  assert.ok(vpage.includes('"view":"' + viewParam + '"') && vpage.includes('"team":"Test client"')); ok('the view page loads in Lean view mode');
+  const vstate = await (await fetch(`${BASE}/api/checklist?token=${client.token}&view=${encodeURIComponent(viewParam)}`)).json();
+  assert.equal(vstate.mode, 'view'); assert.equal(vstate.teams[0].items['sample-1'].done, true); ok('the view shows the team’s real ticks');
+  assert.equal((await json('/api/checklist', { token: client.token, item: 'sample-1', done: false, view: viewParam })).status, 403); ok('a Lean view cannot tick');
+  const viewsBefore = (await (await admin('/api/admin/overview')).json()).links.find((l) => l.token === client.token).views;
+  await json('/api/track', { token: client.token, session: 'view-sess-' + Date.now(), event: 'open', view: viewParam });
+  const viewsAfter = (await (await admin('/api/admin/overview')).json()).links.find((l) => l.token === client.token).views;
+  assert.equal(viewsAfter, viewsBefore); ok('a Lean view is never counted as a visit');
+  const forged = viewParam.slice(0, -2) + (viewParam.endsWith('AA') ? 'BB' : 'AA');
+  assert.equal((await fetch(`${BASE}/b/${client.token}?view=${forged}`)).status, 403); ok('a tampered view address shows the expired page, not the client’s page');
+  const team3 = await (await admin('/api/admin/links', { method: 'POST', body: JSON.stringify({ slug: SLUG, label: 'Third team', kind: 'client' }) })).json();
+  assert.equal((await fetch(`${BASE}/b/${team3.token}?view=${viewParam}`)).status, 403); ok('a view address only works for the team it was made for');
+  const { createHmac } = await import('node:crypto');
+  const past = Math.floor(Date.now() / 1000) - 60;
+  const expired = past + '.' + createHmac('sha256', ADMIN).update(`view:${client.token}:${past}`).digest('base64url');
+  const ex = await fetch(`${BASE}/b/${client.token}?view=${expired}`);
+  assert.equal(ex.status, 403); assert.ok((await ex.text()).includes('This view has expired')); ok('an expired view address explains how to open a new one');
+  r = await admin('/api/admin/links', { method: 'POST', body: JSON.stringify({ slug: SLUG, label: 'Lean again', kind: 'internal' }) });
+  assert.equal((await admin('/api/admin/view', { method: 'POST', body: JSON.stringify({ token: (await r.json()).token }) })).status, 400); ok('view progress is only offered for client team links');
 
   // Deleting links and blueprints
   const D = 'del-' + Date.now().toString(36);
@@ -178,11 +217,13 @@ try {
   await json('/api/checklist', { token: dl.token, item: 'sample-1', done: true });
   await json('/api/checklist', { token: keep.token, item: 'sample-2', done: true });
   const delLink = (token) => admin('/api/admin/links', { method: 'DELETE', body: JSON.stringify({ token }) });
-  assert.equal((await delLink(dl.token)).status, 409); ok('an active link cannot be deleted before it is revoked');
-  await admin('/api/admin/links', { method: 'PATCH', body: JSON.stringify({ token: dl.token, revoked: true }) });
   r = await delLink(dl.token);
   const gone = await r.json();
-  assert.equal(r.status, 200); assert.equal(gone.visits, 1); assert.equal(gone.ticks, 1); ok('deleting a revoked link removes its visits and ticks');
+  assert.equal(r.status, 200); assert.equal(gone.visits, 1); assert.equal(gone.ticks, 1); ok('an active link can be deleted directly, with its visits and ticks');
+  assert.equal((await fetch(`${BASE}/b/${dl.token}`)).status, 404); ok('a deleted link stops working straight away');
+  const rv = await (await admin('/api/admin/links', { method: 'POST', body: JSON.stringify({ slug: D, label: 'Revoked one', kind: 'client' }) })).json();
+  await admin('/api/admin/links', { method: 'PATCH', body: JSON.stringify({ token: rv.token, revoked: true }) });
+  assert.equal((await delLink(rv.token)).status, 200); ok('a revoked link can be deleted too');
   ov = await (await admin('/api/admin/overview')).json();
   assert.ok(!ov.links.some((l) => l.token === dl.token)); assert.ok(!ov.recent.some((v) => v.label === 'Delete me')); ok('a deleted link is gone from the admin page');
   assert.equal((await fetch(`${BASE}/api/checklist?token=${keep.token}`).then((x) => x.json())).items['sample-2'].done, true); ok('other teams on the blueprint are untouched');

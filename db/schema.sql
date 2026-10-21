@@ -69,3 +69,8 @@ CREATE TABLE IF NOT EXISTS team_checklist (
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (token, item)
 );
+
+-- Display name in the admin page: the client's name (e.g. "Wise").
+ALTER TABLE blueprints ADD COLUMN IF NOT EXISTS name TEXT;
+UPDATE blueprints SET name = nullif(trim(draft -> 'client' ->> 'name'), '') WHERE name IS NULL AND source = 'builder';
+UPDATE blueprints SET name = regexp_replace(title, '\s+([A-Z]{2,4}\s+)?Integration Blueprint.*$', '') WHERE name IS NULL;

@@ -6,6 +6,7 @@
 import { handler, getQuery, readJson, send, httpError } from '../lib/http.js';
 import { query } from '../lib/db.js';
 import { findActiveLink, loadMeta, ITEM_RE } from '../lib/blueprints.js';
+import { checkViewParam } from '../lib/viewsig.js';
 
 async function itemsFor(token, allowed) {
   const { rows } = await query('SELECT item, done, updated_at FROM team_checklist WHERE token = $1', [token]);
@@ -20,6 +21,12 @@ export default handler(['GET', 'POST'], async (req, res) => {
   if (!link) throw httpError(404, 'Link not active');
   const bp = await loadMeta(link.slug);
   if (!bp) throw httpError(404, 'Blueprint not found');
+
+  if (input.view !== undefined) {
+    if (req.method !== 'GET') throw httpError(403, 'Lean views are read only.');
+    if (link.kind !== 'client' || checkViewParam(link.token, input.view) !== 'ok') throw httpError(403, 'This view has expired. Open it again from the admin page.');
+    return send(res, 200, { mode: 'view', teams: [{ name: link.label, items: await itemsFor(link.token, bp.items) }] });
+  }
 
   if (req.method === 'GET') {
     if (link.kind === 'client') return send(res, 200, { mode: 'edit', team: link.label, items: await itemsFor(link.token, bp.items) });

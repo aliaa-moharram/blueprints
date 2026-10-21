@@ -47,6 +47,8 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 .app{display:grid;grid-template-columns:300px minmax(0,1fr);min-height:calc(100vh - 54px)}
 .side{border-right:1px solid var(--line);padding:22px 16px;background:var(--card)}
 .side h2{font-size:13px;font-weight:700;color:var(--muted);margin:0 8px 10px}
+.grouph{font-size:12.5px;font-weight:700;color:var(--muted);margin:18px 12px 6px;display:flex;gap:6px;align-items:center}
+.grouph span{font-weight:600;background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:0 7px;font-size:11.5px}
 .addbp{width:100%;margin:0 0 12px;text-align:left;padding:10px 12px;border-radius:10px;font-size:14px}
 .bp{display:block;width:100%;text-align:left;border:0;background:transparent;border-radius:10px;padding:11px 12px;cursor:pointer;margin-bottom:2px}
 .bp:hover{background:var(--paper)}
@@ -70,7 +72,9 @@ td{padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top}
 tr:last-child td{border-bottom:0}
 td .who{font-weight:700}
 .tablewrap td:first-child{min-width:150px}
-.tablewrap td:last-child{width:1%}
+.tablewrap td:last-child{width:1%;min-width:230px}
+.tablewrap .actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.tablewrap .actions .ghost{text-align:center}
 .tablewrap td .by{white-space:nowrap}
 td .by{font-size:12.5px;color:var(--muted)}
 .tag{display:inline-block;font-size:12px;font-weight:600;border-radius:999px;padding:2px 9px;background:var(--paper);border:1px solid var(--line);white-space:nowrap}
@@ -163,7 +167,6 @@ details.sec[open]>summary::after{content:"Hide"}
 
 <div id="app" class="app" hidden>
   <nav class="side" aria-label="Blueprints">
-    <h2>Blueprints</h2>
     <div id="bpList"></div>
   </nav>
   <main class="main" id="main"></main>
@@ -229,8 +232,9 @@ const device = (ua) => {
 const slugify = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 63);
 
 const clientTeams = (slug) => data.links.filter((l) => l.slug === slug && l.kind === 'client' && !l.revoked_at);
+const nameOf = (b) => b.name || b.title;
 function sideLine(b) {
-  if (!b.published) return 'Not published yet';
+  if (!b.published) return `Draft, saved ${when(b.draft_updated_at || b.updated_at)}`;
   const t = clientTeams(b.slug);
   if (!t.length) return 'No client team link yet';
   if (t.length > 1) return t.length + ' client teams';
@@ -239,13 +243,17 @@ function sideLine(b) {
 
 // ---------- top-level render ----------
 function render() {
-  $('bpList').innerHTML = `<button class="ghost addbp" id="addBp" aria-current="${selected === NEW}">Add a blueprint</button>` + (data.blueprints.length
-    ? data.blueprints.map((b) => `
+  const item = (b) => `
       <button class="bp" data-slug="${esc(b.slug)}" aria-current="${b.slug === selected}">
-        <span class="t">${esc(b.title)}</span>
+        <span class="t">${esc(nameOf(b))}</span>
         <span class="s">${sideLine(b)}${b.unpublished_changes && b.published ? ', unpublished changes' : ''}</span>
         ${(() => { const t = clientTeams(b.slug); return b.published && b.items && t.length === 1 ? `<div class="meter" aria-hidden="true"><i style="width:${Math.round((t[0].done / b.items) * 100)}%"></i></div>` : ''; })()}
-      </button>`).join('')
+      </button>`;
+  const pub = data.blueprints.filter((b) => b.published);
+  const draft = data.blueprints.filter((b) => !b.published);
+  const group = (label, list) => list.length ? `<h3 class="grouph">${label} <span>${list.length}</span></h3>${list.map(item).join('')}` : '';
+  $('bpList').innerHTML = `<button class="ghost addbp" id="addBp" aria-current="${selected === NEW}">Add a blueprint</button>` + (data.blueprints.length
+    ? group('Published', pub) + group('Not published yet', draft)
     : '<p class="s" style="margin:0 8px;color:var(--muted)">No blueprints yet.</p>');
   $('addBp').addEventListener('click', () => go(NEW));
   document.querySelectorAll('.bp').forEach((el) => el.addEventListener('click', () => go(el.dataset.slug)));
@@ -285,6 +293,7 @@ function renderAdd() {
         <p>For a blueprint that already exists as a single HTML page, like Wise’s.</p>
         <div><label for="upFile">Blueprint file</label><input id="upFile" type="file" accept=".html,.htm,text/html" required>
           <div class="hint">One self-contained HTML page under 4 MB, with a &lt;title&gt;. Checklist items need a data-check key.</div></div>
+        <div><label for="upName">Client name</label><input id="upName" type="text" maxlength="80" placeholder="Taken from the file’s title if left empty"></div>
         <div><label for="upSlug">Short name</label><input id="upSlug" type="text" maxlength="63" placeholder="e.g. acme-remit" required></div>
         <div><label for="upBy">Your name</label><input id="upBy" type="text" maxlength="80" value="${esc(byName())}"></div>
         <div><button class="primary" type="submit">Upload blueprint</button></div>
@@ -304,14 +313,20 @@ function renderAdd() {
       await load(); openEditor(row);
     } catch (err) { $('bErr').textContent = err.message; } finally { btn.disabled = false; }
   });
-  $('upFile').addEventListener('change', (e) => { const f = e.target.files[0]; if (f && !$('upSlug').value) $('upSlug').value = slugify(f.name.replace(/\.html?$/i, '')); });
+  $('upFile').addEventListener('change', async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    const t = ((await f.text()).match(/<title>([^<]*)<\/title>/i) || [])[1] || '';
+    const name = t.trim().replace(/\s+([A-Z]{2,4}\s+)?Integration Blueprint[\s\S]*$/, '').trim() || t.trim();
+    if (!$('upName').value && name) $('upName').value = name;
+    if (!$('upSlug').value) $('upSlug').value = slugify(name || f.name.replace(/\.html?$/i, ''));
+  });
   $('uploadForm').addEventListener('submit', async (e) => {
     e.preventDefault(); const btn = e.submitter; btn.disabled = true; $('upErr').textContent = '';
     const by = $('upBy').value.trim(); localStorage.setItem('leanbp-by', by);
     try {
       const file = $('upFile').files[0];
       if (file.size > 4_000_000) throw new Error('The file is over 4 MB. Compress or resize its embedded images, then try again.');
-      const r = await api('/api/admin/blueprints', { method: 'POST', body: JSON.stringify({ slug: $('upSlug').value.trim(), html: await file.text(), uploadedBy: by }) });
+      const r = await api('/api/admin/blueprints', { method: 'POST', body: JSON.stringify({ slug: $('upSlug').value.trim(), name: $('upName').value.trim(), html: await file.text(), uploadedBy: by }) });
       selected = r.slug; history.replaceState(null, '', '#' + r.slug); await load(); status('Blueprint uploaded');
     } catch (err) { $('upErr').textContent = err.message; } finally { btn.disabled = false; }
   });
@@ -327,17 +342,17 @@ function renderDetail(bp) {
   const built = bp.source === 'builder';
   const stateLine = !bp.published ? 'Not published yet.' : built ? `Published ${esc(when(bp.published_at))}${bp.uploaded_by ? ' by ' + esc(bp.uploaded_by) : ''}.` : `File ${bp.uploaded_by ? 'uploaded by ' + esc(bp.uploaded_by) + ', ' : 'updated '}${esc(when(bp.updated_at))}.`;
   $('main').innerHTML = `
-    <h2>${esc(bp.title)}</h2>
+    <h2>${esc(nameOf(bp))}</h2>
     <div class="metaline">
       <p class="sub">${bp.published ? (lastClient ? `Last opened by ${esc(lastClient.label)}, ${esc(when(lastClient.opened_at))}. ` : 'Not opened by a client yet. ') : ''}${stateLine}</p>
-      ${built ? `<button class="primary" id="editBp" style="height:36px">Edit blueprint</button>` : `<label class="ghost" style="margin:0;cursor:pointer">Replace file<input id="replaceFile" type="file" accept=".html,.htm,text/html" hidden></label>`}
+      ${built ? `<button class="primary" id="editBp" style="height:36px">Edit blueprint</button>` : `<button class="ghost" id="renameBp">Rename</button><label class="ghost" style="margin:0;cursor:pointer">Replace file<input id="replaceFile" type="file" accept=".html,.htm,text/html" hidden></label>`}
     </div>
     ${built && bp.unpublished_changes && bp.published ? '<div class="warnbox">This blueprint has saved changes that aren’t published yet. Clients still see the last published version.</div>' : ''}
     <div id="replaceMsg"></div>
     ${bp.published ? `
     <section class="blk">
       <h3>Share a team link</h3>
-      <p class="sub" style="margin:-6px 0 12px">One link per team. Everyone on a client team uses the same link and ticks the same checklist. Lean team links show the client team’s progress, read only.</p>
+      <p class="sub" style="margin:-6px 0 12px">One link per team. Everyone on a client team uses the same link and ticks the same checklist. To check a client team’s progress yourself, use <b>View progress</b> on their row: it opens their page read only and isn’t counted as a visit.</p>
       <form class="share" id="shareForm">
         <div><label for="label">Team</label><input id="label" type="text" maxlength="80" placeholder="e.g. Wise" required></div>
         <div><label for="kind">Type</label><select id="kind"><option value="client">Client team</option><option value="internal">Lean team</option></select></div>
@@ -361,9 +376,10 @@ function renderDetail(bp) {
             <td class="num" title="${esc(full(l.last_view))}">${l.last_view ? esc(when(l.last_view)) : '<span class="never">Not opened</span>'}</td>
             <td class="num">${l.kind === 'client' ? (bp.items ? `${l.done} of ${bp.items}` : '') : '<span class="never">Read only</span>'}</td>
             <td><div class="actions">
+              ${!l.revoked_at && l.kind === 'client' ? `<button class="ghost" data-viewlink="${esc(l.token)}" title="Opens ${esc(l.label)}’s page with their progress, read only. Not counted as a visit.">View progress</button>` : ''}
               ${l.revoked_at ? '' : `<button class="ghost" data-copy="${esc(l.token)}">Copy link</button>`}
               <button class="ghost ${l.revoked_at ? '' : 'danger'}" data-revoke="${esc(l.token)}" data-state="${l.revoked_at ? 'revoked' : 'active'}">${l.revoked_at ? 'Restore' : 'Revoke'}</button>
-              ${l.revoked_at ? `<button class="ghost danger" data-dellink="${esc(l.token)}" data-label="${esc(l.label)}" data-views="${l.views}">Delete</button>` : ''}
+              <button class="ghost danger" data-dellink="${esc(l.token)}" data-label="${esc(l.label)}" data-views="${l.views}" data-active="${l.revoked_at ? '' : '1'}">Delete</button>
             </div></td>
           </tr>`).join('')}</tbody></table></div>`
         : `<div class="empty">${revokedCount ? `No active links. Tick “Show revoked links” to see the ${revokedCount} revoked.` : 'No links yet.'}</div>`}
@@ -386,12 +402,18 @@ function renderDetail(bp) {
       </div>
     </section>`;
 
+  if (!built) $('renameBp').addEventListener('click', async () => {
+    const name = prompt('Name shown in the admin page, usually the client’s name:', nameOf(bp));
+    if (name === null || !name.trim() || name.trim() === nameOf(bp)) return;
+    try { await api('/api/admin/blueprints', { method: 'PATCH', body: JSON.stringify({ slug: bp.slug, name: name.trim() }) }); await load(); status('Renamed'); }
+    catch (err) { status(err.message); }
+  });
   if (built) $('editBp').addEventListener('click', async () => {
     try { openEditor(await api('/api/admin/builder?slug=' + encodeURIComponent(bp.slug))); } catch (err) { status(err.message); }
   });
   else $('replaceFile').addEventListener('change', async (e) => {
     const file = e.target.files[0]; if (!file) return;
-    if (!confirm(`Replace the file for "${bp.title}" with ${file.name}? Clients with a link will see the new version straight away.`)) { e.target.value = ''; return; }
+    if (!confirm(`Replace the file for "${nameOf(bp)}" with ${file.name}? Clients with a link will see the new version straight away.`)) { e.target.value = ''; return; }
     try {
       const r = await api('/api/admin/blueprints', { method: 'POST', body: JSON.stringify({ slug: bp.slug, html: await file.text(), uploadedBy: byName(), replace: true }) });
       await load(); status('File replaced');
@@ -409,14 +431,22 @@ function renderDetail(bp) {
     } catch (err) { $('shareErr').textContent = err.message; } finally { btn.disabled = false; }
   });
   const sr = $('showRevoked'); if (sr) sr.addEventListener('change', () => { showRevoked = sr.checked; render(); });
+  document.querySelectorAll('[data-viewlink]').forEach((el) => el.addEventListener('click', async () => {
+    const w = window.open('', '_blank');
+    try {
+      const { url } = await api('/api/admin/view', { method: 'POST', body: JSON.stringify({ token: el.dataset.viewlink }) });
+      if (w) w.location = url; else location.assign(url);
+    } catch (err) { if (w) w.close(); status(err.message); }
+  }));
   document.querySelectorAll('[data-dellink]').forEach((el) => el.addEventListener('click', async () => {
     const n = Number(el.dataset.views);
-    if (!confirm(`Delete the link for ${el.dataset.label}? Its ${n} ${n === 1 ? 'visit' : 'visits'} and its checklist ticks are deleted too. This can’t be undone.`)) return;
+    const live = el.dataset.active ? `This link is active: it stops working for ${el.dataset.label} straight away. ` : '';
+    if (!confirm(`Delete the link for ${el.dataset.label}? ${live}Its ${n} ${n === 1 ? 'visit' : 'visits'} and its checklist ticks are deleted too. This can’t be undone.`)) return;
     try { await api('/api/admin/links', { method: 'DELETE', body: JSON.stringify({ token: el.dataset.dellink }) }); await load(); status('Link deleted'); }
     catch (err) { status(err.message); }
   }));
   $('delBp').addEventListener('click', async () => {
-    const typed = prompt(`To delete "${bp.title}" and everything attached to it, type its short name: ${bp.slug}`);
+    const typed = prompt(`To delete "${nameOf(bp)}" and everything attached to it, type its short name: ${bp.slug}`);
     if (typed === null) return;
     if (typed.trim() !== bp.slug) { status('The short name didn’t match, so nothing was deleted.'); return; }
     try {

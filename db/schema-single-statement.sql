@@ -63,5 +63,10 @@ BEGIN
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (token, item)
   );
+
+  -- Display name in the admin page: the client's name (added in the naming update).
+  ALTER TABLE blueprints ADD COLUMN IF NOT EXISTS name TEXT;
+  UPDATE blueprints SET name = nullif(trim(draft -> 'client' ->> 'name'), '') WHERE name IS NULL AND source = 'builder';
+  UPDATE blueprints SET name = regexp_replace(title, '\s+([A-Z]{2,4}\s+)?Integration Blueprint.*$', '') WHERE name IS NULL;
 END
 $$;
