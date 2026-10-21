@@ -74,3 +74,6 @@ CREATE TABLE IF NOT EXISTS team_checklist (
 ALTER TABLE blueprints ADD COLUMN IF NOT EXISTS name TEXT;
 UPDATE blueprints SET name = nullif(trim(draft -> 'client' ->> 'name'), '') WHERE name IS NULL AND source = 'builder';
 UPDATE blueprints SET name = regexp_replace(title, '\s+([A-Z]{2,4}\s+)?Integration Blueprint.*$', '') WHERE name IS NULL;
+
+-- Phases and guide checklists read from the published page, for the admin progress breakdown.
+ALTER TABLE blueprints ADD COLUMN IF NOT EXISTS structure JSONB;

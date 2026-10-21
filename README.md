@@ -79,6 +79,10 @@ Blueprints are listed by client name, in two groups: **Published** and **Not pub
 - **Deleting a link** permanently removes it with its visits and checklist ticks. An active link stops working straight away, so use **Revoke** instead if you might want it back.
 - **Deleting a blueprint** (at the bottom of its page) permanently removes it with all its links, visits and checklist ticks. You type its short name to confirm.
 
+## Progress in the admin page
+
+Each published blueprint's page in `/admin` has a **Progress** section. For the chosen client team, it shows overall progress, each phase with its bar and count, and each guide within the phase. Expand a guide to see every item and when it was ticked. The phases and guides are read from the page when it's uploaded or published.
+
 ## Phase progress
 
 Each card under **Delivery phases** shows how many guide checklist items in that phase are done, for the team whose page it is. Form-built blueprints set this up automatically from the products in each phase. In an uploaded file, add `data-panels` to a phase card with the ids of its guide panels, for example `<div class="phase" data-panels="otp rec">`. Phases without guide checklists show no progress.

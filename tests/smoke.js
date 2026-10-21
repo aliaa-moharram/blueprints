@@ -210,6 +210,19 @@ try {
   r = await admin('/api/admin/links', { method: 'POST', body: JSON.stringify({ slug: SLUG, label: 'Lean again', kind: 'internal' }) });
   assert.equal((await admin('/api/admin/view', { method: 'POST', body: JSON.stringify({ token: (await r.json()).token }) })).status, 400); ok('view progress is only offered for client team links');
 
+  // Progress breakdown for the admin page
+  assert.equal((await fetch(`${BASE}/api/admin/progress?slug=${SLUG}`)).status, 401); ok('the progress breakdown needs the admin password');
+  let pgr = await (await admin(`/api/admin/progress?slug=${SLUG}`)).json();
+  assert.deepEqual(pgr.structure.loose.map((i) => i.key), ['sample-1', 'sample-2']); ok('lists checklist items for a file without phases');
+  const tc = pgr.teams.find((t) => t.label === 'Test client');
+  assert.equal(tc.items['sample-1'].done, true); ok('shows each client team’s ticks');
+  assert.ok(!pgr.teams.some((t) => t.label === 'Second team')); ok('revoked teams are left out of the breakdown');
+  pgr = await (await admin(`/api/admin/progress?slug=${B}`)).json();
+  assert.equal(pgr.structure.phases[0].label, 'Phase 1'); assert.deepEqual(pgr.structure.phases[0].panels, ['otp']);
+  assert.equal(pgr.structure.panels.otp.items.length, 6); assert.equal(pgr.structure.panels.otp.name, 'One-Time Payments'); ok('a form blueprint’s phases and guides are read on publish');
+  assert.equal(pgr.teams[0].items['otp-2'].done, true); ok('the breakdown shows ticks per guide item');
+  assert.equal((await admin('/api/admin/progress?slug=no-such-blueprint')).status, 404); ok('the breakdown reports a missing blueprint');
+
   // Deleting links and blueprints
   const D = 'del-' + Date.now().toString(36);
   await upload({ slug: D, html: sample });

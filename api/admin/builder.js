@@ -9,6 +9,7 @@ import { requireAdmin } from '../../lib/auth.js';
 import { query } from '../../lib/db.js';
 import { SLUG_RE, MAX_BYTES, inspectHtml } from '../../lib/blueprints.js';
 import { renderBlueprint } from '../../lib/render.js';
+import { parseStructure } from '../../lib/structure.js';
 
 const clientName = (c) => (c && c.client && typeof c.client.name === 'string' ? c.client.name.trim() : '');
 const by = (v) => (typeof v === 'string' ? v.trim().slice(0, 80) || null : null);
@@ -72,9 +73,9 @@ export default handler(['GET', 'POST'], async (req, res) => {
     if (info.problems.length) throw httpError(400, info.problems.join(' '));
     await query(
       `UPDATE blueprints SET draft = $2, draft_updated_at = now(), title = $3, html = $4, items = $5,
-              size_bytes = $6, uploaded_by = $7, published_at = now(), updated_at = now(), name = $8
+              size_bytes = $6, uploaded_by = $7, published_at = now(), updated_at = now(), name = $8, structure = $9
         WHERE slug = $1`,
-      [slug, content, title, html, info.items, info.size, by(body.by), clientName(content)],
+      [slug, content, title, html, info.items, info.size, by(body.by), clientName(content), parseStructure(html)],
     );
     return send(res, 200, await loadRow(slug));
   }

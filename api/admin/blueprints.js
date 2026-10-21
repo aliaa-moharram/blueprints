@@ -8,6 +8,7 @@ import { handler, readJson, send, httpError } from '../../lib/http.js';
 import { requireAdmin } from '../../lib/auth.js';
 import { query, withTransaction } from '../../lib/db.js';
 import { SLUG_RE, MAX_BYTES, inspectHtml, loadMeta, deriveName, cleanName } from '../../lib/blueprints.js';
+import { parseStructure } from '../../lib/structure.js';
 
 export default handler(['POST', 'PATCH', 'DELETE'], async (req, res) => {
   requireAdmin(req);
@@ -59,11 +60,11 @@ export default handler(['POST', 'PATCH', 'DELETE'], async (req, res) => {
   // Name: what was typed, else the existing name when replacing, else taken from the page title.
   const name = cleanName(body.name) || (existing && existing.name !== existing.title ? existing.name : '') || deriveName(info.title);
   await query(
-    `INSERT INTO blueprints (slug, title, html, items, size_bytes, uploaded_by, published_at, name)
-     VALUES ($1, $2, $3, $4, $5, $6, now(), $7)
+    `INSERT INTO blueprints (slug, title, html, items, size_bytes, uploaded_by, published_at, name, structure)
+     VALUES ($1, $2, $3, $4, $5, $6, now(), $7, $8)
      ON CONFLICT (slug) DO UPDATE SET title = EXCLUDED.title, html = EXCLUDED.html, items = EXCLUDED.items,
-       size_bytes = EXCLUDED.size_bytes, uploaded_by = EXCLUDED.uploaded_by, updated_at = now(), published_at = now(), name = EXCLUDED.name`,
-    [slug, info.title, html, info.items, info.size, by, name],
+       size_bytes = EXCLUDED.size_bytes, uploaded_by = EXCLUDED.uploaded_by, updated_at = now(), published_at = now(), name = EXCLUDED.name, structure = EXCLUDED.structure`,
+    [slug, info.title, html, info.items, info.size, by, name, parseStructure(html)],
   );
 
   // Keys that had saved ticks but are missing from the new file.
