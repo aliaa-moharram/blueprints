@@ -49,7 +49,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 .side h2{font-size:13px;font-weight:700;color:var(--muted);margin:0 8px 10px}
 .grouph{font-size:12.5px;font-weight:700;color:var(--muted);margin:18px 12px 6px;display:flex;gap:6px;align-items:center}
 .grouph span{font-weight:600;background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:0 7px;font-size:11.5px}
-.addbp{width:100%;margin:0 0 12px;text-align:left;padding:10px 12px;border-radius:10px;font-size:14px}
+.addbp{width:100%;margin:0 0 8px;text-align:left;padding:10px 12px;border-radius:10px;font-size:14px}
 .bp{display:block;width:100%;text-align:left;border:0;background:transparent;border-radius:10px;padding:11px 12px;cursor:pointer;margin-bottom:2px}
 .bp:hover{background:var(--paper)}
 .bp[aria-current="true"]{background:var(--mint)}
@@ -125,8 +125,37 @@ td .by{font-size:12.5px;color:var(--muted)}
 .hint{font-size:12.5px;color:var(--muted);margin-top:5px}
 input[type=file]{width:100%;font-size:14px}
 /* editor */
-.edbar{position:sticky;top:0;z-index:20;background:var(--paper);display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 0;margin:-14px 0 18px;border-bottom:1px solid var(--line)}
-.edbar h2{font-size:22px !important;margin:0 !important;flex:1;min-width:200px}
+.startopts{display:grid;gap:10px}
+.startopts .opt{align-items:flex-start;flex-wrap:wrap}
+.tabs{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.tabs button{border:0;background:transparent;padding:7px 14px;font-weight:600;font-size:13.5px;cursor:pointer}
+.tabs button[aria-pressed="true"]{background:var(--forest);color:#fff}
+details.more{border-top:1px dashed var(--line);padding-top:10px}
+details.more>summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--muted);list-style:none}
+details.more>summary::-webkit-details-marker{display:none}
+details.more>summary::before{content:"+ "}
+details.more[open]>summary::before{content:"− "}
+details.more>.morebody{display:grid;gap:14px;margin-top:12px}
+.plan{display:grid;gap:0;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.prow{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1.3fr) minmax(0,1fr);gap:12px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line)}
+.prow:last-child{border-bottom:0}
+.prow .pn{font-weight:700;font-size:14px}
+.prow .pn small{display:block;font-weight:500;color:var(--muted);font-size:12.5px}
+.prow select,.prow input{height:38px}
+.prow.off .pn{opacity:.6}
+.prow .more{grid-column:1/-1}
+.planhead{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1.3fr) minmax(0,1fr);gap:12px;padding:0 14px 6px;font-size:12.5px;font-weight:600;color:var(--muted)}
+.review{background:#eef6ff;color:#173a5e;border-radius:12px;padding:12px 14px;font-size:13.5px;margin:0 0 16px;display:flex;gap:12px;align-items:flex-start}
+.review div{flex:1}
+.review ul{margin:6px 0 0;padding-left:18px}
+@media (prefers-color-scheme:dark){.review{background:#16283a;color:#cfe3f7}}
+.pageframe{width:100%;height:calc(100vh - 170px);min-height:520px;border:1px solid var(--line);border-radius:14px;background:#fff}
+@media (max-width:860px){.prow,.planhead{grid-template-columns:1fr}.planhead{display:none}}
+.edbar{position:sticky;top:0;z-index:20;background:var(--paper);display:grid;gap:10px;padding:14px 0;margin:-14px 0 18px;border-bottom:1px solid var(--line)}
+.edbar .edtitle{display:flex;align-items:center;gap:10px;min-width:0}
+.edbar h2{font-size:22px !important;margin:0 !important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.edbar .edtools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.edbar .edtools .spacer{flex:1}
 .pill-st{font-size:12.5px;font-weight:600;border-radius:999px;padding:3px 10px;background:var(--line)}
 .pill-st.live{background:var(--mint)}
 .pill-st.dirty{background:#fff4e5;color:#7a4b00}
@@ -196,13 +225,17 @@ details.sec[open]>summary::after{content:"Hide"}
 </div>
 <script type="module">
 import { resolveAccent, LEAN_ACCENT } from '/theme.js';
+import { syncPlan, planFromRows } from '/plan.js';
 
 const KEY = 'leanbp-admin';
 let password = sessionStorage.getItem(KEY) || '';
 let data = null;
 let products = [];
+let verticals = [];
+let drafting = false;
 const NEW = '__new';
-let selected = location.hash === '#new' ? NEW : (location.hash.slice(1).replace(/^edit:/, '') || null);
+const VERT = '__verticals';
+let selected = location.hash === '#new' ? NEW : location.hash === '#verticals' ? VERT : (location.hash.slice(1).replace(/^edit:/, '') || null);
 let editor = null; // { slug, draft, dirty, row, open:Set }
 let showRevoked = false;
 const progressTeam = {}; // slug -> chosen client team token
@@ -229,9 +262,10 @@ $('signout').addEventListener('click', () => { if (confirmLeave()) signOut(); })
 
 async function load() {
   const [ov, lib] = await Promise.all([api('/api/admin/overview'), products.length ? null : api('/api/admin/products')]);
-  data = ov; if (lib) products = lib.products;
+  data = ov; if (lib) { products = lib.products; drafting = !!lib.drafting; }
+  verticals = (await api('/api/admin/verticals')).verticals;
   $('signin').hidden = true; $('app').hidden = false; $('signout').hidden = false;
-  if (!editor && selected !== NEW && !data.blueprints.some((b) => b.slug === selected)) selected = data.blueprints[0]?.slug || NEW;
+  if (!editor && selected !== NEW && selected !== VERT && !data.blueprints.some((b) => b.slug === selected)) selected = data.blueprints[0]?.slug || NEW;
   render();
 }
 
@@ -253,6 +287,7 @@ const device = (ua) => {
   const br = /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : '';
   return [br, os].filter(Boolean).join(' on ');
 };
+const SLUG_OK = /^[a-z0-9][a-z0-9-]{0,62}$/;
 const slugify = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 63);
 
 const clientTeams = (slug) => data.links.filter((l) => l.slug === slug && l.kind === 'client' && !l.revoked_at);
@@ -276,13 +311,15 @@ function render() {
   const pub = data.blueprints.filter((b) => b.published);
   const draft = data.blueprints.filter((b) => !b.published);
   const group = (label, list) => list.length ? `<h3 class="grouph">${label} <span>${list.length}</span></h3>${list.map(item).join('')}` : '';
-  $('bpList').innerHTML = `<button class="ghost addbp" id="addBp" aria-current="${selected === NEW}">Add a blueprint</button>` + (data.blueprints.length
+  $('bpList').innerHTML = `<button class="ghost addbp" id="addBp" aria-current="${selected === NEW}">Add a blueprint</button><button class="ghost addbp" id="vertBtn" aria-current="${selected === VERT}">Verticals</button>` + (data.blueprints.length
     ? group('Published', pub) + group('Not published yet', draft)
     : '<p class="s" style="margin:0 8px;color:var(--muted)">No blueprints yet.</p>');
   $('addBp').addEventListener('click', () => go(NEW));
+  $('vertBtn').addEventListener('click', () => go(VERT));
   document.querySelectorAll('.bp').forEach((el) => el.addEventListener('click', () => go(el.dataset.slug)));
   if (editor) return renderEditor();
   if (selected === NEW) return renderAdd();
+  if (selected === VERT) return renderVerticals();
   const bp = data.blueprints.find((b) => b.slug === selected);
   if (!bp) return renderAdd();
   renderDetail(bp);
@@ -290,10 +327,14 @@ function render() {
 function go(slug) {
   if (!confirmLeave()) return;
   editor = null; selected = slug;
-  history.replaceState(null, '', slug === NEW ? '#new' : '#' + slug);
+  history.replaceState(null, '', slug === NEW ? '#new' : slug === VERT ? '#verticals' : '#' + slug);
   render();
 }
-function confirmLeave() { return !editor || !editor.dirty || confirm('You have unsaved changes. Leave without saving?'); }
+function confirmLeave() {
+  if (selected === VERT && vstate && vstate.dirty.size && !confirm('You have unsaved changes to verticals. Leave without saving?')) return false;
+  if (selected === VERT) vstate = null;
+  return !editor || !editor.dirty || confirm('You have unsaved changes. Leave without saving?');
+}
 window.addEventListener('beforeunload', (e) => { if (editor && editor.dirty) { e.preventDefault(); e.returnValue = ''; } });
 
 // ---------- add a blueprint ----------
@@ -304,8 +345,18 @@ function renderAdd() {
     <div class="choices">
       <form class="choice" id="buildForm">
         <h3>Build with the form</h3>
-        <p>Fill in each section, preview it as the client will see it, then publish.</p>
+        <p>Pick a starting point, then review it in the form or on the page before publishing.</p>
         <div><label for="bName">Client name</label><input id="bName" type="text" maxlength="80" placeholder="e.g. Acme Remit" required></div>
+        <div><div class="subhead" style="margin:0 0 8px">Start from</div>
+          <div class="startopts">
+            <label class="opt"><input type="radio" name="bStart" value="tpl" checked> Standard template for <select id="bVertical" style="height:34px;width:auto;margin-left:6px" aria-label="Vertical">${verticals.map((v) => `<option value="${esc(v.id)}">${esc(v.name)}${v.painRows.length ? '' : ' (no pain points yet)'}</option>`).join('')}</select>
+              <span class="hint" style="display:block;margin:2px 0 0 23px">Journeys and a three-phase launch plan, with the vertical’s pain points and use cases. Edit verticals on the Verticals page.</span></label>
+            ${data.blueprints.some((b) => b.source === 'builder') ? `<label class="opt"><input type="radio" name="bStart" value="copy"> A copy of <select id="bCopy" style="height:34px;width:auto;margin-left:6px">${data.blueprints.filter((b) => b.source === 'builder').map((b) => `<option value="${esc(b.slug)}">${esc(nameOf(b))}</option>`).join('')}</select></label>` : ''}
+            <label class="opt"><input type="radio" name="bStart" value="notes"${drafting ? '' : ' disabled'}> Meeting notes, drafted by Claude${drafting ? '' : '<span class="hint" style="display:block;margin:2px 0 0 23px">Switched off: add ANTHROPIC_API_KEY in Vercel to use it.</span>'}</label>
+            <label class="opt"><input type="radio" name="bStart" value="blank"> Blank</label>
+          </div></div>
+        <div id="bNotesBox" hidden><label for="bNotes">Meeting notes</label><textarea id="bNotes" rows="8" placeholder="Paste meeting notes or a call transcript. The draft only uses what's in them."></textarea>
+          <div class="hint">The notes are sent to Anthropic's API to draft the content. Nothing is published until you review it.</div></div>
         <div><label for="bSlug">Short name</label><input id="bSlug" type="text" maxlength="63" placeholder="e.g. acme-remit" required>
           <div class="hint">Lowercase letters, digits and hyphens. Only your team sees it.</div></div>
         <div><label for="bBy">Your name</label><input id="bBy" type="text" maxlength="80" value="${esc(byName())}"></div>
@@ -327,15 +378,26 @@ function renderAdd() {
   let slugTouched = false;
   $('bSlug').addEventListener('input', () => { slugTouched = true; });
   $('bName').addEventListener('input', () => { if (!slugTouched) $('bSlug').value = slugify($('bName').value); });
+  document.querySelectorAll('input[name="bStart"]').forEach((r) => r.addEventListener('change', () => { $('bNotesBox').hidden = !(r.value === 'notes' && r.checked); }));
   $('buildForm').addEventListener('submit', async (e) => {
     e.preventDefault(); const btn = e.submitter; btn.disabled = true; $('bErr').textContent = '';
     const by = $('bBy').value.trim(); localStorage.setItem('leanbp-by', by);
     const slug = $('bSlug').value.trim();
+    const clientName = $('bName').value.trim();
+    const start = (document.querySelector('input[name="bStart"]:checked') || {}).value || 'blank';
     try {
-      const content = newContent($('bName').value.trim(), by);
-      const row = await api('/api/admin/builder', { method: 'POST', body: JSON.stringify({ action: 'create', slug, content, by }) });
+      const body = { action: 'create', slug, by, clientName };
+      if (start === 'tpl') { body.template = 'standard'; body.vertical = $('bVertical').value; }
+      else if (start === 'copy') body.copyFrom = $('bCopy').value;
+      else if (start === 'notes') {
+        if (!SLUG_OK.test(slug)) throw new Error('Use a short name with lowercase letters, digits and hyphens, e.g. "acme-remit".');
+        btn.textContent = 'Drafting from your notes… up to a minute';
+        const { content } = await api('/api/admin/draft', { method: 'POST', body: JSON.stringify({ notes: $('bNotes').value, clientName }) });
+        content.meta.preparedBy = by; body.content = content;
+      } else body.content = newContent(clientName, by);
+      const row = await api('/api/admin/builder', { method: 'POST', body: JSON.stringify(body) });
       await load(); openEditor(row);
-    } catch (err) { $('bErr').textContent = err.message; } finally { btn.disabled = false; }
+    } catch (err) { $('bErr').textContent = err.message; } finally { btn.disabled = false; btn.textContent = 'Start blueprint'; }
   });
   $('upFile').addEventListener('change', async (e) => {
     const f = e.target.files[0]; if (!f) return;
@@ -356,11 +418,81 @@ function renderAdd() {
   });
 }
 
+// ---------- verticals page ----------
+function onVerticalField(e) {
+  if (selected !== VERT || !vstate) return;
+  const el = e.target; if (!el.dataset || el.dataset.v === undefined) return;
+  const vi = +el.dataset.v; const v = vstate.list[vi]; if (!v) return;
+  const val = el.dataset.lines ? el.value.split('\n').map((x) => x.trim()).filter(Boolean) : el.value;
+  const parts = el.dataset.f.split('.'); let t = v; for (const k of parts.slice(0, -1)) t = t[k]; t[parts[parts.length - 1]] = val;
+  vstate.dirty.add(vi);
+}
+async function onVerticalClick(e) {
+  if (selected !== VERT || !vstate) return;
+  const b = e.target.closest('button'); if (!b) return;
+  const d = b.dataset; const L = vstate.list;
+  if (d.vaddrow !== undefined) { L[+d.vaddrow].painRows.push({ group: 'business', pain: '', solve: '', advantage: '' }); vstate.dirty.add(+d.vaddrow); renderVerticals(); }
+  else if (d.vdelrow !== undefined) { L[+d.vdelrow].painRows.splice(+d.i, 1); vstate.dirty.add(+d.vdelrow); renderVerticals(); }
+  else if (d.vmove !== undefined) { const r = L[+d.vmove].painRows; const i = +d.i, j = i + +d.d; [r[i], r[j]] = [r[j], r[i]]; vstate.dirty.add(+d.vmove); renderVerticals(); }
+  else if (d.vsave !== undefined) {
+    const vi = +d.vsave; const v = L[vi]; $('vErr').textContent = '';
+    try {
+      const saved = await api('/api/admin/verticals', { method: 'POST', body: JSON.stringify({ id: v.id, name: v.name, painIntro: v.painIntro, painRows: v.painRows, useCases: v.useCases, by: byName() }) });
+      L[vi] = saved; vstate.dirty.delete(vi); verticals = (await api('/api/admin/verticals')).verticals; status(`${saved.name} saved`); renderVerticals();
+    } catch (err) { $('vErr').textContent = err.message; }
+  } else if (d.vdel !== undefined) {
+    const vi = +d.vdel; const v = L[vi];
+    if (!confirm(`Delete the ${v.name || 'new'} vertical? Blueprints already made from it keep their content.`)) return;
+    try {
+      if (v.id) await api('/api/admin/verticals', { method: 'DELETE', body: JSON.stringify({ id: v.id }) });
+      L.splice(vi, 1); vstate.dirty = new Set(); vstate.open = new Set(); verticals = (await api('/api/admin/verticals')).verticals; status('Vertical deleted'); renderVerticals();
+    } catch (err) { $('vErr').textContent = err.message; }
+  }
+}
+$('main').addEventListener('input', onVerticalField);
+$('main').addEventListener('change', onVerticalField);
+$('main').addEventListener('click', onVerticalClick);
+
+let vstate = null; // { list: [...], dirty: Set(index), open: Set(index) }
+function renderVerticals() {
+  if (!vstate) vstate = { list: JSON.parse(JSON.stringify(verticals)), dirty: new Set(), open: new Set() };
+  const L = vstate.list;
+  const vrow = (vi, r, i, n) => `<div class="item">
+      <div class="itemhead"><strong>Row ${i + 1}</strong>
+        <button type="button" class="ghost" data-vmove="${vi}" data-i="${i}" data-d="-1"${i === 0 ? ' disabled' : ''}>Up</button>
+        <button type="button" class="ghost" data-vmove="${vi}" data-i="${i}" data-d="1"${i === n - 1 ? ' disabled' : ''}>Down</button>
+        <button type="button" class="ghost danger" data-vdelrow="${vi}" data-i="${i}">Remove</button></div>
+      <div class="g2"><div><label>Group</label><select data-v="${vi}" data-f="painRows.${i}.group"><option value="business"${r.group !== 'technical' ? ' selected' : ''}>Business impact</option><option value="technical"${r.group === 'technical' ? ' selected' : ''}>Technical &amp; operational</option></select></div></div>
+      <div class="g3">${['pain', 'solve', 'advantage'].map((k) => `<div><label>${{ pain: 'Pain point or opportunity', solve: 'How Lean solves it', advantage: 'Advantage' }[k]}</label><textarea data-v="${vi}" data-f="painRows.${i}.${k}" rows="3">${esc(r[k])}</textarea></div>`).join('')}</div></div>`;
+  $('main').innerHTML = `
+    <h2>Verticals</h2>
+    <p class="sub">Each vertical’s pain points, introduction and use cases. New blueprints started from the standard template pick them up; blueprints already made keep their own copy. Use {client} where the client’s name should go, and **double asterisks** for bold.</p>
+    <div class="err" id="vErr" role="alert"></div>
+    ${L.map((v, vi) => `<details class="sec" data-vsec="${vi}"${vstate.open.has(vi) ? ' open' : ''}>
+      <summary><span>${esc(v.name || 'New vertical')} <span class="cnt">${v.painRows.length} ${v.painRows.length === 1 ? 'pain point' : 'pain points'}, ${v.useCases.length} ${v.useCases.length === 1 ? 'use case' : 'use cases'}${vstate.dirty.has(vi) ? ', unsaved changes' : ''}</span></span></summary>
+      <div class="secbody">
+        <div class="g2"><div><label>Name</label><input type="text" data-v="${vi}" data-f="name" value="${esc(v.name)}" maxlength="60"></div></div>
+        <div><label>Introduction</label><textarea data-v="${vi}" data-f="painIntro" rows="3" placeholder="Shown above the pain points table">${esc(v.painIntro)}</textarea></div>
+        <div class="subhead">Pain points</div>
+        ${v.painRows.map((r, i) => vrow(vi, r, i, v.painRows.length)).join('') || '<div class="hint">No pain points yet.</div>'}
+        <div><button type="button" class="ghost" data-vaddrow="${vi}">Add a pain point</button></div>
+        <div><label>Use cases</label><textarea data-v="${vi}" data-f="useCases" data-lines="1" rows="3" placeholder="One per line, e.g. Wallet top-up">${esc(v.useCases.join('\n'))}</textarea><div class="hint">Shown as chips in the journeys section.</div></div>
+        <div style="display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap">
+          <button type="button" class="ghost danger" data-vdel="${vi}">Delete vertical</button>
+          <button type="button" class="primary" data-vsave="${vi}" style="height:38px">Save ${esc(v.name || 'vertical')}</button></div>
+        ${v.updatedAt ? `<div class="hint">Last saved ${esc(when(v.updatedAt))}${v.updatedBy ? ' by ' + esc(v.updatedBy) : ''}.</div>` : ''}
+      </div></details>`).join('')}
+    <div><button type="button" class="ghost" id="vAdd">Add a vertical</button></div>`;
+  $('main').querySelectorAll('details[data-vsec]').forEach((el) => el.addEventListener('toggle', () => { const i = +el.dataset.vsec; el.open ? vstate.open.add(i) : vstate.open.delete(i); }));
+  $('vAdd').addEventListener('click', () => { L.push({ id: '', name: '', painIntro: '', painRows: [], useCases: [] }); vstate.open.add(L.length - 1); vstate.dirty.add(L.length - 1); renderVerticals(); });
+}
+
 // ---------- blueprint page (links and visits) ----------
 function renderDetail(bp) {
   const allLinks = data.links.filter((l) => l.slug === bp.slug);
   const revokedCount = allLinks.filter((l) => l.revoked_at).length;
   const links = showRevoked ? allLinks : allLinks.filter((l) => !l.revoked_at);
+  const activeClient = allLinks.find((l) => l.kind === 'client' && !l.revoked_at);
   const visits = data.recent.filter((v) => v.slug === bp.slug);
   const lastClient = visits.find((v) => v.kind === 'client');
   const built = bp.source === 'builder';
@@ -376,10 +508,10 @@ function renderDetail(bp) {
     ${bp.published ? `
     <section class="blk">
       <h3>Share a team link</h3>
-      <p class="sub" style="margin:-6px 0 12px">One link per team. Everyone on a client team uses the same link and ticks the same checklist. <b>Open</b> on a client team’s row shows their page and progress, read only, and isn’t counted as a visit.</p>
+      <p class="sub" style="margin:-6px 0 12px">${activeClient ? `The client team is <b>${esc(activeClient.label)}</b>: each blueprint has one, and everyone on it uses the same link. You can still add Lean team links.` : 'Each blueprint has one client team link, used by everyone on the client team. Lean team links are read only.'} <b>Open</b> on a client team’s row shows their page and progress, read only, and isn’t counted as a visit.</p>
       <form class="share" id="shareForm">
         <div><label for="label">Team</label><input id="label" type="text" maxlength="80" placeholder="e.g. Wise" required></div>
-        <div><label for="kind">Type</label><select id="kind"><option value="client">Client team</option><option value="internal">Lean team</option></select></div>
+        <div><label for="kind">Type</label><select id="kind"><option value="client"${activeClient ? ' disabled' : ''}>Client team</option><option value="internal"${activeClient ? ' selected' : ''}>Lean team</option></select></div>
         <div><label for="by">Your name</label><input id="by" type="text" maxlength="80" value="${esc(byName())}"></div>
         <div><button class="primary" type="submit">Create link</button></div>
       </form>
@@ -492,7 +624,7 @@ const TPL = {
   painRow: () => ({ group: 'business', pain: '', solve: '', advantage: '' }),
   journey: () => ({ tag: '', title: '', feature: '', need: '', products: [], otherProducts: '', powers: '', alsoCovers: '', alsoImage: '', images: [], unconfirmed: false }),
   flow: () => ({ name: '', description: '', url: '' }),
-  card: () => ({ product: products[0]?.id || 'custom', status: 'scope', card: '', custom: { name: '', card: '' } }),
+  custom: () => ({ name: '', sub: '', apis: '', card: '', phase: 0, effort: '', note: '', showCard: true, linkLabel: '', linkUrl: '' }),
   phase: (n) => ({ label: 'Phase ' + n, title: '', chip: '', bullets: '', unconfirmed: false, rows: [] }),
   row: () => ({ product: products[0]?.id || 'custom', effort: '', note: '', link: { label: '', url: '' }, custom: { name: '', sub: '', apis: '' } }),
   total: () => ({ label: '', value: '' }),
@@ -504,8 +636,15 @@ function newContent(name, by) {
     pain: { intro: '', rows: [] },
     journeys: { title: '', intro: '', useCases: [], items: [] },
     design: { enabled: false, title: '', subtitle: '', name: '', description: '', fileUrl: '', images: [], flows: [] },
-    launch: { intro: '', products: [], phases: [TPL.phase(1)], note: '', totals: [], summary: '' },
+    launch: { intro: '', products: [], phases: [TPL.phase(1)], assign: {}, custom: [], note: '', totals: [], summary: '' },
   };
+}
+// Every library product gets an entry, so the form can set its phase.
+function preparePlan(d) {
+  planFromRows(d, products);
+  for (const p of products) if (!d.launch.assign[p.id]) d.launch.assign[p.id] = { phase: -1, effort: '', note: '', card: '', linkLabel: '', linkUrl: '' };
+  syncPlan(d, products);
+  return d;
 }
 // Fill any fields missing from older drafts.
 function withDefaults(c) {
@@ -518,17 +657,18 @@ function setP(o, path, v) { const ks = path.split('.'); const last = ks.pop(); c
 const lib = (id) => products.find((p) => p.id === id) || null;
 
 function openEditor(row) {
-  editor = { slug: row.slug, draft: withDefaults(row.draft), dirty: false, row, open: new Set(['basics']) };
+  editor = { slug: row.slug, draft: preparePlan(withDefaults(row.draft)), dirty: false, row, open: new Set(['basics']), tab: 'form' };
   selected = row.slug; history.replaceState(null, '', '#edit:' + row.slug);
   render();
 }
 
 // ---------- field helpers ----------
 const val = (p) => getP(editor.draft, p) ?? '';
-const fText = (p, label, o = {}) => `<div${o.wide ? ' style="grid-column:1/-1"' : ''}><label>${label}</label><input type="${o.type || 'text'}" data-k="${p}" value="${esc(val(p))}" placeholder="${esc(o.ph || '')}" maxlength="${o.max || 300}">${o.hint ? `<div class="hint">${o.hint}</div>` : ''}</div>`;
+const fText = (p, label, o = {}) => `<div${o.wide ? ' style="grid-column:1/-1"' : ''}>${label ? `<label>${label}</label>` : ''}<input type="${o.type || 'text'}" data-k="${p}" value="${esc(val(p))}" placeholder="${esc(o.ph || '')}" maxlength="${o.max || 300}"${o.aria ? ` aria-label="${esc(o.aria)}"` : ''}>${o.hint ? `<div class="hint">${o.hint}</div>` : ''}</div>`;
 const fArea = (p, label, o = {}) => `<div${o.wide !== false ? ' style="grid-column:1/-1"' : ''}><label>${label}</label><textarea data-k="${p}" rows="${o.rows || 3}" placeholder="${esc(o.ph || '')}" maxlength="${o.max || 3000}">${esc(val(p))}</textarea>${o.hint ? `<div class="hint">${o.hint}</div>` : ''}</div>`;
 const fLines = (p, label, o = {}) => `<div style="grid-column:1/-1"><label>${label}</label><textarea data-k="${p}" data-lines="1" rows="${o.rows || 3}" placeholder="${esc(o.ph || '')}">${esc((val(p) || []).join('\n'))}</textarea>${o.hint ? `<div class="hint">${o.hint}</div>` : ''}</div>`;
-const fSelect = (p, label, opts, o = {}) => `<div><label>${label}</label><select data-k="${p}"${o.rerender ? ' data-rerender="1"' : ''}>${opts.map(([v, t]) => `<option value="${esc(v)}"${String(val(p)) === String(v) ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></div>`;
+const fSelect = (p, label, opts, o = {}) => `<div>${label ? `<label>${label}</label>` : ''}<select data-k="${p}"${o.rerender ? ' data-rerender="1"' : ''}${o.int ? ' data-int="1"' : ''}${o.aria ? ` aria-label="${esc(o.aria)}"` : ''}>${opts.map(([v, t]) => `<option value="${esc(v)}"${String(val(p)) === String(v) ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></div>`;
+const more = (id, body, label = 'More options') => `<details class="more" data-more="${id}"${editor.moreOpen && editor.moreOpen.has(id) ? ' open' : ''}><summary>${label}</summary><div class="morebody">${body}</div></details>`;
 const fCheck = (p, label, o = {}) => `<label class="opt"><input type="checkbox" data-k="${p}"${o.rerender ? ' data-rerender="1"' : ''}${val(p) ? ' checked' : ''}> ${label}</label>`;
 const fRadio = (p, opts) => `<div class="opts">${opts.map(([v, t]) => `<label class="opt"><input type="radio" name="${p}" data-k="${p}" value="${v}" data-rerender="1"${val(p) === v ? ' checked' : ''}> ${t}</label>`).join('')}</div>`;
 function fImages(p, label, o) {
@@ -585,67 +725,84 @@ function renderEditor() {
       ${fArea(`journeys.items.${i}.feature`, `${esc(d.client.name || 'Client')} feature`, { rows: 2, hint: 'The existing client experience this journey starts from.' })}
       ${fArea(`journeys.items.${i}.need`, 'The need', { rows: 2 })}
       <div><div class="subhead">Lean products</div><div class="checks" style="margin-top:10px">${products.map((p) => `<label class="opt"><input type="checkbox" data-k="journeys.items.${i}.products" data-multi="${p.id}"${(x.products || []).includes(p.id) ? ' checked' : ''}> ${esc(p.name)}</label>`).join('')}</div></div>
-      ${fArea(`journeys.items.${i}.otherProducts`, 'Other products', { rows: 1, ph: 'One per line, for products not in the list' })}
       ${fArea(`journeys.items.${i}.powers`, 'How Lean powers it', { rows: 2, hint: BOLD })}
       ${fImages(`journeys.items.${i}.images`, 'Screenshots', { max: 2, width: 450, hint: 'Up to two app screens. Resized automatically.' })}
-      ${fArea(`journeys.items.${i}.alsoCovers`, 'Also covers (optional)', { rows: 2 })}
-      ${fImages(`journeys.items.${i}.alsoImage`, 'Image for “Also covers” (optional)', { single: true, width: 240 })}
-      <div>${fCheck(`journeys.items.${i}.unconfirmed`, 'Not confirmed yet (dashed outline)')}</div></div>`).join('')}
+      ${more(`j${i}`, `
+        ${fArea(`journeys.items.${i}.otherProducts`, 'Other products', { rows: 1, ph: 'One per line, for products not in the list' })}
+        ${fArea(`journeys.items.${i}.alsoCovers`, 'Also covers', { rows: 2 })}
+        ${fImages(`journeys.items.${i}.alsoImage`, 'Image for “Also covers”', { single: true, width: 240 })}
+        <div>${fCheck(`journeys.items.${i}.unconfirmed`, 'Not confirmed yet (dashed outline)')}</div>`)}</div>`).join('')}
     <div><button type="button" class="ghost" data-add="journeys.items" data-tpl="journey">Add a journey</button></div>`;
   const design = `
     <div>${fCheck('design.enabled', 'Include a design reference', { rerender: true })}</div>
     ${d.design.enabled ? `<div class="g2">${fText('design.title', 'Title', { ph: 'Design reference: UX best practices', max: 100 })}${fText('design.name', 'File name', { ph: `Lean x ${d.client.name || 'Client'}`, max: 100 })}</div>
     ${fText('design.fileUrl', 'Figma file link', { type: 'url', ph: 'https://www.figma.com/design/...', wide: true, max: 600, hint: 'Also used for Consent Management Interface rows that link to the Figma screens.' })}
-    ${fArea('design.subtitle', 'Subtitle', { rows: 2 })}${fArea('design.description', 'Description', { rows: 2 })}
+    ${more('design', `${fArea('design.subtitle', 'Subtitle', { rows: 2 })}${fArea('design.description', 'Description', { rows: 2 })}`)}
     ${fImages('design.images', 'Preview images', { max: 3, width: 360, hint: 'Up to three screens.' })}
     <div class="subhead">Flows</div>
     ${d.design.flows.map((f, i) => `<div class="item">${itemHead('design.flows', i, d.design.flows.length, 'Flow ' + (i + 1))}
       <div class="g3">${fText(`design.flows.${i}.name`, 'Name', { max: 80 })}${fText(`design.flows.${i}.description`, 'Description', { max: 200 })}${fText(`design.flows.${i}.url`, 'Figma link', { type: 'url', max: 600 })}</div></div>`).join('')}
     <div><button type="button" class="ghost" data-add="design.flows" data-tpl="flow">Add a flow</button></div>` : ''}`;
   const L = d.launch;
-  const rowEditor = (pi, r, ri, n) => {
-    const p = lib(r.product); const base = `launch.phases.${pi}.rows.${ri}`;
-    return `<div class="item" style="background:var(--card)">${itemHead(`launch.phases.${pi}.rows`, ri, n, p ? p.name : (r.custom.name || 'Custom product'))}
-      <div class="g2">${fSelect(`${base}.product`, 'Product', productOpts(), { rerender: true })}${fText(`${base}.effort`, 'Effort', { ph: p ? p.effort : 'e.g. ~1 week', max: 60 })}</div>
-      ${r.product === 'custom' ? `<div class="g2">${fText(`${base}.custom.name`, 'Name', { max: 80 })}${fText(`${base}.custom.sub`, 'Short label', { max: 80 })}</div>${fArea(`${base}.custom.apis`, 'APIs', { rows: 2, ph: 'One endpoint per line' })}` : ''}
-      ${fArea(`${base}.note`, 'Note under the APIs (optional)', { rows: 2, ph: p && p.apiNote ? p.apiNote.replaceAll('{client}', d.client.name || 'Client') : '', hint: p && p.apiNote ? 'Leave empty to use the standard note shown.' : '' })}
-      ${p && p.hasGuide ? '<div class="hint">The implementation guide is added automatically.</div>' : `<div class="g2">${fText(`${base}.link.label`, 'Link label (optional)', { max: 60, ph: p && p.linkFromDesign ? p.linkFromDesign : 'e.g. Checklist' })}${fText(`${base}.link.url`, 'Link', { type: 'url', max: 600, ph: p && p.linkFromDesign ? 'Uses the Figma file link if empty' : 'https://...' })}</div>`}</div>`;
+  const phaseOpts = [[-1, 'Not included']].concat(L.phases.map((ph, i) => [i, `${ph.label || 'Phase ' + (i + 1)}${ph.title ? ': ' + ph.title : ''}`]));
+  const prow = (p) => {
+    const a = L.assign[p.id] || {}; const base = `launch.assign.${p.id}`; const on = Number.isInteger(a.phase) && a.phase >= 0;
+    const showCard = typeof a.showCard === 'boolean' ? a.showCard : p.showCard;
+    return `<div class="prow${on ? '' : ' off'}">
+      <div class="pn">${esc(p.name)}<small>${esc(p.sub)}${p.hasGuide ? ', with guide' : ''}</small></div>
+      <div>${fSelect(`${base}.phase`, '', phaseOpts, { rerender: true, int: true, aria: `Phase for ${p.name}` })}</div>
+      <div>${on ? fText(`${base}.effort`, '', { ph: p.effort, max: 60, aria: `Effort for ${p.name}` }) : ''}</div>
+      ${on ? more(`p-${p.id}`, `
+        <label class="opt"><input type="checkbox" data-k="${base}.showCard" data-rerender="1"${showCard ? ' checked' : ''}> Show a product card</label>
+        ${showCard ? fArea(`${base}.card`, 'Card description', { rows: 2, ph: p.card, hint: 'Leave empty to use the standard description shown.' }) : ''}
+        ${fArea(`${base}.note`, 'Note under the APIs', { rows: 2, ph: p.apiNote ? p.apiNote.replaceAll('{client}', d.client.name || 'Client') : '', hint: p.apiNote ? 'Leave empty to use the standard note shown.' : '' })}
+        ${p.hasGuide ? '<div class="hint">The implementation guide is added automatically.</div>' : `<div class="g2">${fText(`${base}.linkLabel`, 'Link label', { max: 60, ph: p.linkFromDesign || 'e.g. Checklist' })}${fText(`${base}.linkUrl`, 'Link', { type: 'url', max: 600, ph: p.linkFromDesign ? 'Uses the Figma file link if empty' : 'https://...' })}</div>`}`) : ''}
+    </div>`;
   };
   const launch = `
-    ${fArea('launch.intro', 'Introduction', { rows: 2, ph: 'How the integration is delivered: the Lean products involved, what ships in each phase, the APIs behind it, and the effort to build.' })}
-    <div class="subhead">Lean products</div>
-    ${L.products.map((c, i) => { const p = lib(c.product); return `<div class="item">${itemHead('launch.products', i, L.products.length, p ? p.name : (c.custom.name || 'Custom product'))}
-      <div class="g2">${fSelect(`launch.products.${i}.product`, 'Product', productOpts(), { rerender: true })}${fSelect(`launch.products.${i}.status`, 'Status', [['scope', 'In scope'], ['future', 'Future']])}</div>
-      ${c.product === 'custom' ? fText(`launch.products.${i}.custom.name`, 'Name', { max: 80, wide: true }) : ''}
-      ${fArea(`launch.products.${i}.card`, 'Description (optional)', { rows: 2, ph: p ? p.card : 'What this product does for the client', hint: p ? 'Leave empty to use the standard description shown.' : '' })}</div>`; }).join('')}
-    <div><button type="button" class="ghost" data-add="launch.products" data-tpl="card">Add a product</button></div>
-    <div class="subhead">Phases and table</div>
+    <div class="subhead">Phases</div>
     ${L.phases.map((ph, i) => `<div class="item">${itemHead('launch.phases', i, L.phases.length, (ph.label || 'Phase') + (ph.title ? ': ' + ph.title : ''))}
-      <div class="g3">${fText(`launch.phases.${i}.label`, 'Label', { ph: 'Phase ' + (i + 1), max: 40 })}${fText(`launch.phases.${i}.title`, 'Title', { ph: 'e.g. Funding journey', max: 80 })}${fText(`launch.phases.${i}.chip`, 'Status tag in the table (optional)', { ph: 'e.g. In development, Q4', max: 40 })}</div>
+      <div class="g2">${fText(`launch.phases.${i}.label`, 'Label', { ph: 'Phase ' + (i + 1), max: 40 })}${fText(`launch.phases.${i}.title`, 'Title', { ph: 'e.g. Funding journey', max: 80 })}</div>
       ${fArea(`launch.phases.${i}.bullets`, 'Bullets', { rows: 2, ph: 'One per line', hint: BOLD })}
-      <div>${fCheck(`launch.phases.${i}.unconfirmed`, 'Not confirmed yet (dashed outline)')}</div>
-      <div class="subhead">Table rows</div>
-      ${ph.rows.map((r, ri) => rowEditor(i, r, ri, ph.rows.length)).join('')}
-      <div><button type="button" class="ghost" data-add="launch.phases.${i}.rows" data-tpl="row">Add a table row</button></div></div>`).join('')}
+      <div>${fCheck(`launch.phases.${i}.unconfirmed`, 'Not confirmed yet: dashed outline, and its products show as Future', { rerender: true })}</div>
+      ${more(`ph${i}`, fText(`launch.phases.${i}.chip`, 'Status tag in the table', { ph: 'e.g. In development, Q4', max: 40 }))}</div>`).join('')}
     <div><button type="button" class="ghost" data-add="launch.phases" data-tpl="phase">Add a phase</button></div>
-    ${fArea('launch.note', 'Note under the table (optional)', { rows: 3, hint: BOLD })}
+    <div class="subhead">Products</div>
+    <div class="hint" style="margin-top:-8px">Pick a phase for each product in scope. Product cards, table rows, endpoints, guides and effort fill in from the library.</div>
+    <div><div class="planhead"><span>Product</span><span>Phase</span><span>Effort</span></div><div class="plan">${products.map(prow).join('')}</div></div>
+    ${more('custom', `
+      <div class="subhead">Products not in the library</div>
+      ${L.custom.map((x, i) => `<div class="item">${itemHead('launch.custom', i, L.custom.length, x.name || 'Custom product')}
+        <div class="g2">${fText(`launch.custom.${i}.name`, 'Name', { max: 80 })}${fText(`launch.custom.${i}.sub`, 'Short label', { max: 80 })}</div>
+        <div class="g2">${fSelect(`launch.custom.${i}.phase`, 'Phase', phaseOpts, { int: true })}${fText(`launch.custom.${i}.effort`, 'Effort', { ph: 'e.g. ~1 week', max: 60 })}</div>
+        ${fArea(`launch.custom.${i}.apis`, 'APIs', { rows: 2, ph: 'One endpoint per line' })}
+        ${fArea(`launch.custom.${i}.card`, 'Card description', { rows: 2 })}
+        <div>${fCheck(`launch.custom.${i}.showCard`, 'Show a product card')}</div></div>`).join('')}
+      <div><button type="button" class="ghost" data-add="launch.custom" data-tpl="custom">Add a product not in the library</button></div>
+      ${fArea('launch.intro', 'Introduction', { rows: 2, ph: 'How the integration is delivered: the Lean products involved, what ships in each phase, the APIs behind it, and the effort to build.' })}
+      ${fArea('launch.note', 'Note under the table', { rows: 3, hint: BOLD })}`, 'More options: custom products, introduction, note')}
     <div class="subhead">Total implementation time</div>
     ${L.totals.map((t, i) => `<div class="item">${itemHead('launch.totals', i, L.totals.length, 'Line ' + (i + 1))}<div class="g2">${fText(`launch.totals.${i}.label`, 'Label', { ph: 'e.g. Phase 1, Funding', max: 120 })}${fText(`launch.totals.${i}.value`, 'Time', { ph: 'e.g. ~1-2 weeks', max: 120 })}</div></div>`).join('')}
     <div><button type="button" class="ghost" data-add="launch.totals" data-tpl="total">Add a line</button></div>
     ${fArea('launch.summary', 'Summary line (optional)', { rows: 2, hint: BOLD })}`;
 
+  const tab = editor.tab || 'form';
   $('main').innerHTML = `
-    <div class="edbar"><h2>${esc(d.client.name || row.title || row.slug)}</h2><span class="pill-st ${st[0]}" id="edState">${st[1]}</span>
-      <button class="ghost" id="edClose">Close</button><button class="ghost" id="edSave">Save draft</button><button class="ghost" id="edPreview">Preview</button><button class="primary" id="edPublish" style="height:36px">Publish</button></div>
+    <div class="edbar"><div class="edtitle"><h2>${esc(d.client.name || row.title || row.slug)}</h2><span class="pill-st ${st[0]}" id="edState">${st[1]}</span></div>
+      <div class="edtools"><div class="tabs" role="group" aria-label="Editor view"><button type="button" data-tab="form" aria-pressed="${tab === 'form'}">Form</button><button type="button" data-tab="page" aria-pressed="${tab === 'page'}">Edit on page</button></div>
+      <span class="spacer"></span><button class="ghost" id="edClose">Close</button><button class="ghost" id="edSave">Save draft</button><button class="ghost" id="edPreview">Preview</button><button class="primary" id="edPublish" style="height:36px">Publish</button></div></div>
     <div class="err" id="edErr" role="alert"></div>
-    <div id="edForm">
+    ${d.reviewNote ? `<div class="review"><div><b>Review before publishing.</b> ${esc(d.reviewNote)}${(d.draftQuestions || []).length ? `<div style="margin-top:8px"><b>Open questions from the notes:</b><ul>${d.draftQuestions.map((q) => `<li>${esc(q)}</li>`).join('')}</ul></div>` : ''}</div><button class="ghost" data-dismiss="reviewNote">Dismiss</button></div>` : ''}
+    ${tab === 'page' ? '<iframe id="edFrame" class="pageframe" title="Edit the blueprint on the page" sandbox="allow-scripts"></iframe>' : ''}
+    <div id="edForm"${tab === 'page' ? ' hidden' : ''}>
       ${section('basics', 'Basics', '', basics)}
       ${section('pain', 'Pain points & opportunities', d.pain.rows.length ? d.pain.rows.length + ' rows' : '', pain)}
       ${section('journeys', 'Journeys', d.journeys.items.length ? d.journeys.items.length + ' journeys' : '', journeys)}
       ${section('design', 'Design reference', d.design.enabled ? 'included' : 'not included', design)}
-      ${section('launch', 'Launch plan', L.phases.length + (L.phases.length === 1 ? ' phase' : ' phases'), launch)}
+      ${section('launch', 'Launch plan', `${L.phases.length} ${L.phases.length === 1 ? 'phase' : 'phases'}, ${Object.values(L.assign).filter((a) => Number.isInteger(a.phase) && a.phase >= 0).length + L.custom.filter((x) => x.name && x.phase >= 0).length} products`, launch)}
     </div>`;
   wireEditor();
+  if (tab === 'page') loadPage();
 }
 
 function rerender() { const y = window.scrollY; renderEditor(); window.scrollTo(0, y); }
@@ -654,6 +811,10 @@ function markDirty() { if (!editor.dirty) { editor.dirty = true; const s = $('ed
 function wireEditor() {
   const form = $('edForm');
   form.querySelectorAll('details.sec').forEach((el) => el.addEventListener('toggle', () => { el.open ? editor.open.add(el.dataset.sec) : editor.open.delete(el.dataset.sec); }));
+  editor.moreOpen = editor.moreOpen || new Set();
+  form.querySelectorAll('details.more').forEach((el) => el.addEventListener('toggle', () => { el.open ? editor.moreOpen.add(el.dataset.more) : editor.moreOpen.delete(el.dataset.more); }));
+  document.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { editor.tab = b.dataset.tab; rerender(); }));
+  document.querySelectorAll('[data-dismiss]').forEach((b) => b.addEventListener('click', () => { delete editor.draft.reviewNote; delete editor.draft.draftQuestions; markDirty(); rerender(); }));
   form.addEventListener('input', onField);
   form.addEventListener('change', onField);
   form.addEventListener('click', onClick);
@@ -680,20 +841,36 @@ function onField(e) {
   else if (el.type === 'checkbox') v = el.checked;
   else if (el.dataset.lines) v = el.value.split('\n').map((s) => s.trim()).filter(Boolean);
   else v = el.value;
+  if (el.dataset.int) v = parseInt(v, 10);
   setP(editor.draft, p, v); markDirty();
+  if (p.startsWith('launch.')) syncPlan(editor.draft, products);
   if (p === 'client.name') { $('tp').innerHTML = themePreview(); return; }
   if (el.dataset.rerender) rerender();
+}
+
+function remapPhases(fn) {
+  const L = editor.draft.launch;
+  for (const a of Object.values(L.assign || {})) if (Number.isInteger(a.phase) && a.phase >= 0) a.phase = fn(a.phase);
+  for (const x of L.custom || []) if (Number.isInteger(x.phase) && x.phase >= 0) x.phase = fn(x.phase);
 }
 
 async function onClick(e) {
   const b = e.target.closest('button'); if (!b) return;
   const d = editor.draft;
   if (b.dataset.add) {
-    const listv = getP(d, b.dataset.add); listv.push(TPL[b.dataset.tpl](listv.length + 1)); markDirty(); rerender();
+    const listv = getP(d, b.dataset.add); listv.push(TPL[b.dataset.tpl](listv.length + 1)); markDirty(); syncPlan(d, products); rerender();
   } else if (b.dataset.del) {
-    if (!confirm('Remove this?')) return; getP(d, b.dataset.del).splice(+b.dataset.i, 1); markDirty(); rerender();
+    if (!confirm(b.dataset.del === 'launch.phases' ? 'Remove this phase? Its products move to “Not included”.' : 'Remove this?')) return;
+    const i = +b.dataset.i;
+    getP(d, b.dataset.del).splice(i, 1);
+    if (b.dataset.del === 'launch.phases') remapPhases((x) => (x === i ? -1 : x > i ? x - 1 : x));
+    markDirty(); syncPlan(d, products); rerender();
   } else if (b.dataset.move) {
-    const l = getP(d, b.dataset.move); const i = +b.dataset.i; const j = i + +b.dataset.d; [l[i], l[j]] = [l[j], l[i]]; markDirty(); rerender();
+    const l = getP(d, b.dataset.move); const i = +b.dataset.i; const j = i + +b.dataset.d; [l[i], l[j]] = [l[j], l[i]];
+    if (b.dataset.move === 'launch.phases') remapPhases((x) => (x === i ? j : x === j ? i : x));
+    markDirty(); syncPlan(d, products); rerender();
+  } else if (b.dataset.dismiss) {
+    delete d[b.dataset.dismiss]; markDirty(); rerender();
   } else if (b.dataset.delimg) {
     const p = b.dataset.delimg; const v = getP(d, p);
     Array.isArray(v) ? v.splice(+b.dataset.i, 1) : setP(d, p, ''); markDirty(); rerender();
@@ -737,6 +914,7 @@ function shrink(file, maxW, kind) {
 async function save(action) {
   const btns = ['edSave', 'edPublish', 'edPreview'].map($); btns.forEach((b) => b && (b.disabled = true)); $('edErr').textContent = '';
   try {
+    syncPlan(editor.draft, products);
     const row = await api('/api/admin/builder', { method: 'POST', body: JSON.stringify({ action, slug: editor.slug, content: editor.draft, by: byName() }) });
     editor.row = row; editor.dirty = false;
     const ov = await api('/api/admin/overview'); data = ov;
@@ -748,6 +926,7 @@ async function save(action) {
 async function preview() {
   const w = window.open('', '_blank');
   try {
+    syncPlan(editor.draft, products);
     const { html } = await api('/api/admin/builder', { method: 'POST', body: JSON.stringify({ action: 'preview', content: editor.draft }) });
     const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
     if (w) w.location = url; else location.assign(url);
@@ -801,6 +980,39 @@ async function openLink(token, kind) {
     const { url } = await api('/api/admin/view', { method: 'POST', body: JSON.stringify({ token }) });
     if (w) w.location = url; else location.assign(url);
   } catch (err) { if (w) w.close(); status(err.message); }
+}
+
+// Text edited on the page (Edit on page tab) arrives here and updates the form content.
+const EDIT_PATH = /^[A-Za-z0-9_.-]+(#\d+)?$/;
+window.addEventListener('message', (e) => {
+  const f = $('edFrame');
+  if (!editor || !f || e.source !== f.contentWindow) return;
+  const m = e.data;
+  if (!m || m.type !== 'lb-edit' || typeof m.path !== 'string' || !EDIT_PATH.test(m.path)) return;
+  const value = String(m.value ?? '').slice(0, 3000);
+  const d = editor.draft;
+  if (m.path.includes('#')) {
+    const [path, k] = m.path.split('#');
+    const lines = String(getP(d, path) || '').split('\n').map((x) => x.trim()).filter(Boolean);
+    lines[+k] = value;
+    setP(d, path, lines.filter((x) => x !== undefined).join('\n'));
+  } else {
+    const parts = m.path.split('.');
+    let t = d;
+    for (const k of parts.slice(0, -1)) { if (t[k] == null || typeof t[k] !== 'object') t[k] = {}; t = t[k]; }
+    t[parts[parts.length - 1]] = value;
+  }
+  if (m.path.startsWith('launch.')) syncPlan(d, products);
+  markDirty();
+});
+
+async function loadPage() {
+  const f = $('edFrame'); if (!f) return;
+  try {
+    syncPlan(editor.draft, products);
+    const { html } = await api('/api/admin/builder', { method: 'POST', body: JSON.stringify({ action: 'preview', content: editor.draft, edit: true }) });
+    f.srcdoc = html;
+  } catch (err) { $('edErr').textContent = err.message; }
 }
 
 function copy(text) { navigator.clipboard.writeText(text).then(() => status('Link copied'), () => prompt('Copy this link:', text)); }

@@ -47,17 +47,27 @@ Anyone on the team with the admin password can do this. No GitHub or Vercel acce
 
 ### Build it with the form (most blueprints)
 
-1. Enter the client name and a short name such as `acme-remit`, then **Start blueprint**.
-2. Fill in the sections:
-   - **Basics:** client details; the header (Lean and client logos, or Lean logo and client name); colours (Lean colours, or a client colour with a live readability check); subtitle and summary.
-   - **Pain points & opportunities:** rows under Business impact or Technical & operational.
-   - **Journeys:** each with a label, title, the client feature, the need, Lean products, up to two screenshots and an optional "Also covers" line. Tick "Not confirmed yet" for a dashed outline.
-   - **Design reference:** optional Figma card with preview images and flow links.
-   - **Launch plan:** product cards, phases, table rows, totals and a note under the table. Products come from the library, with their endpoints and guide panels added automatically. Use "Custom product" for anything not in it.
-3. **Save draft** as you go. **Preview** opens the page exactly as the client will see it.
-4. **Publish** when it's ready, then create team links. Later edits stay as a draft, and clients keep seeing the published version until you publish again.
+1. Enter the client name and a short name such as `acme-remit`, then pick a starting point:
+   - **Standard template for a vertical:** journeys and a three-phase launch plan, with that vertical's pain points and use cases from the Verticals page.
+   - **A copy of another form-built blueprint:** its content, without the other client's logo and screenshots.
+   - **Meeting notes, drafted by Claude:** paste notes and get a first draft, with open questions listed for you. Only appears once `ANTHROPIC_API_KEY` is set. The notes are sent to Anthropic's API.
+   - **Blank.**
+2. Review and edit, in either tab:
+   - **Form:** the sections. In the **Launch plan**, pick a phase for each product in scope; product cards, table rows, endpoints, guides and effort fill in from the library. Rarely used fields sit under **More options**.
+   - **Edit on page:** the page as the client will see it. Click any text to change it; images, products and layout stay in the form.
+3. **Save draft** as you go, **Preview** to check, then **Publish** and create links. Clients keep seeing the last published version until you publish again.
 
-Use `**double asterisks**` for bold text. Screenshots are resized automatically, so add them at any size.
+Use `**double asterisks**` for bold text. Screenshots are resized automatically.
+
+## Verticals
+
+The **Verticals** page holds each vertical's pain points, introduction and use cases. Blueprints started from the standard template copy them in, so keeping verticals up to date improves every new blueprint. Blueprints already made keep their own copy. Use `{client}` where the client's name should go.
+
+Remittance comes filled in from the Wise blueprint. Trading & Gaming, Lending, Emerging Industries and Government start empty, for the team to fill in.
+
+## Drafting from meeting notes (optional)
+
+Set `ANTHROPIC_API_KEY` in Vercel to switch it on, and optionally `ANTHROPIC_MODEL` (default `claude-sonnet-5-5`; check Anthropic's models page for current names). Claude is told to use only facts in the notes and leave anything else empty. Every draft opens with a review note and its open questions. Check with security before sending client meeting notes to the API.
 
 ### Upload a finished HTML file
 
@@ -71,7 +81,7 @@ Blueprints are listed by client name, in two groups: **Published** and **Not pub
 
 ## Team links and checklists
 
-- **One link per team.** Create one **Client team** link per client team, plus a **Lean team** link for your own previews. Everyone on a team uses the same link. Creating a link for a team that already has one on that blueprint returns the existing link.
+- **One client team per blueprint.** Create one **Client team** link, used by everyone on the client team, plus any **Lean team** links for your own previews. To change the client team, revoke its link first.
 - **Each client team has its own checklist.** Ticks made through one team's link never show on another team's link, and a new team starts with an empty checklist.
 - **Open** on a link's row opens the page in a new tab. For a client team, it opens their page with their real ticks, read only, and isn't counted as a visit; that view expires after 2 hours, so open it again from the admin page when it does. For a Lean team link, it opens the link as it is.
 - **Lean team links are read only.** They show each client team's ticks, with a switcher when there are several client teams, and can't change them. Lean visits are labelled separately and never trigger client alerts.

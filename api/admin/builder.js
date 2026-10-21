@@ -1,5 +1,5 @@
 // POST /api/admin/builder   (admin)
-//   { action: "create",  slug, content, by }  -> start a blueprint in the form
+//   { action: "create",  slug, content | template (+ vertical) | copyFrom, clientName, by } -> start a blueprint in the form
 //   { action: "save",    slug, content, by }  -> save the draft (clients don't see it)
 //   { action: "publish", slug, content, by }  -> save, then render the page clients see
 //   { action: "preview", content }            -> rendered page, nothing saved
@@ -10,6 +10,8 @@ import { query } from '../../lib/db.js';
 import { SLUG_RE, MAX_BYTES, inspectHtml } from '../../lib/blueprints.js';
 import { renderBlueprint } from '../../lib/render.js';
 import { parseStructure } from '../../lib/structure.js';
+import { fromTemplate } from '../../lib/templates.js';
+import { getVertical } from '../../lib/verticalsdb.js';
 
 const clientName = (c) => (c && c.client && typeof c.client.name === 'string' ? c.client.name.trim() : '');
 const by = (v) => (typeof v === 'string' ? v.trim().slice(0, 80) || null : null);
@@ -32,11 +34,34 @@ export default handler(['GET', 'POST'], async (req, res) => {
   }
 
   const body = await readJson(req, MAX_BYTES + 512 * 1024);
-  const content = body.content && typeof body.content === 'object' ? body.content : null;
+  let content = body.content && typeof body.content === 'object' ? body.content : null;
+
+  // Starting points for a new blueprint: a template, or a copy of another form-built blueprint.
+  if (body.action === 'create' && !content && body.template) {
+    if (body.template !== 'standard') throw httpError(400, 'Unknown template.');
+    const vertical = body.vertical ? await getVertical(body.vertical) : null;
+    if (body.vertical && !vertical) throw httpError(400, 'That vertical no longer exists.');
+    content = fromTemplate(body.clientName, vertical);
+    content.reviewNote = `Started from the standard template${vertical ? ` for ${vertical.name}` : ''}. Its journeys and plan follow the Wise blueprint, so check every section and adjust it for this client before publishing.${vertical && !vertical.painRows.length ? ` The ${vertical.name} vertical has no pain points yet: add them here, or on the Verticals page so future blueprints get them.` : ''}`;
+  }
+  if (body.action === 'create' && !content && body.copyFrom) {
+    const src = typeof body.copyFrom === 'string' && SLUG_RE.test(body.copyFrom) ? await loadRow(body.copyFrom) : null;
+    if (!src || src.source !== 'builder' || !src.draft) throw httpError(404, 'No form-built blueprint to copy with that name.');
+    content = JSON.parse(JSON.stringify(src.draft));
+    // The copy is for another client: keep the content, drop the other client's logo and screenshots.
+    content.client = { name: String(body.clientName || '').trim(), logo: '' };
+    if (content.header) content.header.mode = 'name';
+    for (const j of (content.journeys && content.journeys.items) || []) { j.images = []; j.alsoImage = ''; }
+    if (content.design) content.design.images = [];
+    content.reviewNote = `Copied from another blueprint (${body.copyFrom}). Its logo and screenshots were removed. Replace any text that describes the other client before publishing.`;
+  }
+  if (body.action === 'create' && content && body.clientName && !(content.client && content.client.name)) {
+    content.client = { ...(content.client || {}), name: String(body.clientName).trim() };
+  }
 
   if (body.action === 'preview') {
     if (!content) throw httpError(400, 'Nothing to preview.');
-    return send(res, 200, { html: renderBlueprint(content).html });
+    return send(res, 200, { html: renderBlueprint(content, { edit: body.edit === true }).html });
   }
 
   const slug = typeof body.slug === 'string' ? body.slug.trim() : '';

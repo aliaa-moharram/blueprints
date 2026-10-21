@@ -30,6 +30,11 @@ export default handler(['POST', 'PATCH', 'DELETE'], async (req, res) => {
       // One link per team: hand back the team's existing link instead of a second one.
       return send(res, 200, { ...existing.rows[0], url: `${baseUrl(req)}/b/${existing.rows[0].token}`, existing: true });
     }
+    if (kind === 'client') {
+      // One client team per blueprint.
+      const other = await query(`SELECT label FROM links WHERE slug = $1 AND kind = 'client' AND revoked_at IS NULL LIMIT 1`, [slug]);
+      if (other.rows.length) throw httpError(409, `This blueprint already has a client team link, for ${other.rows[0].label}. Each blueprint has one client team: revoke that link first to make a new one.`);
+    }
     const token = randomBytes(18).toString('base64url');
     const { rows } = await query(
       `INSERT INTO links (token, slug, label, kind, created_by) VALUES ($1, $2, $3, $4, $5)
@@ -53,6 +58,13 @@ export default handler(['POST', 'PATCH', 'DELETE'], async (req, res) => {
     return send(res, 200, { deleted: true, ...removed });
   }
 
+  if (body.revoked === false) {
+    const l = await query('SELECT slug, kind FROM links WHERE token = $1', [body.token]);
+    if (l.rows.length && l.rows[0].kind === 'client') {
+      const other = await query(`SELECT label FROM links WHERE slug = $1 AND kind = 'client' AND revoked_at IS NULL AND token <> $2 LIMIT 1`, [l.rows[0].slug, body.token]);
+      if (other.rows.length) throw httpError(409, `This blueprint already has an active client team link, for ${other.rows[0].label}. Revoke it before restoring this one.`);
+    }
+  }
   const { rows } = await query(
     `UPDATE links SET revoked_at = CASE WHEN $2 THEN coalesce(revoked_at, now()) ELSE NULL END
      WHERE token = $1 RETURNING token, revoked_at`,

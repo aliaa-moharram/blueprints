@@ -77,3 +77,15 @@ UPDATE blueprints SET name = regexp_replace(title, '\s+([A-Z]{2,4}\s+)?Integrati
 
 -- Phases and guide checklists read from the published page, for the admin progress breakdown.
 ALTER TABLE blueprints ADD COLUMN IF NOT EXISTS structure JSONB;
+
+-- Vertical presets: each vertical's pain points, introduction and use cases, maintained in the admin page.
+CREATE TABLE IF NOT EXISTS verticals (
+  id          TEXT PRIMARY KEY,
+  name        TEXT NOT NULL,
+  pain_intro  TEXT NOT NULL DEFAULT '',
+  pain_rows   JSONB NOT NULL DEFAULT '[]',
+  use_cases   JSONB NOT NULL DEFAULT '[]',
+  sort        INTEGER NOT NULL DEFAULT 0,
+  updated_by  TEXT,
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);

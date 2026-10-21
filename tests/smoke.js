@@ -8,7 +8,24 @@ import assert from 'node:assert/strict';
 const PORT = 3999;
 const BASE = `http://localhost:${PORT}`;
 const ADMIN = 'test-admin-password-123';
-const env = { ...process.env, PORT: String(PORT), ADMIN_PASSWORD: ADMIN, SLACK_WEBHOOK_URL: '' };
+const MOCK_PORT = 3998;
+const env = { ...process.env, PORT: String(PORT), ADMIN_PASSWORD: ADMIN, SLACK_WEBHOOK_URL: '',
+  ANTHROPIC_API_KEY: 'test-key', ANTHROPIC_BASE_URL: `http://localhost:${MOCK_PORT}`, ANTHROPIC_MODEL: 'test-model' };
+// Stand-in for the Claude API: records the request and replies with a canned draft.
+const http = await import('node:http');
+let lastClaudeRequest = null;
+const mock = http.createServer(async (req, res) => {
+  let body = ''; for await (const c of req) body += c;
+  lastClaudeRequest = { headers: req.headers, body: JSON.parse(body), url: req.url };
+  const draft = { subtitle: 'How Nova maps to Lean.', summary: 'Nova wants pay-ins from UAE banks.', market: 'UAE', vertical: 'Wallet',
+    painPoints: [{ group: 'business', pain: 'Card fees on top-ups.', solve: 'Lean **Pay by Bank**.', advantage: 'Lower costs.' }],
+    useCases: ['Wallet top-up'], journeys: [{ tag: 'Funding', title: 'Top up', feature: 'Add money.', need: 'Pull AED.', products: ['otp', 'made-up-product'], powers: 'A Charge.' }],
+    phases: [{ label: 'Phase 1', title: 'Pay-ins', bullets: ['Top-ups'], unconfirmed: false, products: ['otp', 'cmi'] }, { label: 'Phase 2', title: 'Payouts', bullets: [], unconfirmed: true, products: ['payouts'] }],
+    openQuestions: ['Expected monthly volume?'] };
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ content: [{ type: 'text', text: '```json\n' + JSON.stringify(draft) + '\n```' }] }));
+});
+await new Promise((r) => mock.listen(MOCK_PORT, r));
 const SLUG = 'sample-' + Date.now().toString(36);
 const sample = await readFile(new URL('./sample-blueprint.html', import.meta.url), 'utf8');
 
@@ -95,24 +112,30 @@ try {
   const again = await r.json();
   assert.equal(r.status, 200); assert.equal(again.existing, true); assert.equal(again.token, client.token); ok('a team that already has a link gets the same link back');
   r = await admin('/api/admin/links', { method: 'POST', body: JSON.stringify({ slug: SLUG, label: 'Second team', kind: 'client' }) });
+  assert.equal(r.status, 409); ok('a blueprint has one client team: a second client team is refused');
+  r = await admin('/api/admin/links', { method: 'POST', body: JSON.stringify({ slug: N, label: 'Second team', kind: 'client' }) });
   const team2 = await r.json();
   assert.notEqual(team2.token, client.token);
   let t2 = await (await fetch(`${BASE}/api/checklist?token=${team2.token}`)).json();
   assert.equal(t2.mode, 'edit'); assert.deepEqual(t2.items, {}); ok('a new client team starts with an empty checklist');
   await json('/api/checklist', { token: team2.token, item: 'sample-2', done: true });
   const t1 = await (await fetch(`${BASE}/api/checklist?token=${client.token}`)).json();
-  assert.equal(t1.items['sample-2'], undefined); ok('one team’s ticks never show on another team’s link');
+  assert.equal(t1.items['sample-2'], undefined); ok('one client’s ticks never show on another blueprint’s team link');
   r = await admin('/api/admin/links', { method: 'POST', body: JSON.stringify({ slug: SLUG, label: 'Lean', kind: 'internal' }) });
   const lean = await r.json();
   assert.equal((await json('/api/checklist', { token: lean.token, item: 'sample-1', done: false })).status, 403); ok('a Lean team link cannot tick');
   const lv = await (await fetch(`${BASE}/api/checklist?token=${lean.token}`)).json();
   assert.equal(lv.mode, 'view');
-  assert.deepEqual(lv.teams.map((t) => t.name), ['Test client', 'Second team']);
+  assert.deepEqual(lv.teams.map((t) => t.name), ['Test client']);
   assert.equal(lv.teams[0].items['sample-1'].done, true); ok('a Lean team link sees each client team’s progress');
   assert.ok(!JSON.stringify(lv).includes(client.token) && !JSON.stringify(lv).includes(team2.token)); ok('the Lean view never reveals client team links');
+  const leanN = await (await admin('/api/admin/links', { method: 'POST', body: JSON.stringify({ slug: N, label: 'Lean N', kind: 'internal' }) })).json();
   await admin('/api/admin/links', { method: 'PATCH', body: JSON.stringify({ token: team2.token, revoked: true }) });
-  const lv2 = await (await fetch(`${BASE}/api/checklist?token=${lean.token}`)).json();
-  assert.deepEqual(lv2.teams.map((t) => t.name), ['Test client']); ok('revoked teams drop out of the Lean view');
+  const lv2 = await (await fetch(`${BASE}/api/checklist?token=${leanN.token}`)).json();
+  assert.deepEqual(lv2.teams, []); ok('revoked teams drop out of the Lean view');
+  const team3n = await (await admin('/api/admin/links', { method: 'POST', body: JSON.stringify({ slug: N, label: 'Replacement team', kind: 'client' }) })).json();
+  assert.ok(team3n.token); ok('after revoking the client team, a new one can be created');
+  assert.equal((await admin('/api/admin/links', { method: 'PATCH', body: JSON.stringify({ token: team2.token, revoked: false }) })).status, 409); ok('restoring an old client team is refused while another is active');
 
   // Replace the file: keeps ticks for keys that remain, reports the ones that went
   const v2 = sample.replace('<li data-check="sample-3">Listen for payment webhooks.</li>', '').replace('Sample Client', 'Sample Client v2');
@@ -200,8 +223,7 @@ try {
   assert.equal(viewsAfter, viewsBefore); ok('a Lean view is never counted as a visit');
   const forged = viewParam.slice(0, -2) + (viewParam.endsWith('AA') ? 'BB' : 'AA');
   assert.equal((await fetch(`${BASE}/b/${client.token}?view=${forged}`)).status, 403); ok('a tampered view address shows the expired page, not the client’s page');
-  const team3 = await (await admin('/api/admin/links', { method: 'POST', body: JSON.stringify({ slug: SLUG, label: 'Third team', kind: 'client' }) })).json();
-  assert.equal((await fetch(`${BASE}/b/${team3.token}?view=${viewParam}`)).status, 403); ok('a view address only works for the team it was made for');
+  assert.equal((await fetch(`${BASE}/b/${team3n.token}?view=${viewParam}`)).status, 403); ok('a view address only works for the team it was made for');
   const { createHmac } = await import('node:crypto');
   const past = Math.floor(Date.now() / 1000) - 60;
   const expired = past + '.' + createHmac('sha256', ADMIN).update(`view:${client.token}:${past}`).digest('base64url');
@@ -223,14 +245,77 @@ try {
   assert.equal(pgr.teams[0].items['otp-2'].done, true); ok('the breakdown shows ticks per guide item');
   assert.equal((await admin('/api/admin/progress?slug=no-such-blueprint')).status, 404); ok('the breakdown reports a missing blueprint');
 
+  // Templates, copies, plans from product choices, edit mode
+  const T = 'tpl-' + Date.now().toString(36);
+  r = await builder({ action: 'create', slug: T, template: 'standard', vertical: 'remittance', clientName: 'Nova Pay', by: 'Smoke test' });
+  assert.equal(r.status, 201);
+  const trow = await (await admin(`/api/admin/builder?slug=${T}`)).json();
+  assert.equal(trow.draft.client.name, 'Nova Pay'); assert.ok(!JSON.stringify(trow.draft).includes('{client}')); const { reviewNote: _rn, ...tcontent } = trow.draft; assert.ok(!JSON.stringify(tcontent).includes('Wise')); ok('a template fills in the client name and its content contains nothing about Wise');
+  assert.ok(/template/i.test(trow.draft.reviewNote)); ok('a blueprint started from a template carries a review note');
+  assert.equal(trow.draft.pain.rows.length, 5); assert.equal(trow.draft.meta.vertical, 'Remittance'); assert.ok(trow.draft.journeys.useCases.includes('Wallet top-up')); ok('the Remittance vertical brings its pain points and use cases');
+  const tpv = (await (await builder({ action: 'preview', content: trow.draft })).json()).html;
+  assert.ok(tpv.includes('Nova Pay') && tpv.includes('Verified pay-ins') && tpv.includes("openPanel('otp')")); ok('the template renders a full launch plan');
+  assert.equal((await builder({ action: 'create', slug: T + 'x', template: 'nope', clientName: 'X' })).status, 400); ok('an unknown template is refused');
+  r = await builder({ action: 'create', slug: T + '-copy', copyFrom: B, clientName: 'Copy Co' });
+  assert.equal(r.status, 201);
+  const crow = await (await admin(`/api/admin/builder?slug=${T}-copy`)).json();
+  assert.equal(crow.draft.client.name, 'Copy Co'); assert.equal(crow.draft.client.logo, ''); assert.ok(crow.draft.journeys.items.every((x) => !x.images.length)); assert.ok(/Copied/.test(crow.draft.reviewNote)); ok('a copy keeps the content but drops the other client’s logo and screenshots');
+  const planned = { client: { name: 'Plan Co' }, launch: { phases: [{ label: 'Phase 1', title: 'Pay-ins', bullets: 'Top-ups' }, { label: 'Later', title: 'Payouts', unconfirmed: true }],
+    assign: { otp: { phase: 0, effort: '~3 days' }, payouts: { phase: 1 }, cmi: { phase: 0 } }, custom: [{ name: 'Reconciliation', apis: 'GET /recon', phase: 0, showCard: true }] } };
+  const ppv = (await (await builder({ action: 'preview', content: planned })).json()).html;
+  assert.ok(ppv.includes('~3 days') && ppv.includes('POST /payouts/v1/payment') && ppv.includes('GET /recon')); ok('picking products and phases builds the table, with endpoints and effort');
+  assert.ok(/<span class="ext">Future<\/span><h3>Payouts<\/h3>/.test(ppv) && /<span class="core">In scope<\/span><h3>One-Time Payments<\/h3>/.test(ppv)); ok('products in an unconfirmed phase show as Future, others as In scope');
+  assert.ok(!/<h3>Consent Management Interface<\/h3>/.test(ppv)); ok('products without a card by default (CMI) only appear in the table');
+  const excluded = (await (await builder({ action: 'preview', content: { ...planned, launch: { ...planned.launch, assign: { ...planned.launch.assign, payouts: { phase: -1, showCard: true } } } } })).json()).html;
+  assert.ok(!/<span class="(?:ext|core)">[^<]*<\/span><h3>Payouts<\/h3>/.test(excluded) && !excluded.includes('POST /payouts/v1/payment')); ok('a product set to Not included has no card and no table row');
+  const epv = (await (await builder({ action: 'preview', content: planned, edit: true })).json()).html;
+  assert.ok(epv.includes('data-edit="launch.phases.0.title"') && epv.includes('data-edit="launch.assign.otp.effort"') && epv.includes("type: 'lb-edit'")); ok('edit mode marks text with its form field');
+  assert.ok(!ppv.includes('data-edit=')); ok('normal pages carry no edit marks');
+
+  // Verticals: maintained in the admin page, used by new blueprints
+  assert.equal((await fetch(BASE + '/api/admin/verticals')).status, 401); ok('verticals need the admin password');
+  let vs = (await (await admin('/api/admin/verticals')).json()).verticals;
+  assert.deepEqual(vs.map((v) => v.name), ['Remittance', 'Trading & Gaming', 'Lending', 'Emerging Industries', 'Government']); ok('verticals are seeded: Remittance plus the other GTM verticals');
+  assert.ok(vs.slice(1).every((v) => !v.painRows.length)); ok('only Remittance comes with pain points; the others start empty');
+  r = await builder({ action: 'create', slug: T + '-lend', template: 'standard', vertical: 'lending', clientName: 'Lendco' });
+  let lrow = await (await admin(`/api/admin/builder?slug=${T}-lend`)).json();
+  assert.equal(lrow.draft.pain.rows.length, 0); assert.equal(lrow.draft.meta.vertical, 'Lending'); assert.ok(/no pain points yet/.test(lrow.draft.reviewNote)); ok('an empty vertical starts with no pain points and says so');
+  r = await admin('/api/admin/verticals', { method: 'POST', body: JSON.stringify({ id: 'lending', name: 'Lending', painIntro: 'Lending pains for {client}.', painRows: [{ group: 'business', pain: 'Manual income checks.', solve: 'Lean **Data**.', advantage: 'Faster decisions.' }, { pain: '' }], useCases: ['Salary verification', ''], by: 'Smoke test' }) });
+  assert.equal(r.status, 200); const lend = await r.json();
+  assert.equal(lend.painRows.length, 1); assert.deepEqual(lend.useCases, ['Salary verification']); assert.equal(lend.updatedBy, 'Smoke test'); ok('saving a vertical keeps its filled rows and records who saved it');
+  await builder({ action: 'create', slug: T + '-lend2', template: 'standard', vertical: 'lending', clientName: 'Lendco Two' });
+  lrow = await (await admin(`/api/admin/builder?slug=${T}-lend2`)).json();
+  assert.equal(lrow.draft.pain.intro, 'Lending pains for Lendco Two.'); assert.equal(lrow.draft.pain.rows[0].solve, 'Lean **Data**.'); ok('the next blueprint picks up the vertical’s edits, with the client name filled in');
+  r = await admin('/api/admin/verticals', { method: 'POST', body: JSON.stringify({ name: 'Real Estate', painRows: [], useCases: ['Rent collection'] }) });
+  assert.equal(r.status, 201); assert.equal((await r.json()).id, 'real-estate'); ok('adds a new vertical');
+  assert.equal((await admin('/api/admin/verticals', { method: 'POST', body: JSON.stringify({ name: 'Real estate' }) })).status, 409); ok('refuses a second vertical with the same name');
+  assert.equal((await admin('/api/admin/verticals', { method: 'DELETE', body: JSON.stringify({ id: 'real-estate' }) })).status, 200); ok('deletes a vertical');
+  assert.equal((await builder({ action: 'create', slug: T + '-gone', template: 'standard', vertical: 'real-estate', clientName: 'X' })).status, 400); ok('a deleted vertical can’t be used for new blueprints');
+  assert.equal((await admin(`/api/admin/builder?slug=${T}-lend`)).status, 200); ok('blueprints keep their content when a vertical changes or goes');
+
+  // Drafting from meeting notes (against a stand-in for the Claude API)
+  assert.equal((await (await admin('/api/admin/products')).json()).drafting, true); ok('drafting shows as switched on when a key is set');
+  assert.equal((await admin('/api/admin/draft', { method: 'POST', body: JSON.stringify({ notes: 'too short' }) })).status, 400); ok('drafting needs real notes');
+  r = await admin('/api/admin/draft', { method: 'POST', body: JSON.stringify({ notes: 'Call with Nova. They want wallet top-ups from UAE banks via Pay by Bank. Payouts later, undecided.', clientName: 'Nova' }) });
+  assert.equal(r.status, 200);
+  const drafted = (await r.json()).content;
+  assert.equal(lastClaudeRequest.url, '/v1/messages'); assert.equal(lastClaudeRequest.headers['x-api-key'], 'test-key'); assert.equal(lastClaudeRequest.headers['anthropic-version'], '2023-06-01'); assert.equal(lastClaudeRequest.body.model, 'test-model'); ok('sends the notes to the Messages API with the key, version and model');
+  assert.ok(lastClaudeRequest.body.system.includes('Never invent')); ok('instructs Claude to use only facts in the notes');
+  assert.deepEqual(drafted.journeys.items[0].products, ['otp']); ok('drops products that aren’t in the library');
+  assert.equal(drafted.launch.assign.otp.phase, 0); assert.equal(drafted.launch.assign.payouts.phase, 1); assert.equal(drafted.launch.phases[1].unconfirmed, true); ok('turns the drafted phases into product choices');
+  assert.deepEqual(drafted.draftQuestions, ['Expected monthly volume?']); assert.ok(/Drafted by Claude/.test(drafted.reviewNote)); ok('keeps the open questions and a review note');
+  r = await builder({ action: 'create', slug: T + '-notes', content: drafted, by: 'Smoke test' });
+  assert.equal(r.status, 201);
+  const dpv = (await (await builder({ action: 'preview', content: drafted })).json()).html;
+  assert.ok(dpv.includes('Lean <b>Pay by Bank</b>') && dpv.includes("openPanel('otp')")); ok('a drafted blueprint renders with its plan');
+
   // Deleting links and blueprints
   const D = 'del-' + Date.now().toString(36);
   await upload({ slug: D, html: sample });
   const dl = await (await admin('/api/admin/links', { method: 'POST', body: JSON.stringify({ slug: D, label: 'Delete me', kind: 'client' }) })).json();
-  const keep = await (await admin('/api/admin/links', { method: 'POST', body: JSON.stringify({ slug: D, label: 'Keep me', kind: 'client' }) })).json();
+  const keep = await (await admin('/api/admin/links', { method: 'POST', body: JSON.stringify({ slug: D, label: 'Keep me', kind: 'internal' }) })).json();
   await json('/api/track', { token: dl.token, session: 'del-sess-' + Date.now(), event: 'open' });
   await json('/api/checklist', { token: dl.token, item: 'sample-1', done: true });
-  await json('/api/checklist', { token: keep.token, item: 'sample-2', done: true });
   const delLink = (token) => admin('/api/admin/links', { method: 'DELETE', body: JSON.stringify({ token }) });
   r = await delLink(dl.token);
   const gone = await r.json();
@@ -241,7 +326,7 @@ try {
   assert.equal((await delLink(rv.token)).status, 200); ok('a revoked link can be deleted too');
   ov = await (await admin('/api/admin/overview')).json();
   assert.ok(!ov.links.some((l) => l.token === dl.token)); assert.ok(!ov.recent.some((v) => v.label === 'Delete me')); ok('a deleted link is gone from the admin page');
-  assert.equal((await fetch(`${BASE}/api/checklist?token=${keep.token}`).then((x) => x.json())).items['sample-2'].done, true); ok('other teams on the blueprint are untouched');
+  assert.equal((await fetch(`${BASE}/b/${keep.token}`)).status, 200); ok('other links on the blueprint are untouched');
   assert.equal((await delLink(dl.token)).status, 404); ok('deleting the same link twice reports it is gone');
   const delBp = (slug, confirm) => admin('/api/admin/blueprints', { method: 'DELETE', body: JSON.stringify({ slug, confirm }) });
   assert.equal((await delBp(D, 'wrong')).status, 400); ok('a blueprint is only deleted when its short name is typed correctly');
@@ -264,4 +349,5 @@ try {
   process.exitCode = 1;
 } finally {
   server.kill();
+  mock.close();
 }

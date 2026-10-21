@@ -71,5 +71,17 @@ BEGIN
 
   -- Phases and guide checklists for the admin progress breakdown (added in the progress update).
   ALTER TABLE blueprints ADD COLUMN IF NOT EXISTS structure JSONB;
+
+  -- Vertical presets (added in the verticals update).
+  CREATE TABLE IF NOT EXISTS verticals (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    pain_intro  TEXT NOT NULL DEFAULT '',
+    pain_rows   JSONB NOT NULL DEFAULT '[]',
+    use_cases   JSONB NOT NULL DEFAULT '[]',
+    sort        INTEGER NOT NULL DEFAULT 0,
+    updated_by  TEXT,
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
 END
 $$;
