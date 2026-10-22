@@ -99,10 +99,17 @@ Each card under **Delivery phases** shows how many guide checklist items in that
 
 ## API reference links
 
-Endpoints in the plan table and in the implementation guides link to their page in Lean's v4 API reference (marked ↗). Blueprints that include One-Time Payments, Recurring Payments, CMI or Name match also get **Phase 0 · Setup** at the top of the table, with two rows:
+Endpoints in the plan table and in the implementation guides link to their page in Lean's v4 API reference (marked ↗). Blueprints that include One-Time Payments, Recurring Payments, CMI or Name match also get **Phase 0 · Setup** at the top of the table, with three rows, each with its own guide and checklist:
 
-- **Developer portal setup:** create an account and an application on the Lean dev portal, copy the sandbox application ID (app token) and share it with Lean, then generate a client secret, set up the webhook destination and events, add redirect URLs (the host is enough), have Lean enable Open Finance, and add the purpose and benefit statements in English and Arabic. It also lists what the portal shows (customers, their payments, consumption and billing) and links Lean's "Configuring your application" guide. Its guide also lists the production steps (switch the portal to production mode, copy the production app token, start calling production endpoints). Production steps can be ticked but are never counted in progress.
-- **Prerequisites:** the access token and the core resources (Customer, Banks, Events), with a **Getting started** guide (client secret, authentication, webhooks, Sandbox testing, idempotency) based on Lean's v4 intro guide.
+- **Developer portal setup:** account and application, the sandbox app token (shared with Lean), Open Finance enablement, client secret, redirect URLs (the host is enough), purpose and benefit statements, a Settlement Account, and the webhook endpoint and events (in collapsible groups, under **Other** in the dev portal). Production steps follow, not counted.
+- **Authentication:** the access token, the Bearer header, the Sandbox, idempotency and treating Lean as the source of payment state.
+- **Webhooks:** the seven core steps (signing secret, endpoint, `lean-signature`, fast acknowledgement, `event_id`, ordering, Sandbox tests). Reference material sits in collapsed sections, and edge cases (IP allowlisting, failed deliveries, rotating secrets, unknown events) are linked to the exact doc sections rather than listed as steps.
+
+Phase 1 ends with an **End-to-end test** row and guide, counted in Phase 1's progress. It runs the whole integration against the Sandbox in six groups (environment, a one-time payment, a recurring payment, webhooks, failure cases, the go-live checklist), followed by the go-live steps (not counted). Following the checklists in order (Phase 0, then One-Time and Recurring Payments, then the end-to-end test) gives a working, tested integration. It follows Lean's "Testing your integration" guide.
+
+**Checkboxes and progress bars** appear in every view. On a client link, ticks save for the client team. In the admin Preview and Edit on page, they work but aren't saved. A copy of the page opened outside the site saves ticks in that browser only.
+
+The One-Time and Recurring Payments guides follow Lean's v4 guides step by step, and One-Time Payments opens with the payment lifecycle. Key terms (Charge, Agreement, Settlement Account, Customer, app token, Idempotency-Key, webhook, signing secret) show a short definition on hover or focus: write `[[key|word]]` in guide text, with definitions in `TERMS` in `lib/products.js`.
 
 Checklist keys containing `-prod-` are left out of every progress figure: guide counts, phase progress, the admin Progress section and the sidebar. The links live in `ENDPOINT_LINKS` and the row in `PREREQUISITES`, both in `lib/products.js`; update them when the API reference changes, then republish.
 

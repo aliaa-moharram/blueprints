@@ -4,7 +4,7 @@
 //   { action: "publish", slug, content, by }  -> save, then render the page clients see
 //   { action: "preview", content }            -> rendered page, nothing saved
 // GET  /api/admin/builder?slug=...           -> the saved draft
-import { handler, getQuery, readJson, send, httpError } from '../../lib/http.js';
+import { handler, getQuery, readJson, send, httpError, baseUrl } from '../../lib/http.js';
 import { requireAdmin } from '../../lib/auth.js';
 import { query } from '../../lib/db.js';
 import { SLUG_RE, MAX_BYTES, inspectHtml } from '../../lib/blueprints.js';
@@ -61,7 +61,11 @@ export default handler(['GET', 'POST'], async (req, res) => {
 
   if (body.action === 'preview') {
     if (!content) throw httpError(400, 'Nothing to preview.');
-    return send(res, 200, { html: renderBlueprint(content, { edit: body.edit === true }).html });
+    // Checkboxes and progress work in previews too (local mode: ticks aren't saved).
+    const runtime = `<script>window.__LEAN_BP={"local":true};</script>\n<script src="${baseUrl(req)}/bp-runtime.js"></script>\n`;
+    const out = renderBlueprint(content, { edit: body.edit === true }).html;
+    const at = out.toLowerCase().lastIndexOf('</body>');
+    return send(res, 200, { html: at === -1 ? out + runtime : out.slice(0, at) + runtime + out.slice(at) });
   }
 
   const slug = typeof body.slug === 'string' ? body.slug.trim() : '';

@@ -3,15 +3,18 @@
 // 2. Turns every element with data-check="<key>" into a saved checklist item.
 (() => {
   const cfg = window.__LEAN_BP;
-  if (!cfg || !cfg.token) return;
+  // Local mode (admin Preview, Edit on page, or a copy opened outside the site): checkboxes and
+  // progress work, ticks stay in this browser (cfg.persist) or only on this page, and nothing is tracked.
+  const local = !!(cfg && cfg.local);
+  if (!cfg || (!cfg.token && !local)) return;
   const token = cfg.token;
   const view = cfg.view || null; // set when Lean opens a client team's page from the admin page
   const session = crypto.randomUUID
     ? crypto.randomUUID()
     : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12);
 
-  // ---------- Visit tracking (never in a Lean view) ----------
-  if (!view) {
+  // ---------- Visit tracking (never in a Lean view or local mode) ----------
+  if (!view && !local) {
     const OPEN_AFTER = 10; // seconds visible before a visit counts
     const BEAT_EVERY = 30; // seconds of visible time per update
     let visibleMs = 0;
@@ -71,7 +74,7 @@
       else lastTick = Date.now();
     });
     window.addEventListener('pagehide', onHide);
-  } else {
+  } else if (view) {
     const bar = document.createElement('div');
     bar.setAttribute('role', 'note');
     bar.textContent = `Lean view of ${cfg.team || 'this team'}’s page: read only, not counted as a visit.`;
@@ -226,7 +229,9 @@
     btn.type = 'button';
     btn.className = 'bp-check';
     btn.innerHTML = TICK_SVG;
-    btn.setAttribute('aria-label', 'Mark as done: ' + li.textContent.trim().slice(0, 80));
+    const plain = li.cloneNode(true);
+    plain.querySelectorAll('.tip, .evgroups').forEach((n) => n.remove());
+    btn.setAttribute('aria-label', 'Mark as done: ' + plain.textContent.replace(/\s+/g, ' ').trim().slice(0, 80));
     btn.disabled = true; // enabled once saved state has loaded, for client team links only
     btn.addEventListener('click', async () => {
       if (readOnly) return;
@@ -234,6 +239,7 @@
       const next = !(before && before.done);
       state[key] = { done: next, at: before && before.at };
       paintAll();
+      if (local) { state[key].at = new Date().toISOString(); saveLocal(); paintAll(); return; }
       try {
         const r = await fetch('/api/checklist', {
           method: 'POST',
@@ -251,6 +257,26 @@
     });
     li.appendChild(btn);
     buttons.set(key, btn);
+  }
+
+  // Local mode: ticks live in this browser (or only on this page) instead of the site.
+  const storeKey = 'leanbp-ticks:' + (cfg.slug || location.pathname);
+  function saveLocal() {
+    if (!cfg.persist) return;
+    try { localStorage.setItem(storeKey, JSON.stringify(state)); } catch {}
+  }
+  if (local) {
+    readOnly = false;
+    if (cfg.persist) { try { state = JSON.parse(localStorage.getItem(storeKey) || '{}') || {}; } catch { state = {}; } }
+    paintAll();
+    const note = document.createElement('div');
+    note.setAttribute('role', 'note');
+    note.textContent = cfg.persist ? 'Ticks on this copy are saved in this browser only.' : 'Preview: checkboxes work, but ticks aren’t saved.';
+    note.style.cssText = 'position:fixed;left:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:300;background:#1c2024;color:#fff;' +
+      'font:600 13px/1.4 system-ui,sans-serif;padding:8px 14px;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.25);border:1px solid var(--bright,#3dd68c);max-width:calc(100vw - 24px)';
+    const add = () => document.body.appendChild(note);
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', add); else add();
+    return;
   }
 
   fetch('/api/checklist?token=' + encodeURIComponent(token) + (view ? '&view=' + encodeURIComponent(view) : ''))

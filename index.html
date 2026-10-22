@@ -449,6 +449,63 @@ a.apilink-inline{text-decoration:none;color:inherit}
 a.apilink-inline code::after{content:" \2197";opacity:.45;font-size:.95em}
 a.apilink-inline:hover code{background:color-mix(in srgb,var(--bright) 22%,#fff)}
 
+
+/* guide reference sections */
+.sp-sub-h{font-family:"Archivo",sans-serif;font-weight:700;font-size:12.5px;color:var(--ink);margin:14px 0 8px}
+.sp-section .sp-sub-h:first-child{margin-top:4px}
+.sp-diagram+.sp-sub-h{margin-top:16px}
+.sp-tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;margin:0 0 10px}
+.sp-table{width:100%;border-collapse:collapse;font-size:12.5px;line-height:1.45}
+.sp-table th{text-align:left;font-weight:700;color:var(--muted);background:#fafbfc;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+.sp-table td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;color:#3a4049}
+.sp-table tr:last-child td{border-bottom:0}
+.sp-table td:first-child{white-space:nowrap}
+.sp-table code{white-space:nowrap}
+.sp-code{background:#1c2024;color:#e8eaed;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;padding:12px 14px;border-radius:10px;overflow-x:auto;margin:0 0 10px;white-space:pre}
+.sp-section .sp-pre li{color:#3a4049}
+@media print{.sp-code{white-space:pre-wrap}}
+
+
+/* webhook events, grouped and collapsible */
+.evgroups{display:grid;gap:6px;margin-top:10px}
+.evgroup{border:1px solid var(--line);border-radius:9px;background:#fff}
+.evgroup>summary{cursor:pointer;list-style:none;display:flex;align-items:baseline;gap:8px;padding:7px 11px;font-size:13px}
+.evgroup>summary::-webkit-details-marker{display:none}
+.evgroup>summary::before{content:"\25B8";color:var(--muted);font-size:11px;transition:transform .15s;display:inline-block}
+.evgroup[open]>summary::before{transform:rotate(90deg)}
+.evgroup .evt{font-weight:700;color:var(--ink)}
+.evgroup .evs{color:var(--muted);font-size:12px;flex:1}
+.evgroup .evn{font-weight:700;font-size:11.5px;color:var(--ink);background:color-mix(in srgb,var(--bright) 20%,#fff);border-radius:999px;padding:0 8px}
+.evgroup>summary:focus-visible{outline:2px solid var(--bright);outline-offset:2px;border-radius:8px}
+.evlist{display:grid;gap:5px;padding:2px 11px 10px 30px}
+.ev{display:grid;grid-template-columns:minmax(150px,auto) 1fr;gap:10px;font-size:12.5px;line-height:1.45;color:#3a4049}
+.ev code{white-space:nowrap;justify-self:start;align-self:start}
+.maptable .apis .evgroups code{display:inline;margin:0;padding:1px 5px;font-size:11.5px}
+@media (max-width:640px){.ev{grid-template-columns:1fr;gap:2px}}
+@media (prefers-reduced-motion:reduce){.evgroup>summary::before{transition:none}}
+@media print{.evgroup .evlist{display:grid}}
+
+
+/* hover definitions */
+.term{position:relative;border-bottom:1.5px dotted color-mix(in srgb,var(--bright) 75%,#1c2024);cursor:help;outline:none}
+.term .tip{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);width:max-content;max-width:260px;
+  background:#1c2024;color:#f3f4f6;font:500 12px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:0;text-transform:none;
+  padding:8px 10px;border-radius:8px;box-shadow:0 8px 22px rgba(0,0,0,.25);opacity:0;visibility:hidden;transition:opacity .12s;z-index:400;pointer-events:none;white-space:normal;text-align:left}
+.term .tip::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:#1c2024}
+.term:hover .tip,.term:focus .tip,.term:focus-visible .tip{opacity:1;visibility:visible}
+.term:focus-visible{border-radius:3px;box-shadow:0 0 0 2px var(--bright)}
+/* collapsible reference sections in guides */
+.sp-more{border:1px solid var(--line);border-radius:10px;margin:12px 0 0;background:#fff}
+.sp-more>summary{cursor:pointer;list-style:none;padding:10px 12px;font-family:"Archivo",sans-serif;font-weight:700;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink)}
+.sp-more>summary::-webkit-details-marker{display:none}
+.sp-more>summary::before{content:"\25B8  ";color:var(--muted)}
+.sp-more[open]>summary::before{content:"\25BE  "}
+.sp-more>.sp-section{padding:0 12px 12px}
+.sp-head .term .tip{bottom:auto;top:calc(100% + 8px);background:#fff;color:#1c2024}
+.sp-head .term .tip::after{top:auto;bottom:100%;border-top-color:transparent;border-bottom-color:#fff}
+@media print{.term .tip{display:none}}
+@media (prefers-reduced-motion:reduce){.term .tip{transition:none}}
+
 </style>
 </head>
 <body>
@@ -641,7 +698,7 @@ a.apilink-inline:hover code{background:color-mix(in srgb,var(--bright) 22%,#fff)
     <h3 class="sub-h">Delivery phases</h3>
 
     <div class="phases">
-      <div class="phase" data-panels="otp rec"><span class="ph">Phase 1</span><h3>Funding journey</h3><ul><li>Account-to-account pay-in (One-Time + Recurring Payments)</li></ul></div>
+      <div class="phase" data-panels="otp rec e2e"><span class="ph">Phase 1</span><h3>Funding journey</h3><ul><li>Account-to-account pay-in (One-Time + Recurring Payments)</li></ul></div>
       <div class="phase"><span class="ph">Phase 2</span><h3>Verified pay-ins</h3><ul><li>Screen the actual payer: Wise-supplied name and the bank-returned account holder name on every new account connection</li><li>Name match at payment initiation: in development at Lean, targeted for Q4</li></ul></div>
       <div class="phase dotted" data-panels="pay"><span class="ph">Future phases</span><h3>Payouts, Data and Cards</h3><ul><li>Payouts to UAE accounts and billers: an open decision on Wise's side</li><li>Data: account insights for income-based decisions, in discovery</li><li>Cards: further payment methods on the same Charge integration; Lean's cards product is in build, KSA first, UAE to follow</li></ul></div>
     </div>
@@ -654,15 +711,21 @@ a.apilink-inline:hover code{background:color-mix(in srgb,var(--bright) 22%,#fff)
         <tr class="grp"><td colspan="4">Phase 0 · Setup</td></tr>
         <tr>
           <td>Developer portal setup<br><span class="sub">sandbox, then production</span></td>
-          <td class="apis"><span class="api-refs"><a href="https://dev.leantech.me/" target="_blank" rel="noopener">Lean dev portal</a>, <a href="https://docs.leantech.me/docs/configuring-your-application" target="_blank" rel="noopener">Configuring your application</a></span><span class="api-desc">Create an account and an application on the Lean dev portal. The portal generates the application ID (app token) for the sandbox: share it with Lean. Then generate a client secret, set up your webhook destination and events, add redirect URLs, have Lean enable Open Finance, and add your purpose and benefit statements. Once Lean upgrades you to production, switch the portal to production mode to find the production app token.</span></td>
+          <td class="apis"><span class="api-refs"><a href="https://dev.leantech.me/" target="_blank" rel="noopener">Lean dev portal</a>, <a href="https://docs.leantech.me/docs/configuring-your-application" target="_blank" rel="noopener">Configuring your application</a>, <a href="https://docs.leantech.me/v4.0-GLOBAL/docs/creating-a-payment-destination" target="_blank" rel="noopener">Create a settlement account</a></span><span class="api-desc">Create an account and an application on the Lean dev portal, share the sandbox app token with Lean and have Lean enable Open Finance. Then generate a client secret, add redirect URLs and your purpose and benefit statements, create a Settlement Account, and add your webhook endpoint and events. Once Lean upgrades you to production, repeat the production steps.</span></td>
           <td class="eff">-</td>
           <td class="ck"><button class="guide-btn" onclick="openPanel('dev')">View guide</button></td>
         </tr>
         <tr>
-          <td>Prerequisites<br><span class="sub">before any API call</span></td>
-          <td class="apis"><a class="apilink" href="https://docs.leantech.me/v4.0-GLOBAL/reference/postoauth2token" target="_blank" rel="noopener" title="Open in Lean’s API reference"><code>POST /oauth2/token</code></a><span class="api-refs">Core resources: <a href="https://docs.leantech.me/v4.0-GLOBAL/reference/createcustomer" target="_blank" rel="noopener">Create Customer</a>, <a href="https://docs.leantech.me/v4.0-GLOBAL/reference/getbanks" target="_blank" rel="noopener">List Banks</a>, <a href="https://docs.leantech.me/v4.0-GLOBAL/reference/getevents" target="_blank" rel="noopener">Get all Events</a></span><span class="api-desc">Generate an access token with your app token and client secret, set up webhooks, and build and test in the Sandbox before going live. For payments, Lean can create the Customer with the first Charge or Agreement and return a customer_id; create one first only for the Data APIs.</span></td>
+          <td>Authentication<br><span class="sub">before any API call</span></td>
+          <td class="apis"><a class="apilink" href="https://docs.leantech.me/v4.0-GLOBAL/reference/postoauth2token" target="_blank" rel="noopener" title="Open in Lean’s API reference"><code>POST /oauth2/token</code></a><span class="api-desc">Get an access token with your app token and client secret, send it as a Bearer token on every call, build in the Sandbox, and make create requests idempotent.</span></td>
           <td class="eff">-</td>
           <td class="ck"><button class="guide-btn" onclick="openPanel('start')">View guide</button></td>
+        </tr>
+        <tr>
+          <td>Webhooks<br><span class="sub">events, signatures, retries</span></td>
+          <td class="apis"><span class="api-refs"><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/webhooks-1" target="_blank" rel="noopener">Set up webhooks</a>, <a href="https://docs.leantech.me/v4.0-GLOBAL/docs/payment-webhooks" target="_blank" rel="noopener">Payment webhooks</a></span><span class="api-refs" style="margin-bottom:6px">Events to receive, under <b>Other</b> in the dev portal’s event list:</span><div class="evgroups"><details class="evgroup"><summary><span class="evt">Charge events</span><span class="evs">One-Time and Recurring Payments</span><span class="evn">4</span></summary><div class="evlist"><div class="ev"><code>charge.created</code><span>A new Charge is created.</span></div><div class="ev"><code>charge.captured</code><span>The Charge is captured.</span></div><div class="ev"><code>charge.declined</code><span>The payment was declined.</span></div><div class="ev"><code>charge.discarded</code><span>Authentication wasn’t completed in time.</span></div></div></details><details class="evgroup"><summary><span class="evt">Agreement events</span><span class="evs">Recurring Payments</span><span class="evn">7</span></summary><div class="evlist"><div class="ev"><code>agreement.activated</code><span>The Agreement is authorised.</span></div><div class="ev"><code>agreement.suspended</code><span>The Agreement is paused.</span></div><div class="ev"><code>agreement.resumed</code><span>The Agreement is ACTIVE again.</span></div><div class="ev"><code>agreement.declined</code><span>The Agreement was rejected.</span></div><div class="ev"><code>agreement.discarded</code><span>The customer didn’t complete authentication.</span></div><div class="ev"><code>agreement.fulfilled</code><span>The Agreement reached its completion conditions.</span></div><div class="ev"><code>agreement.revoked</code><span>The Agreement is permanently withdrawn.</span></div></div></details><details class="evgroup"><summary><span class="evt">Optional: refunds</span><span class="evs">only once you refund payments</span><span class="evn">4</span></summary><div class="evlist"><div class="ev"><code>charge.refunded</code><span>The full captured amount is refunded.</span></div><div class="ev"><code>refund.pending</code><span>A Refund is waiting to complete.</span></div><div class="ev"><code>refund.succeeded</code><span>The Refund completed.</span></div><div class="ev"><code>refund.failed</code><span>The Refund failed.</span></div></div></details></div><span class="api-desc">Verify the lean-signature header, return HTTP 200 within 10 seconds, deduplicate on event_id, and fetch current state when events arrive out of order.</span></td>
+          <td class="eff">-</td>
+          <td class="ck"><button class="guide-btn" onclick="openPanel('wh')">View guide</button></td>
         </tr>
         <tr class="grp"><td colspan="4">Phase 1 &middot; Funding journey</td></tr>
         <tr>
@@ -682,6 +745,12 @@ a.apilink-inline:hover code{background:color-mix(in srgb,var(--bright) 22%,#fff)
           <td class="apis"><span class="api-desc">Wise builds the frontend and backend from Lean-provided Figma screens. Lean will also share the functional requirements and acceptance criteria.</span></td>
           <td class="eff">~1-2 weeks</td>
           <td class="ck"><a href="https://www.figma.com/design/YOYZ09UBOGSIj3U0Ipszd3/Lean-%E2%9C%97-Wise---UX-Best-Practices?node-id=0-1" target="_blank" rel="noopener">CMI screens (Figma)</a></td>
+        </tr>
+        <tr>
+          <td>End-to-end test<br><span class="sub">Sandbox, then go live</span></td>
+          <td class="apis"><span class="api-refs"><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/sandbox-testing" target="_blank" rel="noopener">Testing your integration</a></span><span class="api-desc">Run the whole integration against the Sandbox in order: environment, a one-time payment, a recurring payment, webhooks and failure cases, then the go-live checklist. When every step passes, switch to production.</span></td>
+          <td class="eff">-</td>
+          <td class="ck"><button class="guide-btn" onclick="openPanel('e2e')">View guide</button></td>
         </tr>
         <tr class="grp"><td colspan="4">Phase 2 &middot; Verified pay-ins <span class="tbc" style="margin-left:8px">In development, Q4</span></td></tr>
         <tr>
@@ -742,43 +811,107 @@ a.apilink-inline:hover code{background:color-mix(in srgb,var(--bright) 22%,#fff)
   <div class="sp-head">
     <div class="sp-kicker">Phase 0 &middot; Implementation guide</div>
     <div class="sp-title">Developer portal setup</div>
-    <div class="sp-sub">Set up your application on the Lean dev portal: sandbox app token, client secret, webhooks, redirect URLs and Open Finance settings. Production comes once Lean upgrades you.</div>
+    <div class="sp-sub">Set up your application on the Lean dev portal: sandbox app token, Open Finance, credentials, redirect URLs, a Settlement Account and webhooks. Production comes once Lean upgrades you.</div>
     <button class="sp-close" onclick="closePanels()" aria-label="Close">&#10005;</button>
   </div>
   <div class="sp-body">
     
-    
+    <div class="sp-h">How it works</div>
+    <div class="sp-sub-h">Sandbox to production</div><div class="sp-diagram"><svg class="seqsvg" viewBox="0 0 560 414" xmlns="http://www.w3.org/2000/svg" role="img"><style>.lb{font:700 11.5px Arial,Helvetica,sans-serif;fill:#1c2024}.ms{font:500 10.5px Arial,Helvetica,sans-serif;fill:#1c2024}.mm{font:italic 500 10.5px Arial,Helvetica,sans-serif;fill:#6b7280}</style><line x1="80.0" y1="36" x2="80.0" y2="404" stroke="#e5e7eb" stroke-width="1.5"/><rect x="5.0" y="6" width="150" height="24" rx="7" fill="#f3f4f6" stroke="#e5e7eb"/><text x="80.0" y="22" text-anchor="middle" class="lb">Wise team</text><line x1="280.0" y1="36" x2="280.0" y2="404" stroke="#e5e7eb" stroke-width="1.5"/><rect x="215.0" y="6" width="130" height="24" rx="7" fill="#f3f4f6" stroke="#e5e7eb"/><text x="280.0" y="22" text-anchor="middle" class="lb">Lean dev portal</text><line x1="480.0" y1="36" x2="480.0" y2="404" stroke="#e5e7eb" stroke-width="1.5"/><rect x="432.0" y="6" width="96" height="24" rx="7" fill="#f3f4f6" stroke="#e5e7eb"/><text x="480.0" y="22" text-anchor="middle" class="lb">Lean</text><line x1="80.0" y1="64" x2="274.0" y2="64" stroke="#1c2024" stroke-width="1.6"/><path d="M272.0 60 L280.0 64 L272.0 68 Z" fill="#1c2024"/><text x="180.0" y="58" text-anchor="middle" class="ms">Create an account and an application</text><line x1="280.0" y1="98" x2="86.0" y2="98" style="stroke:var(--bright)" stroke-width="1.6"/><path d="M88.0 94 L80.0 98 L88.0 102 Z" style="fill:var(--bright)"/><text x="180.0" y="92" text-anchor="middle" class="ms">Sandbox application ID (app token)</text><line x1="80.0" y1="132" x2="474.0" y2="132" stroke="#1c2024" stroke-width="1.6"/><path d="M472.0 128 L480.0 132 L472.0 136 Z" fill="#1c2024"/><text x="280.0" y="126" text-anchor="middle" class="ms">Share the sandbox app token</text><line x1="80.0" y1="166" x2="474.0" y2="166" stroke="#1c2024" stroke-width="1.6"/><path d="M472.0 162 L480.0 166 L472.0 170 Z" fill="#1c2024"/><text x="280.0" y="160" text-anchor="middle" class="ms">Ask Lean Support to enable Open Finance</text><line x1="80.0" y1="200" x2="274.0" y2="200" stroke="#1c2024" stroke-width="1.6"/><path d="M272.0 196 L280.0 200 L272.0 204 Z" fill="#1c2024"/><text x="180.0" y="194" text-anchor="middle" class="ms">Client secret, redirect URLs, statements</text><line x1="80.0" y1="234" x2="274.0" y2="234" stroke="#1c2024" stroke-width="1.6"/><path d="M272.0 230 L280.0 234 L272.0 238 Z" fill="#1c2024"/><text x="180.0" y="228" text-anchor="middle" class="ms">Create a Settlement Account</text><line x1="80.0" y1="268" x2="274.0" y2="268" stroke="#1c2024" stroke-width="1.6"/><path d="M272.0 264 L280.0 268 L272.0 272 Z" fill="#1c2024"/><text x="180.0" y="262" text-anchor="middle" class="ms">Webhook endpoint and events</text><line x1="480.0" y1="302" x2="286.0" y2="302" stroke="#6b7280" stroke-width="1.6" stroke-dasharray="5 4"/><path d="M288.0 298 L280.0 302 L288.0 306 Z" fill="#6b7280"/><text x="380.0" y="296" text-anchor="middle" class="ms">Upgrade the application to production</text><line x1="80.0" y1="336" x2="274.0" y2="336" stroke="#1c2024" stroke-width="1.6"/><path d="M272.0 332 L280.0 336 L272.0 340 Z" fill="#1c2024"/><text x="180.0" y="330" text-anchor="middle" class="ms">Switch to production mode</text><line x1="280.0" y1="370" x2="86.0" y2="370" style="stroke:var(--bright)" stroke-width="1.6"/><path d="M88.0 366 L80.0 370 L88.0 374 Z" style="fill:var(--bright)"/><text x="180.0" y="364" text-anchor="middle" class="ms">Production application ID (app token)</text></svg></div>
     <div class="sp-h">Integration checklist</div>
-    <ol class="sp-check"><li data-check="dev-1">Create an account on the <a href="https://dev.leantech.me/" target="_blank" rel="noopener">Lean dev portal</a>.</li><li data-check="dev-2">Create your application on the dev portal.</li><li data-check="dev-3">Copy the application ID (app token) the portal generates: this is your <b>sandbox</b> app token.</li><li data-check="dev-4">Share the sandbox app token with Lean.</li><li data-check="dev-5">Generate your client secret and store it securely on your backend. Retrieving it again invalidates the existing one.</li><li data-check="dev-6">Set up your webhook destination: the URL on your backend where Lean sends webhooks.</li><li data-check="dev-7">Subscribe to the webhook events you need, such as <code>charge.*</code> for payments and <code>agreement.*</code> for Payment Agreements.</li><li data-check="dev-8">Add your redirect URLs in the <b>Settings</b> tab: the host is enough, for example <code>https://app.yourcompany.com</code>. Lean only sends customers back to URLs set up here.</li><li data-check="dev-9">Ask Lean Support to enable Open Finance on your application.</li><li data-check="dev-10">In the <b>Settings</b> tab, add the purpose statement and the benefit statement customers see when they authorise a payment, in English and Arabic.</li></ol>
+    <ol class="sp-check"><li data-check="dev-1">Create an account on the <a href="https://dev.leantech.me/" target="_blank" rel="noopener">Lean dev portal</a>.</li><li data-check="dev-2">Create your application.</li><li data-check="dev-3">Copy the application ID the portal generates: your sandbox <span class="term" tabindex="0">app token<span class="tip" role="tooltip">Your application ID from the dev portal, sent as client_id. Sandbox and production each have their own.</span></span>. Share it with Lean.</li><li data-check="dev-4">Ask Lean Support to enable Open Finance on your application.</li><li data-check="dev-5">In <b>Development</b>, <b>Integration settings</b>, generate your client secret and store it on your backend. Retrieving it again invalidates the existing one.</li><li data-check="dev-6">In <b>Settings</b>, add your redirect URLs. The host is enough, for example <code>https://app.yourcompany.com</code>: Lean only sends customers back to URLs set up here.</li><li data-check="dev-7">In <b>Settings</b>, add the purpose statement and the benefit statement customers see when they authorise a payment, in English and Arabic.</li><li data-check="dev-8">Create a <span class="term" tabindex="0">Settlement Account<span class="tip" role="tooltip">The bank account where the funds you collect through Lean are transferred, referenced as settlement_account_id.</span></span>: open the account menu (top left), select <b>[Client Name] Accounts</b>, then <b>Add Account</b> with <b>Settlement</b> as the purpose. Enter the bank and business details and save. Copy its ID into your backend configuration as <code>settlement_account_id</code>.</li><li data-check="dev-9">In <b>Development</b>, <b>Webhooks</b>, add a <span class="term" tabindex="0">webhook<span class="tip" role="tooltip">An HTTPS POST Lean sends to your backend when a payment resource changes, for example charge.captured.</span></span> with the HTTPS endpoint where your backend receives events, for example <code>https://api.yourcompany.com/webhooks/lean</code>.</li><li data-check="dev-10">Select these webhook events, then save. In the event list they’re under <b>Other</b>.<div class="evgroups"><details class="evgroup"><summary><span class="evt">Charge events</span><span class="evs">One-Time and Recurring Payments</span><span class="evn">4</span></summary><div class="evlist"><div class="ev"><code>charge.created</code><span>A new Charge is created.</span></div><div class="ev"><code>charge.captured</code><span>The Charge is captured.</span></div><div class="ev"><code>charge.declined</code><span>The payment was declined.</span></div><div class="ev"><code>charge.discarded</code><span>Authentication wasn’t completed in time.</span></div></div></details><details class="evgroup"><summary><span class="evt">Agreement events</span><span class="evs">Recurring Payments</span><span class="evn">7</span></summary><div class="evlist"><div class="ev"><code>agreement.activated</code><span>The Agreement is authorised.</span></div><div class="ev"><code>agreement.suspended</code><span>The Agreement is paused.</span></div><div class="ev"><code>agreement.resumed</code><span>The Agreement is ACTIVE again.</span></div><div class="ev"><code>agreement.declined</code><span>The Agreement was rejected.</span></div><div class="ev"><code>agreement.discarded</code><span>The customer didn’t complete authentication.</span></div><div class="ev"><code>agreement.fulfilled</code><span>The Agreement reached its completion conditions.</span></div><div class="ev"><code>agreement.revoked</code><span>The Agreement is permanently withdrawn.</span></div></div></details><details class="evgroup"><summary><span class="evt">Optional: refunds</span><span class="evs">only once you refund payments</span><span class="evn">4</span></summary><div class="evlist"><div class="ev"><code>charge.refunded</code><span>The full captured amount is refunded.</span></div><div class="ev"><code>refund.pending</code><span>A Refund is waiting to complete.</span></div><div class="ev"><code>refund.succeeded</code><span>The Refund completed.</span></div><div class="ev"><code>refund.failed</code><span>The Refund failed.</span></div></div></details></div></li><li data-check="dev-11">In <b>Development</b>, open the test-user management section and create a Sandbox test user: set its details and the scenarios you need, then save. You’ll use its details to authenticate in Sandbox. Test users are separate from the Lean Customers your API calls create.</li></ol>
     <div class="sp-h">Production</div>
     <p class="sp-note" style="margin:-4px 0 10px">Once Lean upgrades you to production. These steps aren’t counted in Phase 0 progress.</p>
-    <ol class="sp-check"><li data-check="dev-prod-1">Switch the dev portal to production mode.</li><li data-check="dev-prod-2">Copy the newly generated <b>production</b> application ID (app token).</li><li data-check="dev-prod-3">Start calling production endpoints with it.</li></ol>
+    <ol class="sp-check"><li data-check="dev-prod-1">Switch the dev portal to production mode.</li><li data-check="dev-prod-2">Copy the newly generated <b>production</b> application ID (<span class="term" tabindex="0">app token<span class="tip" role="tooltip">Your application ID from the dev portal, sent as client_id. Sandbox and production each have their own.</span></span>).</li><li data-check="dev-prod-3">Create the production Settlement Account. In production only the Owner, an Admin or a permissioned Finance user can add accounts; sandbox Settlement Accounts can’t receive live payments.</li><li data-check="dev-prod-4">Set up production webhooks: the production endpoint, its signing secret and the same events (see the Webhooks guide).</li><li data-check="dev-prod-5">Start calling production endpoints with the production credentials.</li></ol>
     <div class="sp-h">Also in the dev portal</div>
     <ul class="sp-pre"><li>Your customers.</li><li>All payments made by your customers.</li><li>Your consumption and billing details.</li></ul>
     
+    
     <div class="sp-h">Lean docs</div>
-    <div class="sp-links"><a href="https://dev.leantech.me/" target="_blank" rel="noopener">Lean dev portal</a><a href="https://docs.leantech.me/docs/configuring-your-application" target="_blank" rel="noopener">Configuring your application</a></div>
+    <div class="sp-links"><a href="https://dev.leantech.me/" target="_blank" rel="noopener">Lean dev portal</a><a href="https://docs.leantech.me/docs/configuring-your-application" target="_blank" rel="noopener">Configuring your application</a><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/creating-a-payment-destination" target="_blank" rel="noopener">Create a settlement account</a><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/sandbox-testing" target="_blank" rel="noopener">Testing your integration</a><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/webhooks-1" target="_blank" rel="noopener">Set up webhooks</a><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/payment-webhooks" target="_blank" rel="noopener">Payment webhooks</a></div>
     
   </div>
 </aside>
-<aside class="spanel" id="panel-start" role="dialog" aria-modal="true" aria-label="Getting started implementation guide">
+<aside class="spanel" id="panel-start" role="dialog" aria-modal="true" aria-label="Authentication and API basics implementation guide">
   <div class="sp-head">
     <div class="sp-kicker">Phase 0 &middot; Implementation guide</div>
-    <div class="sp-title">Getting started</div>
-    <div class="sp-sub">Set up your application, authenticate your backend, and build and test in the Sandbox before going live.</div>
+    <div class="sp-title">Authentication and API basics</div>
+    <div class="sp-sub">Get an access token for every API call, build in the Sandbox, and follow the rules that keep payment integrations reliable.</div>
     <button class="sp-close" onclick="closePanels()" aria-label="Close">&#10005;</button>
   </div>
   <div class="sp-body">
     <div class="sp-h">Before you start</div>
-    <ul class="sp-pre"><li>Your application on the <a href="https://dev.leantech.me/" target="_blank" rel="noopener">Lean dev portal</a> (see Developer portal setup).</li><li>A backend that can store secrets and receive webhooks.</li></ul>
-    
+    <ul class="sp-pre"><li>Your app token and client secret from Developer portal setup (steps 3 and 5).</li></ul>
+    <div class="sp-h">How it works</div>
+    <div class="sp-sub-h">Getting an access token</div><div class="sp-diagram"><svg class="seqsvg" viewBox="0 0 560 210" xmlns="http://www.w3.org/2000/svg" role="img"><style>.lb{font:700 11.5px Arial,Helvetica,sans-serif;fill:#1c2024}.ms{font:500 10.5px Arial,Helvetica,sans-serif;fill:#1c2024}.mm{font:italic 500 10.5px Arial,Helvetica,sans-serif;fill:#6b7280}</style><line x1="80.0" y1="36" x2="80.0" y2="200" stroke="#e5e7eb" stroke-width="1.5"/><rect x="5.0" y="6" width="150" height="24" rx="7" fill="#f3f4f6" stroke="#e5e7eb"/><text x="80.0" y="22" text-anchor="middle" class="lb">Wise backend</text><line x1="280.0" y1="36" x2="280.0" y2="200" stroke="#e5e7eb" stroke-width="1.5"/><rect x="232.0" y="6" width="96" height="24" rx="7" fill="#f3f4f6" stroke="#e5e7eb"/><text x="280.0" y="22" text-anchor="middle" class="lb">Lean auth</text><line x1="480.0" y1="36" x2="480.0" y2="200" stroke="#e5e7eb" stroke-width="1.5"/><rect x="432.0" y="6" width="96" height="24" rx="7" fill="#f3f4f6" stroke="#e5e7eb"/><text x="480.0" y="22" text-anchor="middle" class="lb">Lean API</text><line x1="80.0" y1="64" x2="274.0" y2="64" stroke="#1c2024" stroke-width="1.6"/><path d="M272.0 60 L280.0 64 L272.0 68 Z" fill="#1c2024"/><text x="180.0" y="58" text-anchor="middle" class="ms">POST /oauth2/token  (client_id, client_secret, scope)</text><line x1="280.0" y1="98" x2="86.0" y2="98" style="stroke:var(--bright)" stroke-width="1.6"/><path d="M88.0 94 L80.0 98 L88.0 102 Z" style="fill:var(--bright)"/><text x="180.0" y="92" text-anchor="middle" class="ms">Access token</text><line x1="80.0" y1="132" x2="474.0" y2="132" stroke="#1c2024" stroke-width="1.6"/><path d="M472.0 128 L480.0 132 L472.0 136 Z" fill="#1c2024"/><text x="280.0" y="126" text-anchor="middle" class="ms">API call  (Authorization: Bearer <token>)</text><line x1="480.0" y1="166" x2="86.0" y2="166" style="stroke:var(--bright)" stroke-width="1.6"/><path d="M88.0 162 L80.0 166 L88.0 170 Z" style="fill:var(--bright)"/><text x="280.0" y="160" text-anchor="middle" class="ms">Response</text></svg></div>
     <div class="sp-h">Integration checklist</div>
-    <ol class="sp-check"><li data-check="start-1">Have your app token (application ID) and client secret from Developer portal setup ready on your backend.</li><li data-check="start-2">Generate an access token from your backend with <a class="apilink-inline" href="https://docs.leantech.me/v4.0-GLOBAL/reference/postoauth2token" target="_blank" rel="noopener"><code>POST /oauth2/token</code></a>, using your <code>client_id</code> and <code>client_secret</code>: scope <code>api</code> for backend calls, or <code>customer.&lt;customer_id&gt;</code> for customer-scoped calls.</li><li data-check="start-3">Handle webhook events on your backend, and treat the resource's current state as the source of truth.</li><li data-check="start-4">Build and test the whole integration in the Sandbox environment before going live.</li><li data-check="start-5">Make create requests idempotent with an <code>Idempotency-Key</code>, so retries never create duplicate payments.</li></ol>
+    <ol class="sp-check"><li data-check="start-1">Keep your app token and client secret on your backend only, never in a client-side app or source control.</li><li data-check="start-2">Generate an access token from your backend with <code>POST /oauth2/token</code> on <code>auth.sandbox.leantech.me</code>: your app token as <code>client_id</code>, your client secret, <code>grant_type</code> <code>client_credentials</code> and scope <code>api</code> for backend calls (<code>customer.&lt;customer_id&gt;</code> for customer-scoped calls).</li><li data-check="start-3">Send the token on every API call as <code>Authorization: Bearer &lt;token&gt;</code>.</li><li data-check="start-4">Build against the Sandbox (<code>https://sandbox.leantech.me</code>) until Lean upgrades you to production.</li><li data-check="start-5">Send an <span class="term" tabindex="0">Idempotency-Key<span class="tip" role="tooltip">A unique key sent with a create request. Retrying with the same key returns the original result instead of creating a duplicate.</span></span> with every create request. If a request times out, retry with the same key; never reuse a key with a different body.</li><li data-check="start-6">Treat Lean as the source of payment state: a customer returning to your app means their authentication finished, not that the payment succeeded. Use the resource’s status or its webhook.</li></ol>
+    
     
     <div class="sp-h">Endpoints</div>
     <div class="sp-codes"><a class="apilink" href="https://docs.leantech.me/v4.0-GLOBAL/reference/postoauth2token" target="_blank" rel="noopener" title="Open in Lean’s API reference"><code>POST /oauth2/token</code></a></div>
     <div class="sp-h">Lean docs</div>
-    <div class="sp-links"><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/introduction" target="_blank" rel="noopener">Intro to Lean</a><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/authentication" target="_blank" rel="noopener">Authentication</a><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/webhooks-1" target="_blank" rel="noopener">Set up webhooks</a><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/sandbox-testing" target="_blank" rel="noopener">Testing your integration (Sandbox)</a><a href="https://dev.leantech.me" target="_blank" rel="noopener">Lean Dashboard</a></div>
+    <div class="sp-links"><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/introduction" target="_blank" rel="noopener">Intro to Lean</a><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/authentication" target="_blank" rel="noopener">Authentication</a><a href="https://docs.leantech.me/v4.0-GLOBAL/reference/postoauth2token" target="_blank" rel="noopener">Generate Access Token (API reference)</a><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/getting-started-with-payments" target="_blank" rel="noopener">Payments overview</a><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/sandbox-testing" target="_blank" rel="noopener">Testing your integration</a><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/errors-and-troubleshooting" target="_blank" rel="noopener">Errors and troubleshooting</a></div>
+    
+  </div>
+</aside>
+<aside class="spanel" id="panel-wh" role="dialog" aria-modal="true" aria-label="Webhooks implementation guide">
+  <div class="sp-head">
+    <div class="sp-kicker">Phase 0 &middot; Implementation guide</div>
+    <div class="sp-title">Webhooks</div>
+    <div class="sp-sub">Receive payment events on your backend: verify them, acknowledge them fast, and process them safely.</div>
+    <button class="sp-close" onclick="closePanels()" aria-label="Close">&#10005;</button>
+  </div>
+  <div class="sp-body">
+    <div class="sp-h">Before you start</div>
+    <ul class="sp-pre"><li>Your webhook endpoint and its events added in Developer portal setup (steps 9 and 10).</li></ul>
+    <div class="sp-h">How it works</div>
+    <div class="sp-sub-h">How a webhook is delivered</div><div class="sp-diagram"><svg class="seqsvg" viewBox="0 0 560 278" xmlns="http://www.w3.org/2000/svg" role="img"><style>.lb{font:700 11.5px Arial,Helvetica,sans-serif;fill:#1c2024}.ms{font:500 10.5px Arial,Helvetica,sans-serif;fill:#1c2024}.mm{font:italic 500 10.5px Arial,Helvetica,sans-serif;fill:#6b7280}</style><line x1="110.0" y1="36" x2="110.0" y2="268" stroke="#e5e7eb" stroke-width="1.5"/><rect x="62.0" y="6" width="96" height="24" rx="7" fill="#f3f4f6" stroke="#e5e7eb"/><text x="110.0" y="22" text-anchor="middle" class="lb">Lean</text><line x1="450.0" y1="36" x2="450.0" y2="268" stroke="#e5e7eb" stroke-width="1.5"/><rect x="375.0" y="6" width="150" height="24" rx="7" fill="#f3f4f6" stroke="#e5e7eb"/><text x="450.0" y="22" text-anchor="middle" class="lb">Wise backend</text><line x1="110.0" y1="64" x2="444.0" y2="64" stroke="#1c2024" stroke-width="1.6"/><path d="M442.0 60 L450.0 64 L442.0 68 Z" fill="#1c2024"/><text x="280.0" y="58" text-anchor="middle" class="ms">POST webhook event  (lean-signature header)</text><rect x="318.0" y="81" width="236" height="20" rx="6" fill="#fff" stroke="#e5e7eb"/><text x="436.0" y="95" text-anchor="middle" class="mm">Verify the signature</text><rect x="318.0" y="115" width="236" height="20" rx="6" fill="#fff" stroke="#e5e7eb"/><text x="436.0" y="129" text-anchor="middle" class="mm">Store or enqueue the event</text><line x1="450.0" y1="166" x2="116.0" y2="166" style="stroke:var(--bright)" stroke-width="1.6"/><path d="M118.0 162 L110.0 166 L118.0 170 Z" style="fill:var(--bright)"/><text x="280.0" y="160" text-anchor="middle" class="ms">HTTP 200, within 10 seconds</text><rect x="318.0" y="183" width="236" height="20" rx="6" fill="#fff" stroke="#e5e7eb"/><text x="436.0" y="197" text-anchor="middle" class="mm">Process the event</text><rect x="318.0" y="217" width="236" height="20" rx="6" fill="#fff" stroke="#e5e7eb"/><text x="436.0" y="231" text-anchor="middle" class="mm">Update from the resource’s current state</text></svg></div>
+    <div class="sp-sub-h">Handling duplicate deliveries</div><div class="sp-diagram"><svg class="seqsvg" viewBox="0 0 560 330" xmlns="http://www.w3.org/2000/svg" role="img"><style>.ms{font:500 11px Arial,Helvetica,sans-serif;fill:#1c2024}.mm{font:italic 500 10.5px Arial,Helvetica,sans-serif;fill:#6b7280}</style><rect x="190.0" y="10" width="180" height="28" rx="8" fill="#fff" stroke="#e5e7eb"/><text x="280.0" y="28" text-anchor="middle" class="ms">Event received</text><line x1="280.0" y1="38" x2="280.0" y2="56" stroke="#1c2024" stroke-width="1.5"/><path d="M276.0 54 L280.0 62 L284.0 54 Z" fill="#1c2024"/><rect x="190.0" y="62" width="180" height="28" rx="8" fill="#fff" stroke="#e5e7eb"/><text x="280.0" y="80" text-anchor="middle" class="ms">Verify signature</text><line x1="280.0" y1="90" x2="280.0" y2="108" stroke="#1c2024" stroke-width="1.5"/><path d="M276.0 106 L280.0 114 L284.0 106 Z" fill="#1c2024"/><rect x="190.0" y="114" width="180" height="28" rx="8" fill="#fff" stroke="#e5e7eb"/><text x="280.0" y="132" text-anchor="middle" class="ms">Check event_id</text><path d="M280.0 142 L280.0 156 L160.0 156 L160.0 172" fill="none" stroke="#1c2024" stroke-width="1.5"/><path d="M156.0 166 L160.0 174 L164.0 166 Z" fill="#1c2024"/><path d="M280.0 156 L400.0 156 L400.0 172" fill="none" stroke="#1c2024" stroke-width="1.5"/><path d="M396.0 166 L400.0 174 L404.0 166 Z" fill="#1c2024"/><text x="160.0" y="190" text-anchor="middle" class="mm">Already seen</text><text x="400.0" y="190" text-anchor="middle" class="mm">New event</text><rect x="75.0" y="200" width="170" height="28" rx="8" stroke="none" style="fill:color-mix(in srgb,var(--bright) 18%,#fff)"/><text x="160.0" y="218" text-anchor="middle" class="ms">Acknowledge (HTTP 200)</text><rect x="315.0" y="200" width="170" height="28" rx="8" fill="#fff" stroke="#e5e7eb"/><text x="400.0" y="218" text-anchor="middle" class="ms">Store / enqueue</text><line x1="400.0" y1="228" x2="400.0" y2="246" stroke="#1c2024" stroke-width="1.5"/><path d="M396.0 244 L400.0 252 L404.0 244 Z" fill="#1c2024"/><rect x="315.0" y="252" width="170" height="28" rx="8" stroke="none" style="fill:color-mix(in srgb,var(--bright) 18%,#fff)"/><text x="400.0" y="270" text-anchor="middle" class="ms">Acknowledge (HTTP 200)</text><line x1="400.0" y1="280" x2="400.0" y2="290" stroke="#1c2024" stroke-width="1.5"/><path d="M396.0 288 L400.0 296 L404.0 288 Z" fill="#1c2024"/><rect x="315.0" y="296" width="170" height="28" rx="8" fill="#fff" stroke="#e5e7eb"/><text x="400.0" y="314" text-anchor="middle" class="ms">Process</text></svg></div>
+    <div class="sp-h">Integration checklist</div>
+    <ol class="sp-check"><li data-check="wh-1">Copy your webhook <span class="term" tabindex="0">signing secret<span class="tip" role="tooltip">The secret Lean signs each webhook with (the lean-signature header). It’s in Development, Integration settings.</span></span> from <b>Development</b>, <b>Integration settings</b> and store it on your backend only.</li><li data-check="wh-2">Make your endpoint publicly reachable over HTTPS, accepting POST requests and returning HTTP <code>200</code> within 10 seconds.</li><li data-check="wh-3">Verify the <code>lean-signature</code> header on every request: HMAC-SHA512 of the raw request body with your signing secret, formatted <code>sha512=&lt;hash&gt;</code>. Reject invalid signatures.</li><li data-check="wh-4">Acknowledge fast: verify, store or enqueue the event, return HTTP <code>200</code>, then process it asynchronously.</li><li data-check="wh-5">Deduplicate on <code>event_id</code>: Lean delivers at least once, so skip IDs you’ve already processed.</li><li data-check="wh-6">Don’t rely on order: identify the resource from the payload and fetch its current state when you need to decide something, with <code>GET /v4/payment-charges/{charge_id}</code> or <code>GET /v4/payment-agreements/{agreement_id}</code>.</li></ol>
+    <div class="sp-h">Production</div>
+    <p class="sp-note" style="margin:-4px 0 10px">Once Lean upgrades you to production. These steps aren’t counted in Phase 0 progress.</p>
+    <ol class="sp-check"><li data-check="wh-prod-1">Configure webhooks separately for production: the production endpoint, its signing secret and the same events.</li></ol>
+    
+    <details class="sp-more"><summary>Reference: webhook fields</summary><div class="sp-section"><div class="sp-tablewrap"><table class="sp-table"><thead><tr><th>Field</th><th>What it is</th></tr></thead><tbody><tr><td><code>event_id</code></td><td>Unique ID for the event. Use it to detect duplicate deliveries.</td></tr><tr><td><code>type</code></td><td>The event, for example <code>charge.captured</code>.</td></tr><tr><td><code>message</code></td><td>A readable description of the event.</td></tr><tr><td><code>timestamp</code></td><td>When the event happened, in UTC.</td></tr><tr><td><code>payload</code></td><td>The resource the event is about. Its contents depend on the event: some events carry the full resource, others its ID and new status.</td></tr></tbody></table></div><pre class="sp-code">{
+  &quot;event_id&quot;: &quot;evt_6Lp3Rd9Km&quot;,
+  &quot;type&quot;: &quot;charge.captured&quot;,
+  &quot;message&quot;: &quot;The charge has been captured.&quot;,
+  &quot;timestamp&quot;: &quot;2026-07-17T10:05:44.612Z&quot;,
+  &quot;payload&quot;: {
+    &quot;id&quot;: &quot;chg_oneoff75Qk&quot;,
+    &quot;status&quot;: &quot;CAPTURED&quot;,
+    &quot;capture_id&quot;: &quot;cap_8dF2Qm&quot;,
+    &quot;amount&quot;: { &quot;value&quot;: &quot;75.00&quot;, &quot;currency&quot;: &quot;AED&quot; }
+  }
+}</pre></div></details>
+    <details class="sp-more"><summary>Reference: signature and code example</summary><div class="sp-section"><div class="sp-tablewrap"><table class="sp-table"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody><tr><td>Header</td><td><code>lean-signature</code></td></tr><tr><td>Algorithm</td><td>HMAC-SHA512</td></tr><tr><td>Format</td><td><code>sha512=&lt;hash&gt;</code></td></tr><tr><td>Signed content</td><td>The raw HTTP request body</td></tr><tr><td>Secret</td><td>Your webhook signing secret</td></tr></tbody></table></div><p class="sp-note">Example in Node.js. Calculate the signature over the raw body: parsing and re-serialising the JSON changes the bytes and breaks verification.</p><pre class="sp-code">const crypto = require(&quot;crypto&quot;);
+
+// rawBody: the request body exactly as received (a Buffer), before any JSON parsing.
+function isFromLean(rawBody, signatureHeader, signingSecret) {
+  if (!signatureHeader || !signingSecret) return false;
+  const expected = &quot;sha512=&quot; + crypto.createHmac(&quot;sha512&quot;, signingSecret).update(rawBody).digest(&quot;hex&quot;);
+  const a = Buffer.from(signatureHeader, &quot;utf8&quot;);
+  const b = Buffer.from(expected, &quot;utf8&quot;);
+  return a.length === b.length &amp;&amp; crypto.timingSafeEqual(a, b);
+}
+
+// Express: keep the raw body on the webhook route.
+app.post(&quot;/webhooks/lean&quot;, express.raw({ type: &quot;application/json&quot; }), async (req, res) =&gt; {
+  if (!isFromLean(req.body, req.get(&quot;lean-signature&quot;), process.env.LEAN_WEBHOOK_SECRET)) return res.sendStatus(401);
+  const event = JSON.parse(req.body.toString(&quot;utf8&quot;));
+  await saveIfNew(event); // your durable store or queue, keyed on event.event_id
+  res.sendStatus(200);    // acknowledge first, process asynchronously
+});</pre></div></details>
+    <details class="sp-more"><summary>Reference: retry schedule</summary><div class="sp-section"><p class="sp-note" style="margin-top:0">Lean delivers at least once, so an event can arrive more than once. A delivery fails if your endpoint doesn’t return HTTP <code>200</code> within 10 seconds. Failed deliveries are retried on this schedule:</p><div class="sp-tablewrap"><table class="sp-table"><thead><tr><th>Retry</th><th>After</th></tr></thead><tbody><tr><td>1</td><td>1 minute</td></tr><tr><td>2</td><td>2 minutes</td></tr><tr><td>3</td><td>5 minutes</td></tr><tr><td>4</td><td>10 minutes</td></tr><tr><td>5</td><td>60 minutes</td></tr><tr><td>6</td><td>180 minutes</td></tr></tbody></table></div></div></details>
+    <details class="sp-more"><summary>Reference: payment events</summary><div class="sp-section"><p class="sp-note" style="margin-top:0">Events can arrive out of order: <code>charge.captured</code> can arrive before <code>charge.created</code>. Treat each one as a notice that the resource changed.</p><div class="sp-sub-h">Charge events (standalone Charges and Charges under an Agreement)</div><div class="sp-tablewrap"><table class="sp-table"><thead><tr><th>Event</th><th>When it’s sent</th><th>What to do</th></tr></thead><tbody><tr><td><code>charge.created</code></td><td>A new Charge is created.</td><td>Record it against your order or transaction.</td></tr><tr><td><code>charge.captured</code></td><td>The Charge is captured.</td><td>Mark the payment successful. Settlement is requested; the funds may not have reached your Settlement Account yet.</td></tr><tr><td><code>charge.declined</code></td><td>The payment was declined.</td><td>Read <code>decline_reason</code>. Terminal: create a new Charge to retry.</td></tr><tr><td><code>charge.discarded</code></td><td>Authentication wasn’t completed in the allowed window.</td><td>Close the attempt. Terminal: create a new Charge to retry.</td></tr></tbody></table></div><div class="sp-sub-h">Agreement events</div><div class="sp-tablewrap"><table class="sp-table"><thead><tr><th>Event</th><th>When it’s sent</th><th>What to do</th></tr></thead><tbody><tr><td><code>agreement.activated</code></td><td>The Agreement is authorised.</td><td>Enable charging. Only an ACTIVE Agreement can be charged.</td></tr><tr><td><code>agreement.suspended</code></td><td>The Agreement is paused.</td><td>Stop initiating new Charges.</td></tr><tr><td><code>agreement.resumed</code></td><td>The Agreement is ACTIVE again.</td><td>Resume charging where appropriate.</td></tr><tr><td><code>agreement.declined</code></td><td>The Agreement was rejected.</td><td>Read <code>decline_reason</code>; offer a new authorisation if appropriate.</td></tr><tr><td><code>agreement.discarded</code></td><td>The customer didn’t complete authentication.</td><td>Create a new Agreement if needed.</td></tr><tr><td><code>agreement.fulfilled</code></td><td>The Agreement reached its completion conditions.</td><td>Stop creating Charges and mark it completed.</td></tr><tr><td><code>agreement.revoked</code></td><td>The Agreement is permanently withdrawn.</td><td>Stop charging under it.</td></tr></tbody></table></div><div class="sp-sub-h">Refund events (optional, once you refund payments)</div><div class="sp-tablewrap"><table class="sp-table"><thead><tr><th>Event</th><th>When it’s sent</th><th>What to do</th></tr></thead><tbody><tr><td><code>refund.pending</code></td><td>A Refund is waiting to complete.</td><td>Mark the refund as processing.</td></tr><tr><td><code>refund.succeeded</code></td><td>The Refund completed. Each partial refund sends its own.</td><td>Update the refunded amount.</td></tr><tr><td><code>refund.failed</code></td><td>The Refund failed.</td><td>Read <code>decline_reason</code>; decide whether to try again.</td></tr><tr><td><code>charge.refunded</code></td><td>The full captured amount is refunded.</td><td>Mark the payment fully refunded.</td></tr></tbody></table></div></div></details>
+    <div class="sp-h">If you run into these</div>
+    <div class="sp-section"><ul class="sp-pre"><li>Your network restricts inbound traffic: allowlist Lean’s UAE webhook senders. <a href="https://docs.leantech.me/v4.0-GLOBAL/docs/webhooks-1#5-allowlist-lean-webhook-ip-addresses" target="_blank" rel="noopener">IP addresses and hostnames</a></li><li>A delivery failed or an event wasn’t processed: check the delivery history and resend it from the dev portal. <a href="https://docs.leantech.me/v4.0-GLOBAL/docs/webhooks-1#monitor-webhook-deliveries" target="_blank" rel="noopener">Monitor and resend deliveries</a></li><li>You need to change your endpoint or rotate the signing secret. <a href="https://docs.leantech.me/v4.0-GLOBAL/docs/webhooks-1#2-manage-webhooks-in-the-lean-dashboard" target="_blank" rel="noopener">Manage webhooks</a></li><li>You receive an event type you don’t recognise: acknowledge it after verifying and storing it, and record it for investigation. <a href="https://docs.leantech.me/v4.0-GLOBAL/docs/payment-webhooks#5-handle-unknown-events-safely" target="_blank" rel="noopener">Handle unknown events</a></li></ul></div>
+    <div class="sp-h">Endpoints</div>
+    <div class="sp-codes"><a class="apilink" href="https://docs.leantech.me/v4.0-GLOBAL/reference/getpaymentcharge" target="_blank" rel="noopener" title="Open in Lean’s API reference"><code>GET /v4/payment-charges/{charge_id}</code></a><a class="apilink" href="https://docs.leantech.me/v4.0-GLOBAL/reference/getpaymentagreement" target="_blank" rel="noopener" title="Open in Lean’s API reference"><code>GET /v4/payment-agreements/{agreement_id}</code></a></div>
+    <div class="sp-h">Lean docs</div>
+    <div class="sp-links"><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/webhooks-1" target="_blank" rel="noopener">Set up webhooks</a><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/payment-webhooks" target="_blank" rel="noopener">Payment webhooks</a><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/errors-and-troubleshooting" target="_blank" rel="noopener">Errors and troubleshooting</a><a href="https://dev.leantech.me/" target="_blank" rel="noopener">Lean dev portal</a></div>
     
   </div>
 </aside>
@@ -786,20 +919,23 @@ a.apilink-inline:hover code{background:color-mix(in srgb,var(--bright) 22%,#fff)
   <div class="sp-head">
     <div class="sp-kicker">Phase 1 &middot; Implementation guide</div>
     <div class="sp-title">One-Time Payments</div>
-    <div class="sp-sub">Accept a single Pay by Bank payment. Each payment is a standalone Charge, tracked from creation through authentication to its outcome.</div>
+    <div class="sp-sub">Accept a single Pay by Bank payment. Each payment is a <span class="term" tabindex="0">Charge<span class="tip" role="tooltip">A Charge is a single payment. Every payment is a Charge, whether it stands alone or is made under an Agreement.</span></span>, tracked from creation through the customer’s authentication to its outcome.</div>
     <button class="sp-close" onclick="closePanels()" aria-label="Close">&#10005;</button>
   </div>
   <div class="sp-body">
     <div class="sp-h">Before you start</div>
-    <ul class="sp-pre"><li><a href="https://docs.leantech.me/v4.0-GLOBAL/reference/postoauth2token" target="_blank" rel="noopener">Authenticate with the Lean API</a>: generate an access token.</li><li>Create a <b>Settlement Account</b> for the funds you collect.</li><li>Configure a webhook endpoint with signature verification.</li></ul>
+    <ul class="sp-pre"><li>Phase 0 done: an access token (Authentication), a Settlement Account ID (Developer portal setup, step 8) and webhooks (Webhooks). You’ll test the whole flow in the End-to-end test.</li></ul>
     <div class="sp-h">How it works</div>
-    <div class="sp-diagram"><svg class="seqsvg" viewBox="0 0 500 310" xmlns="http://www.w3.org/2000/svg" role="img"><style>.lb{font:700 11.5px Arial,Helvetica,sans-serif;fill:#1c2024}.ms{font:500 10.5px Arial,Helvetica,sans-serif;fill:#1c2024}.mm{font:italic 500 10.5px Arial,Helvetica,sans-serif;fill:#6b7280}</style><line x1="40.0" y1="34" x2="40.0" y2="300" stroke="#e5e7eb" stroke-width="1.5"/><rect x="-12.0" y="6" width="104" height="22" rx="7" fill="#f3f4f6" stroke="#e5e7eb"/><text x="40.0" y="21" text-anchor="middle" class="lb">Wise backend</text><line x1="250.0" y1="34" x2="250.0" y2="300" stroke="#e5e7eb" stroke-width="1.5"/><rect x="198.0" y="6" width="104" height="22" rx="7" fill="#f3f4f6" stroke="#e5e7eb"/><text x="250.0" y="21" text-anchor="middle" class="lb">Lean</text><line x1="460.0" y1="34" x2="460.0" y2="300" stroke="#e5e7eb" stroke-width="1.5"/><rect x="408.0" y="6" width="104" height="22" rx="7" fill="#f3f4f6" stroke="#e5e7eb"/><text x="460.0" y="21" text-anchor="middle" class="lb">Customer</text><line x1="40.0" y1="60" x2="244.0" y2="60" stroke="#1c2024" stroke-width="1.6"/><path d="M242.0 56 L250.0 60 L242.0 64 Z" fill="#1c2024"/><text x="145.0" y="55" text-anchor="middle" class="ms">Create Charge  (POST /v4/payment-charges)</text><line x1="250.0" y1="94" x2="46.0" y2="94" stroke="#3dd68c" stroke-width="1.6"/><path d="M48.0 90 L40.0 94 L48.0 98 Z" fill="#3dd68c"/><text x="145.0" y="89" text-anchor="middle" class="ms">Charge + hosted auth URL</text><line x1="40.0" y1="128" x2="454.0" y2="128" stroke="#1c2024" stroke-width="1.6"/><path d="M452.0 124 L460.0 128 L452.0 132 Z" fill="#1c2024"/><text x="250.0" y="123" text-anchor="middle" class="ms">Send customer to authenticate</text><line x1="460.0" y1="162" x2="256.0" y2="162" stroke="#1c2024" stroke-width="1.6"/><path d="M258.0 158 L250.0 162 L258.0 166 Z" fill="#1c2024"/><text x="355.0" y="157" text-anchor="middle" class="ms">Customer authenticates with their bank</text><line x1="250.0" y1="196" x2="46.0" y2="196" stroke="#6b7280" stroke-width="1.6" stroke-dasharray="5 4"/><path d="M48.0 192 L40.0 196 L48.0 200 Z" fill="#6b7280"/><text x="145.0" y="191" text-anchor="middle" class="ms">charge.captured webhook</text><line x1="40.0" y1="230" x2="244.0" y2="230" stroke="#1c2024" stroke-width="1.6"/><path d="M242.0 226 L250.0 230 L242.0 234 Z" fill="#1c2024"/><text x="145.0" y="225" text-anchor="middle" class="ms">Fetch Charge  (GET /v4/payment-charges/{id})</text><line x1="250.0" y1="264" x2="46.0" y2="264" stroke="#3dd68c" stroke-width="1.6"/><path d="M48.0 260 L40.0 264 L48.0 268 Z" fill="#3dd68c"/><text x="145.0" y="259" text-anchor="middle" class="ms">Charge status: CAPTURED</text></svg></div>
+    <div class="sp-sub-h">The payment lifecycle</div><div class="sp-diagram"><svg class="seqsvg" viewBox="0 0 560 112" xmlns="http://www.w3.org/2000/svg" role="img"><style>.lt{font:700 11px Arial,Helvetica,sans-serif;fill:#1c2024}.ld{font:500 10.5px Arial,Helvetica,sans-serif;fill:#6b7280}</style><rect x="17.6" y="14" width="118" height="84" rx="10" fill="#fff" stroke="#e5e7eb"/><rect x="17.6" y="14" width="118" height="5" rx="2" style="fill:var(--bright)"/><text x="76.6" y="44" text-anchor="middle" class="lt">1. Create</text><text x="76.6" y="66" text-anchor="middle" class="ld">Your backend creates</text><text x="76.6" y="81" text-anchor="middle" class="ld">a Charge</text><line x1="138.6" y1="56" x2="144.2" y2="56" stroke="#1c2024" stroke-width="1.5"/><path d="M142.2 52 L150.2 56 L142.2 60 Z" fill="#1c2024"/><rect x="153.2" y="14" width="118" height="84" rx="10" fill="#fff" stroke="#e5e7eb"/><rect x="153.2" y="14" width="118" height="5" rx="2" style="fill:var(--bright)"/><text x="212.2" y="44" text-anchor="middle" class="lt">2. Authenticate</text><text x="212.2" y="66" text-anchor="middle" class="ld">The customer approves</text><text x="212.2" y="81" text-anchor="middle" class="ld">with their bank</text><line x1="274.2" y1="56" x2="279.8" y2="56" stroke="#1c2024" stroke-width="1.5"/><path d="M277.8 52 L285.8 56 L277.8 60 Z" fill="#1c2024"/><rect x="288.8" y="14" width="118" height="84" rx="10" fill="#fff" stroke="#e5e7eb"/><rect x="288.8" y="14" width="118" height="5" rx="2" style="fill:var(--bright)"/><text x="347.8" y="44" text-anchor="middle" class="lt">3. Process</text><text x="347.8" y="66" text-anchor="middle" class="ld">Lean processes</text><text x="347.8" y="81" text-anchor="middle" class="ld">the payment</text><line x1="409.8" y1="56" x2="415.4" y2="56" stroke="#1c2024" stroke-width="1.5"/><path d="M413.4 52 L421.4 56 L413.4 60 Z" fill="#1c2024"/><rect x="424.4" y="14" width="118" height="84" rx="10" fill="#fff" stroke="#e5e7eb"/><rect x="424.4" y="14" width="118" height="5" rx="2" style="fill:var(--bright)"/><text x="483.4" y="44" text-anchor="middle" class="lt">4. Outcome</text><text x="483.4" y="66" text-anchor="middle" class="ld">Status by webhook</text><text x="483.4" y="81" text-anchor="middle" class="ld">or GET Charge</text></svg></div>
+    <div class="sp-sub-h">A one-time payment</div><div class="sp-diagram"><svg class="seqsvg" viewBox="0 0 560 346" xmlns="http://www.w3.org/2000/svg" role="img"><style>.lb{font:700 11.5px Arial,Helvetica,sans-serif;fill:#1c2024}.ms{font:500 10.5px Arial,Helvetica,sans-serif;fill:#1c2024}.mm{font:italic 500 10.5px Arial,Helvetica,sans-serif;fill:#6b7280}</style><line x1="80.0" y1="36" x2="80.0" y2="336" stroke="#e5e7eb" stroke-width="1.5"/><rect x="5.0" y="6" width="150" height="24" rx="7" fill="#f3f4f6" stroke="#e5e7eb"/><text x="80.0" y="22" text-anchor="middle" class="lb">Wise backend</text><line x1="280.0" y1="36" x2="280.0" y2="336" stroke="#e5e7eb" stroke-width="1.5"/><rect x="232.0" y="6" width="96" height="24" rx="7" fill="#f3f4f6" stroke="#e5e7eb"/><text x="280.0" y="22" text-anchor="middle" class="lb">Lean</text><line x1="480.0" y1="36" x2="480.0" y2="336" stroke="#e5e7eb" stroke-width="1.5"/><rect x="432.0" y="6" width="96" height="24" rx="7" fill="#f3f4f6" stroke="#e5e7eb"/><text x="480.0" y="22" text-anchor="middle" class="lb">Customer</text><line x1="80.0" y1="64" x2="274.0" y2="64" stroke="#1c2024" stroke-width="1.6"/><path d="M272.0 60 L280.0 64 L272.0 68 Z" fill="#1c2024"/><text x="180.0" y="58" text-anchor="middle" class="ms">Create Charge  (POST /v4/payment-charges)</text><line x1="280.0" y1="98" x2="86.0" y2="98" style="stroke:var(--bright)" stroke-width="1.6"/><path d="M88.0 94 L80.0 98 L88.0 102 Z" style="fill:var(--bright)"/><text x="180.0" y="92" text-anchor="middle" class="ms">Charge + hosted auth URL</text><line x1="280.0" y1="132" x2="86.0" y2="132" stroke="#6b7280" stroke-width="1.6" stroke-dasharray="5 4"/><path d="M88.0 128 L80.0 132 L88.0 136 Z" fill="#6b7280"/><text x="180.0" y="126" text-anchor="middle" class="ms">charge.created webhook</text><line x1="80.0" y1="166" x2="474.0" y2="166" stroke="#1c2024" stroke-width="1.6"/><path d="M472.0 162 L480.0 166 L472.0 170 Z" fill="#1c2024"/><text x="280.0" y="160" text-anchor="middle" class="ms">Send customer to authenticate</text><line x1="480.0" y1="200" x2="286.0" y2="200" stroke="#1c2024" stroke-width="1.6"/><path d="M288.0 196 L280.0 200 L288.0 204 Z" fill="#1c2024"/><text x="380.0" y="194" text-anchor="middle" class="ms">Customer authenticates with their bank</text><line x1="280.0" y1="234" x2="86.0" y2="234" stroke="#6b7280" stroke-width="1.6" stroke-dasharray="5 4"/><path d="M88.0 230 L80.0 234 L88.0 238 Z" fill="#6b7280"/><text x="180.0" y="228" text-anchor="middle" class="ms">charge.captured webhook</text><line x1="80.0" y1="268" x2="274.0" y2="268" stroke="#1c2024" stroke-width="1.6"/><path d="M272.0 264 L280.0 268 L272.0 272 Z" fill="#1c2024"/><text x="180.0" y="262" text-anchor="middle" class="ms">Fetch Charge  (GET /v4/payment-charges/{id})</text><line x1="280.0" y1="302" x2="86.0" y2="302" style="stroke:var(--bright)" stroke-width="1.6"/><path d="M88.0 298 L80.0 302 L88.0 306 Z" style="fill:var(--bright)"/><text x="180.0" y="296" text-anchor="middle" class="ms">Current status: CAPTURED</text></svg></div>
     <div class="sp-h">Integration checklist</div>
-    <ol class="sp-check"><li>Create a Charge from the backend: <code>POST /v4/payment-charges</code> with the amount, customer, <code>settlement_account_id</code> and an <code>Idempotency-Key</code>.</li><li>Send the customer to the returned hosted authentication URL: a redirect on web, or a WebView with a deep link back into the app.</li><li>Treat the customer's return as the end of authentication, not the payment result.</li><li>Check the outcome with <code>GET /v4/payment-charges/{id}</code> and handle <code>CAPTURED</code>, <code>DECLINED</code> and <code>DISCARDED</code>. The customer has 10 minutes to authenticate; declined and discarded are terminal, so retries mean a new Charge.</li><li>Listen for <code>charge.captured</code>, <code>charge.declined</code> and <code>charge.discarded</code> webhooks; tolerate duplicate and out-of-order delivery.</li><li>Test in Sandbox: a successful payment, a decline, abandoned authentication, an idempotent retry, and a duplicate webhook.</li></ol>
+    <ol class="sp-check"><li data-check="otp-1">Create a Charge from your backend: <code>POST /v4/payment-charges</code> with an <span class="term" tabindex="0">Idempotency-Key<span class="tip" role="tooltip">A unique key sent with a create request. Retrying with the same key returns the original result instead of creating a duplicate.</span></span>, <code>payment_method</code> <code>PAY_BY_BANK</code>, the <code>amount</code> in AED, your <code>settlement_account_id</code>, your references (<code>charge_merchant_reference</code>, <code>authorization_merchant_reference</code>) and <code>authentication_overrides</code> with a <code>return_url</code> and <code>fail_return_url</code> on a host you added in Developer portal setup.</li><li data-check="otp-2">For a customer’s first payment, create the <span class="term" tabindex="0">Customer<span class="tip" role="tooltip">The person paying. Lean creates the Customer with their first Charge or Agreement and returns a customer_id to reuse.</span></span> in the same request with a <code>customer</code> block; store the <code>customer_id</code> Lean returns. For their later payments, send <code>customer_id</code> instead.</li><li data-check="otp-3">Store the Charge <code>id</code> against your order before sending the customer anywhere. You’ll use it to fetch the Charge and match webhooks.</li><li data-check="otp-4">Send the customer to the <code>REDIRECT</code> method’s <code>details.url</code> from <code>available_authentication_methods</code>. On the web, redirect the browser. In a mobile app, open it in a WebView: close the WebView on your own return URL, keep Lean-hosted URLs inside it, and hand any other URL to the operating system so the bank app opens.</li><li data-check="otp-5">Treat the customer’s return as the end of authentication, not the payment result. The customer has 10 minutes to authenticate; after that the Charge is discarded.</li><li data-check="otp-6">Check the outcome with <code>GET /v4/payment-charges/{charge_id}</code> and handle each status: <code>PENDING_CUSTOMER_AUTHENTICATION</code> and <code>PENDING_PROVIDER_CONFIRMATION</code> (wait), <code>CAPTURED</code> (confirm the payment; settlement is requested, the funds may not have arrived yet), <code>DECLINED</code> (read <code>decline_reason</code>) and <code>DISCARDED</code>. Declined and discarded are final: create a new Charge to retry.</li><li data-check="otp-7">Handle <code>charge.captured</code>, <code>charge.declined</code> and <code>charge.discarded</code>: they matter most when the customer never comes back to your app.</li></ol>
+    
+    <details class="sp-more"><summary>Reference: Charge statuses</summary><div class="sp-section"><div class="sp-tablewrap"><table class="sp-table"><thead><tr><th>Status</th><th>What it means</th><th>What to do</th></tr></thead><tbody><tr><td><code>PENDING_CUSTOMER_AUTHENTICATION</code></td><td>The customer still needs to authenticate.</td><td>Wait for the customer or a webhook.</td></tr><tr><td><code>PENDING_PROVIDER_CONFIRMATION</code></td><td>Waiting for final confirmation from the provider.</td><td>Wait for the webhook.</td></tr><tr><td><code>CAPTURED</code></td><td>The payment succeeded and settlement is requested.</td><td>Confirm the payment.</td></tr><tr><td><code>DECLINED</code></td><td>The payment was declined.</td><td>Read <code>decline_reason</code>; allow a new payment.</td></tr><tr><td><code>DISCARDED</code></td><td>Not completed within the 10-minute window.</td><td>Create a new Charge to retry.</td></tr></tbody></table></div></div></details>
     <div class="sp-h">Endpoints</div>
     <div class="sp-codes"><a class="apilink" href="https://docs.leantech.me/v4.0-GLOBAL/reference/createpaymentcharge" target="_blank" rel="noopener" title="Open in Lean’s API reference"><code>POST /v4/payment-charges</code></a><a class="apilink" href="https://docs.leantech.me/v4.0-GLOBAL/reference/getpaymentcharge" target="_blank" rel="noopener" title="Open in Lean’s API reference"><code>GET /v4/payment-charges/{charge_id}</code></a></div>
     <div class="sp-h">Lean docs</div>
-    <div class="sp-links"><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/one-time-payments" target="_blank" rel="noopener">Accept a one-time payment</a><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/getting-started-with-payments" target="_blank" rel="noopener">Payments overview</a><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/payment-webhooks" target="_blank" rel="noopener">Payment webhooks</a><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/errors-and-troubleshooting" target="_blank" rel="noopener">Errors and troubleshooting</a></div>
+    <div class="sp-links"><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/one-time-payments" target="_blank" rel="noopener">Accept a one-time payment</a><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/getting-started-with-payments" target="_blank" rel="noopener">Payments overview</a><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/payment-methods" target="_blank" rel="noopener">Payment methods</a><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/payment-webhooks" target="_blank" rel="noopener">Payment webhooks</a><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/errors-and-troubleshooting" target="_blank" rel="noopener">Errors and troubleshooting</a></div>
     
   </div>
 </aside>
@@ -807,41 +943,83 @@ a.apilink-inline:hover code{background:color-mix(in srgb,var(--bright) 22%,#fff)
   <div class="sp-head">
     <div class="sp-kicker">Phase 1 &middot; Implementation guide</div>
     <div class="sp-title">Recurring Payments</div>
-    <div class="sp-sub">Collect repeat payments under one Payment Agreement: reusable permission to charge the customer on demand, on a schedule, or in instalments.</div>
+    <div class="sp-sub">Collect repeat payments under one <span class="term" tabindex="0">Payment Agreement<span class="tip" role="tooltip">A Payment Agreement is a customer’s permission to be charged over time. It doesn’t move money itself: each payment under it is a Charge.</span></span>: the customer authenticates once, and each payment under it is its own <span class="term" tabindex="0">Charge<span class="tip" role="tooltip">A Charge is a single payment. Every payment is a Charge, whether it stands alone or is made under an Agreement.</span></span>.</div>
     <button class="sp-close" onclick="closePanels()" aria-label="Close">&#10005;</button>
   </div>
   <div class="sp-body">
     <div class="sp-h">Before you start</div>
-    <ul class="sp-pre"><li><a href="https://docs.leantech.me/v4.0-GLOBAL/reference/postoauth2token" target="_blank" rel="noopener">Authenticate with the Lean API</a>: generate an access token.</li><li>Create a <b>Settlement Account</b> for the funds you collect.</li><li>Configure a webhook endpoint with signature verification.</li></ul>
+    <ul class="sp-pre"><li>Phase 0 done: an access token, a Settlement Account and webhooks. The One-Time Payments flow, since every Charge under an Agreement behaves the same way. You’ll test the whole flow in the End-to-end test.</li></ul>
     <div class="sp-h">How it works</div>
-    <div class="sp-diagram"><svg class="seqsvg" viewBox="0 0 500 344" xmlns="http://www.w3.org/2000/svg" role="img"><style>.lb{font:700 11.5px Arial,Helvetica,sans-serif;fill:#1c2024}.ms{font:500 10.5px Arial,Helvetica,sans-serif;fill:#1c2024}.mm{font:italic 500 10.5px Arial,Helvetica,sans-serif;fill:#6b7280}</style><line x1="40.0" y1="34" x2="40.0" y2="334" stroke="#e5e7eb" stroke-width="1.5"/><rect x="-12.0" y="6" width="104" height="22" rx="7" fill="#f3f4f6" stroke="#e5e7eb"/><text x="40.0" y="21" text-anchor="middle" class="lb">Wise backend</text><line x1="250.0" y1="34" x2="250.0" y2="334" stroke="#e5e7eb" stroke-width="1.5"/><rect x="198.0" y="6" width="104" height="22" rx="7" fill="#f3f4f6" stroke="#e5e7eb"/><text x="250.0" y="21" text-anchor="middle" class="lb">Lean</text><line x1="460.0" y1="34" x2="460.0" y2="334" stroke="#e5e7eb" stroke-width="1.5"/><rect x="408.0" y="6" width="104" height="22" rx="7" fill="#f3f4f6" stroke="#e5e7eb"/><text x="460.0" y="21" text-anchor="middle" class="lb">Customer</text><line x1="40.0" y1="60" x2="244.0" y2="60" stroke="#1c2024" stroke-width="1.6"/><path d="M242.0 56 L250.0 60 L242.0 64 Z" fill="#1c2024"/><text x="145.0" y="55" text-anchor="middle" class="ms">Create Agreement  (POST /v4/payment-agreements)</text><line x1="250.0" y1="94" x2="46.0" y2="94" stroke="#3dd68c" stroke-width="1.6"/><path d="M48.0 90 L40.0 94 L48.0 98 Z" fill="#3dd68c"/><text x="145.0" y="89" text-anchor="middle" class="ms">Agreement + hosted auth URL</text><line x1="40.0" y1="128" x2="454.0" y2="128" stroke="#1c2024" stroke-width="1.6"/><path d="M452.0 124 L460.0 128 L452.0 132 Z" fill="#1c2024"/><text x="250.0" y="123" text-anchor="middle" class="ms">Send customer to authorise the agreement</text><line x1="460.0" y1="162" x2="256.0" y2="162" stroke="#1c2024" stroke-width="1.6"/><path d="M258.0 158 L250.0 162 L258.0 166 Z" fill="#1c2024"/><text x="355.0" y="157" text-anchor="middle" class="ms">Customer authenticates with their bank</text><line x1="250.0" y1="196" x2="46.0" y2="196" stroke="#6b7280" stroke-width="1.6" stroke-dasharray="5 4"/><path d="M48.0 192 L40.0 196 L48.0 200 Z" fill="#6b7280"/><text x="145.0" y="191" text-anchor="middle" class="ms">agreement.activated webhook</text><line x1="40.0" y1="230" x2="244.0" y2="230" stroke="#1c2024" stroke-width="1.6"/><path d="M242.0 226 L250.0 230 L242.0 234 Z" fill="#1c2024"/><text x="145.0" y="225" text-anchor="middle" class="ms">Create Charge under Agreement</text><line x1="250.0" y1="264" x2="46.0" y2="264" stroke="#3dd68c" stroke-width="1.6"/><path d="M48.0 260 L40.0 264 L48.0 268 Z" fill="#3dd68c"/><text x="145.0" y="259" text-anchor="middle" class="ms">Charge + status</text><line x1="250.0" y1="298" x2="46.0" y2="298" stroke="#6b7280" stroke-width="1.6" stroke-dasharray="5 4"/><path d="M48.0 294 L40.0 298 L48.0 302 Z" fill="#6b7280"/><text x="145.0" y="293" text-anchor="middle" class="ms">charge.captured webhook</text></svg></div>
+    <div class="sp-sub-h">Recurring payments on demand</div><div class="sp-diagram"><svg class="seqsvg" viewBox="0 0 560 414" xmlns="http://www.w3.org/2000/svg" role="img"><style>.lb{font:700 11.5px Arial,Helvetica,sans-serif;fill:#1c2024}.ms{font:500 10.5px Arial,Helvetica,sans-serif;fill:#1c2024}.mm{font:italic 500 10.5px Arial,Helvetica,sans-serif;fill:#6b7280}</style><line x1="80.0" y1="36" x2="80.0" y2="404" stroke="#e5e7eb" stroke-width="1.5"/><rect x="5.0" y="6" width="150" height="24" rx="7" fill="#f3f4f6" stroke="#e5e7eb"/><text x="80.0" y="22" text-anchor="middle" class="lb">Wise backend</text><line x1="280.0" y1="36" x2="280.0" y2="404" stroke="#e5e7eb" stroke-width="1.5"/><rect x="232.0" y="6" width="96" height="24" rx="7" fill="#f3f4f6" stroke="#e5e7eb"/><text x="280.0" y="22" text-anchor="middle" class="lb">Lean</text><line x1="480.0" y1="36" x2="480.0" y2="404" stroke="#e5e7eb" stroke-width="1.5"/><rect x="432.0" y="6" width="96" height="24" rx="7" fill="#f3f4f6" stroke="#e5e7eb"/><text x="480.0" y="22" text-anchor="middle" class="lb">Customer</text><line x1="80.0" y1="64" x2="274.0" y2="64" stroke="#1c2024" stroke-width="1.6"/><path d="M272.0 60 L280.0 64 L272.0 68 Z" fill="#1c2024"/><text x="180.0" y="58" text-anchor="middle" class="ms">Create Agreement  (POST /v4/payment-agreements)</text><line x1="280.0" y1="98" x2="86.0" y2="98" style="stroke:var(--bright)" stroke-width="1.6"/><path d="M88.0 94 L80.0 98 L88.0 102 Z" style="fill:var(--bright)"/><text x="180.0" y="92" text-anchor="middle" class="ms">Agreement + hosted auth URL</text><line x1="80.0" y1="132" x2="474.0" y2="132" stroke="#1c2024" stroke-width="1.6"/><path d="M472.0 128 L480.0 132 L472.0 136 Z" fill="#1c2024"/><text x="280.0" y="126" text-anchor="middle" class="ms">Send customer to authenticate</text><line x1="480.0" y1="166" x2="286.0" y2="166" stroke="#1c2024" stroke-width="1.6"/><path d="M288.0 162 L280.0 166 L288.0 170 Z" fill="#1c2024"/><text x="380.0" y="160" text-anchor="middle" class="ms">Customer authenticates with their bank</text><line x1="280.0" y1="200" x2="86.0" y2="200" stroke="#6b7280" stroke-width="1.6" stroke-dasharray="5 4"/><path d="M88.0 196 L80.0 200 L88.0 204 Z" fill="#6b7280"/><text x="180.0" y="194" text-anchor="middle" class="ms">agreement.activated webhook</text><line x1="80.0" y1="234" x2="274.0" y2="234" stroke="#1c2024" stroke-width="1.6"/><path d="M272.0 230 L280.0 234 L272.0 238 Z" fill="#1c2024"/><text x="180.0" y="228" text-anchor="middle" class="ms">Create Charge under the Agreement</text><line x1="280.0" y1="268" x2="86.0" y2="268" style="stroke:var(--bright)" stroke-width="1.6"/><path d="M88.0 264 L80.0 268 L88.0 272 Z" style="fill:var(--bright)"/><text x="180.0" y="262" text-anchor="middle" class="ms">Charge + status</text><line x1="280.0" y1="302" x2="86.0" y2="302" stroke="#6b7280" stroke-width="1.6" stroke-dasharray="5 4"/><path d="M88.0 298 L80.0 302 L88.0 306 Z" fill="#6b7280"/><text x="180.0" y="296" text-anchor="middle" class="ms">charge.captured webhook</text><line x1="80.0" y1="336" x2="274.0" y2="336" stroke="#1c2024" stroke-width="1.6"/><path d="M272.0 332 L280.0 336 L272.0 340 Z" fill="#1c2024"/><text x="180.0" y="330" text-anchor="middle" class="ms">Fetch Charge  (GET /v4/payment-charges/{id})</text><line x1="280.0" y1="370" x2="86.0" y2="370" style="stroke:var(--bright)" stroke-width="1.6"/><path d="M88.0 366 L80.0 370 L88.0 374 Z" style="fill:var(--bright)"/><text x="180.0" y="364" text-anchor="middle" class="ms">Charge status</text></svg></div>
     <div class="sp-h">Integration checklist</div>
-    <ol class="sp-check"><li>Create a Payment Agreement: <code>POST /v4/payment-agreements</code> with the payment method, currency, customer and limits such as <code>per_charge_max_amount</code> and an expiry date.</li><li>Send the customer to the hosted authentication URL to authorise the agreement.</li><li>Confirm activation through the <code>agreement.activated</code> webhook or <code>GET /v4/payment-agreements/{id}</code>; only charge an <code>ACTIVE</code> agreement.</li><li>Charge on demand with <code>POST /v4/payment-agreements/{id}/payment-charges</code> and an <code>Idempotency-Key</code>, or let Lean run a <code>RECURRING</code> or instalment plan on the agreement.</li><li>Handle the lifecycle: pause, resume and revoke endpoints. <code>REVOKED</code>, <code>FULFILLED</code>, <code>DECLINED</code> and <code>DISCARDED</code> are terminal.</li><li>Track the agreement status separately from each Charge's status, and listen for both <code>agreement.*</code> and <code>charge.*</code> webhooks.</li><li>Test in Sandbox: activation, declined and abandoned authorisation, a charge over the agreement limits, revocation, and duplicate webhooks.</li></ol>
+    <ol class="sp-check"><li data-check="rec-1">Choose how payments are created: <b>on demand</b> (your app creates each Charge), a <b>recurring schedule</b> (<code>plan.type</code> <code>RECURRING</code>) or <b>instalments</b> (<code>EXPLICIT</code>).</li><li data-check="rec-2">Create the Agreement: <code>POST /v4/payment-agreements</code> with an <span class="term" tabindex="0">Idempotency-Key<span class="tip" role="tooltip">A unique key sent with a create request. Retrying with the same key returns the original result instead of creating a duplicate.</span></span>, <code>payment_method</code> <code>PAY_BY_BANK</code>, <code>currency</code> <code>AED</code>, a <code>customer</code> block (or <code>customer_id</code> for a returning customer) and <code>limits</code> that match what the customer agrees to. Add a <code>plan</code> for scheduled payments, and optionally <code>settlement_accounts</code> or an <code>initial_charge</code>.</li><li data-check="rec-3">Store the Agreement <code>id</code> against the customer, then send them to the <code>REDIRECT</code> method’s <code>details.url</code>, the same way as a one-time payment.</li><li data-check="rec-4">Confirm activation with <code>agreement.activated</code> or <code>GET /v4/payment-agreements/{agreement_id}</code>. Only charge an <code>ACTIVE</code> Agreement; <code>DECLINED</code> and <code>DISCARDED</code> are final, so start a new Agreement to retry.</li><li data-check="rec-5">Charge on demand: <code>POST /v4/payment-agreements/{agreement_id}/payment-charges</code> with an Idempotency-Key, the <code>amount</code>, <code>authorization_merchant_reference</code> and <code>payment_descriptor</code>. If the response includes <code>available_authentication_methods</code>, send the customer through it.</li><li data-check="rec-6">Track each Charge like a one-time payment, with its own status and <code>charge.*</code> events. Scheduled Charges Lean creates send the same events.</li><li data-check="rec-7">Manage the Agreement: pause with <code>POST /v4/payment-agreements/{agreement_id}/pauses</code> (<code>SUSPENDED</code>), resume with <code>/resumptions</code> (<code>ACTIVE</code>) and revoke with <code>/revocations</code> (<code>REVOKED</code>, permanent).</li><li data-check="rec-8">Handle the Agreement events: <code>agreement.activated</code>, <code>agreement.suspended</code>, <code>agreement.resumed</code>, <code>agreement.declined</code>, <code>agreement.discarded</code>, <code>agreement.fulfilled</code> and <code>agreement.revoked</code>. Track the Agreement’s status separately from each Charge’s.</li></ol>
+    
+    <details class="sp-more"><summary>Reference: limits</summary><div class="sp-section"><div class="sp-tablewrap"><table class="sp-table"><thead><tr><th>Limit</th><th>What it controls</th></tr></thead><tbody><tr><td><code>per_charge_max_amount</code></td><td>Maximum amount of one Charge.</td></tr><tr><td><code>agreement_max_total_amount</code></td><td>Maximum total charged under the Agreement.</td></tr><tr><td><code>agreement_max_charges_count</code></td><td>Maximum number of Charges.</td></tr><tr><td><code>expiration_date</code></td><td>Date after which the Agreement can’t be used.</td></tr></tbody></table></div><p class="sp-note">If you omit a limit, the payment provider may apply its own: read the Agreement response for the limits in effect.</p></div></details>
+    <details class="sp-more"><summary>Reference: Agreement statuses</summary><div class="sp-section"><div class="sp-tablewrap"><table class="sp-table"><thead><tr><th>Status</th><th>Meaning</th><th>Can you charge it?</th></tr></thead><tbody><tr><td><code>PENDING_CUSTOMER_AUTHENTICATION</code></td><td>Authentication is outstanding.</td><td>No</td></tr><tr><td><code>ACTIVE</code></td><td>Authorised and chargeable.</td><td>Yes, within its limits</td></tr><tr><td><code>SUSPENDED</code></td><td>Temporarily paused.</td><td>No</td></tr><tr><td><code>FULFILLED</code></td><td>Reached its completion conditions.</td><td>No (final)</td></tr><tr><td><code>REVOKED</code></td><td>Permission withdrawn.</td><td>No (final)</td></tr><tr><td><code>DECLINED</code></td><td>Declined by the customer or provider.</td><td>No (final)</td></tr><tr><td><code>DISCARDED</code></td><td>Authentication wasn’t completed.</td><td>No (final)</td></tr></tbody></table></div></div></details>
+    <details class="sp-more"><summary>Reference: schedules</summary><div class="sp-section"><div class="sp-tablewrap"><table class="sp-table"><thead><tr><th>Plan</th><th>How it works</th></tr></thead><tbody><tr><td><code>RECURRING</code></td><td>A fixed amount at a fixed frequency: <code>amount</code>, <code>start_date</code>, <code>recurrence.unit</code> (<code>DAY</code>, <code>WEEK</code>, <code>MONTH</code>), <code>recurrence.interval</code>, and an <code>end_condition</code> (<code>NEVER</code>, <code>AFTER_COUNT</code> or <code>ON_DATE</code>). Fixed once created: changing it needs a new Agreement.</td></tr><tr><td><code>EXPLICIT</code></td><td>Instalments on set dates, each with a unique <code>reference</code>, a <code>charge_on</code> date and an <code>amount</code>. The Agreement reaches <code>FULFILLED</code> after the last one.</td></tr></tbody></table></div></div></details>
     <div class="sp-h">Endpoints</div>
     <div class="sp-codes"><a class="apilink" href="https://docs.leantech.me/v4.0-GLOBAL/reference/createpaymentagreement" target="_blank" rel="noopener" title="Open in Lean’s API reference"><code>POST /v4/payment-agreements</code></a><a class="apilink" href="https://docs.leantech.me/v4.0-GLOBAL/reference/getpaymentagreement" target="_blank" rel="noopener" title="Open in Lean’s API reference"><code>GET /v4/payment-agreements/{agreement_id}</code></a><a class="apilink" href="https://docs.leantech.me/v4.0-GLOBAL/reference/createagreementcharge" target="_blank" rel="noopener" title="Open in Lean’s API reference"><code>POST /v4/payment-agreements/{agreement_id}/payment-charges</code></a><a class="apilink" href="https://docs.leantech.me/v4.0-GLOBAL/reference/pausepaymentagreement" target="_blank" rel="noopener" title="Open in Lean’s API reference"><code>POST /v4/payment-agreements/{agreement_id}/pauses</code></a><a class="apilink" href="https://docs.leantech.me/v4.0-GLOBAL/reference/resumepaymentagreement" target="_blank" rel="noopener" title="Open in Lean’s API reference"><code>POST /v4/payment-agreements/{agreement_id}/resumptions</code></a><a class="apilink" href="https://docs.leantech.me/v4.0-GLOBAL/reference/revokepaymentagreement" target="_blank" rel="noopener" title="Open in Lean’s API reference"><code>POST /v4/payment-agreements/{agreement_id}/revocations</code></a></div>
     <div class="sp-h">Lean docs</div>
-    <div class="sp-links"><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/set-up-recurring-payments" target="_blank" rel="noopener">Set up recurring payments</a><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/getting-started-with-payments" target="_blank" rel="noopener">Payments overview</a><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/payment-webhooks" target="_blank" rel="noopener">Payment webhooks</a><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/errors-and-troubleshooting" target="_blank" rel="noopener">Errors and troubleshooting</a></div>
+    <div class="sp-links"><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/set-up-recurring-payments" target="_blank" rel="noopener">Set up recurring payments</a><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/getting-started-with-payments" target="_blank" rel="noopener">Payments overview</a><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/one-time-payments" target="_blank" rel="noopener">Accept a one-time payment</a><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/payment-webhooks" target="_blank" rel="noopener">Payment webhooks</a><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/errors-and-troubleshooting" target="_blank" rel="noopener">Errors and troubleshooting</a></div>
+    
+  </div>
+</aside>
+<aside class="spanel" id="panel-e2e" role="dialog" aria-modal="true" aria-label="End-to-end test in Sandbox implementation guide">
+  <div class="sp-head">
+    <div class="sp-kicker">Phase 1 &middot; Implementation guide</div>
+    <div class="sp-title">End-to-end test in Sandbox</div>
+    <div class="sp-sub">Run the whole integration against the Sandbox, in order: environment, a one-time payment, a recurring payment, webhooks and failure cases. When every step passes, you’re ready for production.</div>
+    <button class="sp-close" onclick="closePanels()" aria-label="Close">&#10005;</button>
+  </div>
+  <div class="sp-body">
+    <div class="sp-h">Before you start</div>
+    <ul class="sp-pre"><li>Phase 0 done: dev portal (including a test user and a Settlement Account), authentication and webhooks.</li><li>One-Time and Recurring Payments built from their guides.</li></ul>
+    <div class="sp-h">How it works</div>
+    <div class="sp-sub-h">The end-to-end run in Sandbox</div><div class="sp-diagram"><svg class="seqsvg" viewBox="0 0 560 550" xmlns="http://www.w3.org/2000/svg" role="img"><style>.lb{font:700 11.5px Arial,Helvetica,sans-serif;fill:#1c2024}.ms{font:500 10.5px Arial,Helvetica,sans-serif;fill:#1c2024}.mm{font:italic 500 10.5px Arial,Helvetica,sans-serif;fill:#6b7280}</style><line x1="80.0" y1="36" x2="80.0" y2="540" stroke="#e5e7eb" stroke-width="1.5"/><rect x="5.0" y="6" width="150" height="24" rx="7" fill="#f3f4f6" stroke="#e5e7eb"/><text x="80.0" y="22" text-anchor="middle" class="lb">Wise backend</text><line x1="280.0" y1="36" x2="280.0" y2="540" stroke="#e5e7eb" stroke-width="1.5"/><rect x="226.0" y="6" width="108" height="24" rx="7" fill="#f3f4f6" stroke="#e5e7eb"/><text x="280.0" y="22" text-anchor="middle" class="lb">Lean Sandbox</text><line x1="480.0" y1="36" x2="480.0" y2="540" stroke="#e5e7eb" stroke-width="1.5"/><rect x="432.0" y="6" width="96" height="24" rx="7" fill="#f3f4f6" stroke="#e5e7eb"/><text x="480.0" y="22" text-anchor="middle" class="lb">Test user</text><line x1="80.0" y1="64" x2="274.0" y2="64" stroke="#1c2024" stroke-width="1.6"/><path d="M272.0 60 L280.0 64 L272.0 68 Z" fill="#1c2024"/><text x="180.0" y="58" text-anchor="middle" class="ms">POST /oauth2/token</text><line x1="280.0" y1="98" x2="86.0" y2="98" style="stroke:var(--bright)" stroke-width="1.6"/><path d="M88.0 94 L80.0 98 L88.0 102 Z" style="fill:var(--bright)"/><text x="180.0" y="92" text-anchor="middle" class="ms">Access token</text><line x1="80.0" y1="132" x2="274.0" y2="132" stroke="#1c2024" stroke-width="1.6"/><path d="M272.0 128 L280.0 132 L272.0 136 Z" fill="#1c2024"/><text x="180.0" y="126" text-anchor="middle" class="ms">Create Charge  (AED 75, PAY_BY_BANK)</text><line x1="280.0" y1="166" x2="86.0" y2="166" style="stroke:var(--bright)" stroke-width="1.6"/><path d="M88.0 162 L80.0 166 L88.0 170 Z" style="fill:var(--bright)"/><text x="180.0" y="160" text-anchor="middle" class="ms">Charge + details.url</text><line x1="80.0" y1="200" x2="474.0" y2="200" stroke="#1c2024" stroke-width="1.6"/><path d="M472.0 196 L480.0 200 L472.0 204 Z" fill="#1c2024"/><text x="280.0" y="194" text-anchor="middle" class="ms">Open details.url</text><line x1="480.0" y1="234" x2="286.0" y2="234" stroke="#1c2024" stroke-width="1.6"/><path d="M288.0 230 L280.0 234 L288.0 238 Z" fill="#1c2024"/><text x="380.0" y="228" text-anchor="middle" class="ms">Authenticate with test-user details</text><line x1="280.0" y1="268" x2="86.0" y2="268" stroke="#6b7280" stroke-width="1.6" stroke-dasharray="5 4"/><path d="M88.0 264 L80.0 268 L88.0 272 Z" fill="#6b7280"/><text x="180.0" y="262" text-anchor="middle" class="ms">charge.created, charge.captured webhooks</text><line x1="80.0" y1="302" x2="274.0" y2="302" stroke="#1c2024" stroke-width="1.6"/><path d="M272.0 298 L280.0 302 L272.0 306 Z" fill="#1c2024"/><text x="180.0" y="296" text-anchor="middle" class="ms">GET Charge: CAPTURED</text><line x1="80.0" y1="336" x2="274.0" y2="336" stroke="#1c2024" stroke-width="1.6"/><path d="M272.0 332 L280.0 336 L272.0 340 Z" fill="#1c2024"/><text x="180.0" y="330" text-anchor="middle" class="ms">Create Agreement  (on demand, with limits)</text><line x1="80.0" y1="370" x2="474.0" y2="370" stroke="#1c2024" stroke-width="1.6"/><path d="M472.0 366 L480.0 370 L472.0 374 Z" fill="#1c2024"/><text x="280.0" y="364" text-anchor="middle" class="ms">Open details.url</text><line x1="480.0" y1="404" x2="286.0" y2="404" stroke="#1c2024" stroke-width="1.6"/><path d="M288.0 400 L280.0 404 L288.0 408 Z" fill="#1c2024"/><text x="380.0" y="398" text-anchor="middle" class="ms">Authorise the Agreement</text><line x1="280.0" y1="438" x2="86.0" y2="438" stroke="#6b7280" stroke-width="1.6" stroke-dasharray="5 4"/><path d="M88.0 434 L80.0 438 L88.0 442 Z" fill="#6b7280"/><text x="180.0" y="432" text-anchor="middle" class="ms">agreement.activated webhook</text><line x1="80.0" y1="472" x2="274.0" y2="472" stroke="#1c2024" stroke-width="1.6"/><path d="M272.0 468 L280.0 472 L272.0 476 Z" fill="#1c2024"/><text x="180.0" y="466" text-anchor="middle" class="ms">Charge under the Agreement</text><line x1="280.0" y1="506" x2="86.0" y2="506" stroke="#6b7280" stroke-width="1.6" stroke-dasharray="5 4"/><path d="M88.0 502 L80.0 506 L88.0 510 Z" fill="#6b7280"/><text x="180.0" y="500" text-anchor="middle" class="ms">charge.captured webhook</text></svg></div>
+    <div class="sp-h">1. Environment</div>
+    <ol class="sp-check" style="counter-reset:spc 0"><li data-check="e2e-1">Point your backend at the Sandbox: API base <code>https://sandbox.leantech.me</code>, token endpoint on <code>auth.sandbox.leantech.me</code>, and your <b>sandbox</b> app token and client secret. Sandbox and production credentials are separate.</li><li data-check="e2e-2">Get an access token and make one API call with it. Then call without a token and confirm you get <code>401</code>.</li><li data-check="e2e-3">Confirm your backend uses the sandbox <code>settlement_account_id</code> from Developer portal setup, and that your Sandbox test user is ready.</li></ol>
+    <div class="sp-h">2. A one-time payment</div>
+    <ol class="sp-check" style="counter-reset:spc 3"><li data-check="e2e-4">From your real checkout code, create an AED 75 Pay by Bank <span class="term" tabindex="0">Charge<span class="tip" role="tooltip">A Charge is a single payment. Every payment is a Charge, whether it stands alone or is made under an Agreement.</span></span> with an Idempotency-Key, your <code>settlement_account_id</code>, your references, a <code>customer</code> block and your <code>return_url</code> and <code>fail_return_url</code>.</li><li data-check="e2e-5">Check the response: status <code>PENDING_CUSTOMER_AUTHENTICATION</code>, a <code>REDIRECT</code> method with <code>details.url</code> and a <code>customer_id</code>. Confirm your app stored the Charge <code>id</code> and the <code>customer_id</code> before redirecting.</li><li data-check="e2e-6">Open <code>details.url</code> on the web and in your app’s WebView, and complete authentication with your test user’s details. Confirm the customer lands back on your <code>return_url</code>.</li><li data-check="e2e-7">Confirm the outcome from Lean, not the return: <code>GET /v4/payment-charges/{charge_id}</code> shows <code>CAPTURED</code>; your endpoint received <code>charge.created</code> and <code>charge.captured</code>, verified <code>lean-signature</code> and returned <code>200</code> within 10 seconds; your order shows as paid.</li><li data-check="e2e-8">Make a second payment for the same customer, sending <code>customer_id</code> instead of <code>customer</code>. Confirm both Charges belong to the same Lean Customer.</li></ol>
+    <div class="sp-h">3. A recurring payment</div>
+    <ol class="sp-check" style="counter-reset:spc 8"><li data-check="e2e-9">Create an on-demand <span class="term" tabindex="0">Agreement<span class="tip" role="tooltip">A Payment Agreement is a customer’s permission to be charged over time. It doesn’t move money itself: each payment under it is a Charge.</span></span> with <code>limits</code>, open its <code>details.url</code> and authorise it with your test user. Confirm <code>ACTIVE</code> through <code>agreement.activated</code> and <code>GET /v4/payment-agreements/{agreement_id}</code>.</li><li data-check="e2e-10">Charge it with <code>POST /v4/payment-agreements/{agreement_id}/payment-charges</code>. Confirm the Charge belongs to the Agreement, has the right amount and currency, follows the usual lifecycle, and sends <code>charge.captured</code>.</li><li data-check="e2e-11">Try a Charge above <code>per_charge_max_amount</code>: it’s rejected, and your app handles it.</li><li data-check="e2e-12">If you use schedules: create a <code>RECURRING</code> Agreement and check its amount, frequency and end condition, or an <code>EXPLICIT</code> one and check its dates, amounts and references.</li><li data-check="e2e-13">Pause the Agreement (<code>SUSPENDED</code>, <code>agreement.suspended</code>) and confirm a new Charge is rejected. Resume it (<code>ACTIVE</code>, <code>agreement.resumed</code>). Revoke it (<code>REVOKED</code>, <code>agreement.revoked</code>) and confirm it can’t be charged again. If your limits or plan can complete, run one to <code>FULFILLED</code> (<code>agreement.fulfilled</code>).</li></ol>
+    <div class="sp-h">4. Webhooks</div>
+    <ol class="sp-check" style="counter-reset:spc 13"><li data-check="e2e-14">In the dev portal’s webhook delivery history, confirm every event from the runs above arrived and your endpoint returned <code>200</code>.</li><li data-check="e2e-15">Resend one of those events from the dev portal and confirm your backend skips it as a duplicate (<code>event_id</code>).</li><li data-check="e2e-16">Send your endpoint a request with a wrong <code>lean-signature</code> and confirm it’s rejected.</li><li data-check="e2e-17">Process an event out of order, for example <code>charge.captured</code> before <code>charge.created</code>, and confirm your records still end up correct by fetching the current state.</li><li data-check="e2e-18">Take your endpoint offline, make a payment, then bring it back. Confirm Lean’s retry arrives (the first after 1 minute) and is processed once.</li></ol>
+    <div class="sp-h">5. Failure cases</div>
+    <ol class="sp-check" style="counter-reset:spc 18"><li data-check="e2e-19">Decline a payment with a test-user scenario: the Charge becomes <code>DECLINED</code>, you show <code>decline_reason</code>, and the customer can start a new Charge.</li><li data-check="e2e-20">Abandon authentication and wait out the 10 minutes: <code>charge.discarded</code> arrives and the Charge is <code>DISCARDED</code>.</li><li data-check="e2e-21">Complete authentication but don’t follow the return to your app: your backend still records the outcome from the webhook or the API.</li><li data-check="e2e-22">Decline or abandon an Agreement: it becomes <code>DECLINED</code> or <code>DISCARDED</code>, and your app offers a new one.</li><li data-check="e2e-23">Retry a create request with the same <span class="term" tabindex="0">Idempotency-Key<span class="tip" role="tooltip">A unique key sent with a create request. Retrying with the same key returns the original result instead of creating a duplicate.</span></span>: you get the original Charge back. Reuse the key with a different body: it’s rejected.</li><li data-check="e2e-24">Send invalid parameters (validation error), an invalid token (<code>401</code>) and a call you don’t have permission for (<code>403</code>), and confirm your app handles each.</li></ol>
+    <div class="sp-h">6. Ready for production</div>
+    <ol class="sp-check" style="counter-reset:spc 24"><li data-check="e2e-25">Go through Lean’s go-live checklist: authentication works; the Settlement Account is configured; Pay by Bank is tested; successful and unsuccessful outcomes are handled; Charges and Agreements belong to the right customers; create requests are idempotent; webhook signatures are verified; duplicate and out-of-order webhooks are handled; outcomes come from resource statuses; production credentials and webhooks are ready.</li></ol>
+    <div class="sp-h">Going live</div>
+    <p class="sp-note" style="margin:-4px 0 10px">After the production steps in Developer portal setup and Webhooks. These aren’t counted in progress.</p>
+    <ol class="sp-check"><li data-check="e2e-prod-1">Change the API base URL to <code>https://api.leantech.me</code> and use your production credentials. Don’t reuse Sandbox credentials or test users in production.</li><li data-check="e2e-prod-2">Confirm your production Settlement Account and that Pay by Bank is enabled for your production application.</li><li data-check="e2e-prod-3">Complete Lean’s go-live validation before processing live customer payments.</li></ol>
+    
+    
+    <div class="sp-h">Endpoints</div>
+    <div class="sp-codes"><a class="apilink" href="https://docs.leantech.me/v4.0-GLOBAL/reference/postoauth2token" target="_blank" rel="noopener" title="Open in Lean’s API reference"><code>POST /oauth2/token</code></a><a class="apilink" href="https://docs.leantech.me/v4.0-GLOBAL/reference/createpaymentcharge" target="_blank" rel="noopener" title="Open in Lean’s API reference"><code>POST /v4/payment-charges</code></a><a class="apilink" href="https://docs.leantech.me/v4.0-GLOBAL/reference/getpaymentcharge" target="_blank" rel="noopener" title="Open in Lean’s API reference"><code>GET /v4/payment-charges/{charge_id}</code></a><a class="apilink" href="https://docs.leantech.me/v4.0-GLOBAL/reference/createpaymentagreement" target="_blank" rel="noopener" title="Open in Lean’s API reference"><code>POST /v4/payment-agreements</code></a><a class="apilink" href="https://docs.leantech.me/v4.0-GLOBAL/reference/getpaymentagreement" target="_blank" rel="noopener" title="Open in Lean’s API reference"><code>GET /v4/payment-agreements/{agreement_id}</code></a><a class="apilink" href="https://docs.leantech.me/v4.0-GLOBAL/reference/createagreementcharge" target="_blank" rel="noopener" title="Open in Lean’s API reference"><code>POST /v4/payment-agreements/{agreement_id}/payment-charges</code></a></div>
+    <div class="sp-h">Lean docs</div>
+    <div class="sp-links"><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/sandbox-testing" target="_blank" rel="noopener">Testing your integration</a><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/one-time-payments" target="_blank" rel="noopener">Accept a one-time payment</a><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/set-up-recurring-payments" target="_blank" rel="noopener">Set up recurring payments</a><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/webhooks-1" target="_blank" rel="noopener">Set up webhooks</a><a href="https://docs.leantech.me/v4.0-GLOBAL/docs/errors-and-troubleshooting" target="_blank" rel="noopener">Errors and troubleshooting</a></div>
     
   </div>
 </aside>
 <aside class="spanel" id="panel-pay" role="dialog" aria-modal="true" aria-label="Payouts implementation guide">
   <div class="sp-head">
-    <div class="sp-kicker">Phase 2 &middot; Implementation guide</div>
+    <div class="sp-kicker">Future phases &middot; Implementation guide</div>
     <div class="sp-title">Payouts</div>
-    <div class="sp-sub">Server-to-server outbound transfers to UAE bank accounts and billers. No customer-facing screen. Whether payouts run through Lean is an open decision on Wise's side.</div>
+    <div class="sp-sub">Server-to-server outbound transfers to UAE bank accounts. No customer-facing screen.</div>
     <button class="sp-close" onclick="closePanels()" aria-label="Close">&#10005;</button>
   </div>
   <div class="sp-body">
     <div class="sp-h">Before you start</div>
-    <ul class="sp-pre"><li>Authenticate with the Lean API.</li><li>Fund the payout account.</li><li>Configure payout lifecycle webhooks.</li></ul>
+    <ul class="sp-pre"><li>Authenticate with the Lean API.</li><li>Fund the payout account.</li><li>Your webhook endpoint receiving <code>payment_source.beneficiary.created</code>, <code>payment_intent.created</code> and <code>payment.created</code>.</li></ul>
     <div class="sp-h">How it works</div>
-    <div class="sp-diagram"><svg class="seqsvg" viewBox="0 0 500 208" xmlns="http://www.w3.org/2000/svg" role="img"><style>.lb{font:700 11.5px Arial,Helvetica,sans-serif;fill:#1c2024}.ms{font:500 10.5px Arial,Helvetica,sans-serif;fill:#1c2024}.mm{font:italic 500 10.5px Arial,Helvetica,sans-serif;fill:#6b7280}</style><line x1="40.0" y1="34" x2="40.0" y2="198" stroke="#e5e7eb" stroke-width="1.5"/><rect x="-12.0" y="6" width="104" height="22" rx="7" fill="#f3f4f6" stroke="#e5e7eb"/><text x="40.0" y="21" text-anchor="middle" class="lb">Wise backend</text><line x1="250.0" y1="34" x2="250.0" y2="198" stroke="#e5e7eb" stroke-width="1.5"/><rect x="198.0" y="6" width="104" height="22" rx="7" fill="#f3f4f6" stroke="#e5e7eb"/><text x="250.0" y="21" text-anchor="middle" class="lb">Lean</text><line x1="460.0" y1="34" x2="460.0" y2="198" stroke="#e5e7eb" stroke-width="1.5"/><rect x="408.0" y="6" width="104" height="22" rx="7" fill="#f3f4f6" stroke="#e5e7eb"/><text x="460.0" y="21" text-anchor="middle" class="lb">Bank rails</text><line x1="40.0" y1="60" x2="244.0" y2="60" stroke="#1c2024" stroke-width="1.6"/><path d="M242.0 56 L250.0 60 L242.0 64 Z" fill="#1c2024"/><text x="145.0" y="55" text-anchor="middle" class="ms">Create payout destination</text><line x1="40.0" y1="94" x2="244.0" y2="94" stroke="#1c2024" stroke-width="1.6"/><path d="M242.0 90 L250.0 94 L242.0 98 Z" fill="#1c2024"/><text x="145.0" y="89" text-anchor="middle" class="ms">Create payout  (POST /payouts/v1/payment)</text><line x1="250.0" y1="128" x2="454.0" y2="128" stroke="#1c2024" stroke-width="1.6"/><path d="M452.0 124 L460.0 128 L452.0 132 Z" fill="#1c2024"/><text x="355.0" y="123" text-anchor="middle" class="ms">Funds dispatched to beneficiary account</text><line x1="250.0" y1="162" x2="46.0" y2="162" stroke="#6b7280" stroke-width="1.6" stroke-dasharray="5 4"/><path d="M48.0 158 L40.0 162 L48.0 166 Z" fill="#6b7280"/><text x="145.0" y="157" text-anchor="middle" class="ms">Payout lifecycle webhooks</text></svg></div>
+    <div class="sp-diagram"><svg class="seqsvg" viewBox="0 0 560 312" xmlns="http://www.w3.org/2000/svg" role="img"><style>.lb{font:700 11.5px Arial,Helvetica,sans-serif;fill:#1c2024}.ms{font:500 10.5px Arial,Helvetica,sans-serif;fill:#1c2024}.mm{font:italic 500 10.5px Arial,Helvetica,sans-serif;fill:#6b7280}</style><line x1="80.0" y1="36" x2="80.0" y2="302" stroke="#e5e7eb" stroke-width="1.5"/><rect x="5.0" y="6" width="150" height="24" rx="7" fill="#f3f4f6" stroke="#e5e7eb"/><text x="80.0" y="22" text-anchor="middle" class="lb">Wise backend</text><line x1="280.0" y1="36" x2="280.0" y2="302" stroke="#e5e7eb" stroke-width="1.5"/><rect x="232.0" y="6" width="96" height="24" rx="7" fill="#f3f4f6" stroke="#e5e7eb"/><text x="280.0" y="22" text-anchor="middle" class="lb">Lean</text><line x1="480.0" y1="36" x2="480.0" y2="302" stroke="#e5e7eb" stroke-width="1.5"/><rect x="432.0" y="6" width="96" height="24" rx="7" fill="#f3f4f6" stroke="#e5e7eb"/><text x="480.0" y="22" text-anchor="middle" class="lb">Bank</text><line x1="80.0" y1="64" x2="274.0" y2="64" stroke="#1c2024" stroke-width="1.6"/><path d="M272.0 60 L280.0 64 L272.0 68 Z" fill="#1c2024"/><text x="180.0" y="58" text-anchor="middle" class="ms">Create payout destination</text><line x1="280.0" y1="98" x2="86.0" y2="98" stroke="#6b7280" stroke-width="1.6" stroke-dasharray="5 4"/><path d="M88.0 94 L80.0 98 L88.0 102 Z" fill="#6b7280"/><text x="180.0" y="92" text-anchor="middle" class="ms">payment_source.beneficiary.created webhook</text><line x1="80.0" y1="132" x2="274.0" y2="132" stroke="#1c2024" stroke-width="1.6"/><path d="M272.0 128 L280.0 132 L272.0 136 Z" fill="#1c2024"/><text x="180.0" y="126" text-anchor="middle" class="ms">Create payout  (POST /payouts/v1/payment)</text><line x1="280.0" y1="166" x2="86.0" y2="166" stroke="#6b7280" stroke-width="1.6" stroke-dasharray="5 4"/><path d="M88.0 162 L80.0 166 L88.0 170 Z" fill="#6b7280"/><text x="180.0" y="160" text-anchor="middle" class="ms">payment_intent.created webhook</text><line x1="280.0" y1="200" x2="474.0" y2="200" stroke="#1c2024" stroke-width="1.6"/><path d="M472.0 196 L480.0 200 L472.0 204 Z" fill="#1c2024"/><text x="380.0" y="194" text-anchor="middle" class="ms">Payment submitted to the bank</text><line x1="280.0" y1="234" x2="86.0" y2="234" stroke="#6b7280" stroke-width="1.6" stroke-dasharray="5 4"/><path d="M88.0 230 L80.0 234 L88.0 238 Z" fill="#6b7280"/><text x="180.0" y="228" text-anchor="middle" class="ms">payment.created webhook, with status</text><line x1="80.0" y1="268" x2="274.0" y2="268" stroke="#1c2024" stroke-width="1.6"/><path d="M272.0 264 L280.0 268 L272.0 272 Z" fill="#1c2024"/><text x="180.0" y="262" text-anchor="middle" class="ms">GET /payouts/v1/{payoutId}: post_initiation_status</text></svg></div>
     <div class="sp-h">Integration checklist</div>
-    <ol class="sp-check"><li>Create the payout destination: <code>POST /payouts/v1/payment/destinations</code> with the beneficiary's details.</li><li>Create the payout: <code>POST /payouts/v1/payment</code> with an idempotency key so retries never double-pay.</li><li>Treat webhooks as the source of truth for the payout lifecycle, and handle failed-payout retries explicitly.</li><li>Test in Sandbox: a successful payout, a failed payout and retry, and duplicate webhooks.</li></ol>
+    <ol class="sp-check"><li data-check="pay-1">Create the payout destination: <code>POST /payouts/v1/payment/destinations</code> with the beneficiary’s details. Wait for <code>payment_source.beneficiary.created</code> before making a payout to it.</li><li data-check="pay-2">Create the payout: <code>POST /payouts/v1/payment</code> with an idempotency key so retries never double-pay.</li><li data-check="pay-3">Track each payout: <code>payment_intent.created</code> arrives for each payment in the payout, and <code>payment.created</code> carries its status (<code>AWAITING_AUTHORIZATION</code>, <code>ACCEPTED_BY_BANK</code>, <code>PENDING_WITH_BANK</code> or <code>FAILED</code>). Read the final outcome from <code>post_initiation_status</code> (<code>PROCESSED</code> or <code>REJECTED</code>), also available from <code>GET /payouts/v1/{payoutId}</code>. Handle failed payouts and retries explicitly.</li><li data-check="pay-4">Test in Sandbox: a successful payout, a failed payout and retry, and a duplicate <code>payment.created</code> delivery.</li></ol>
+    
+    
     <div class="sp-h">Endpoints</div>
     <div class="sp-codes"><code>POST /payouts/v1/payment/destinations</code><code>POST /payouts/v1/payment</code></div>
     <div class="sp-h">Lean docs</div>
-    <div class="sp-links"><a href="https://leantech.notion.site/Wise-Payout-Implementation-Checklist-3926e4dcda1e80c8acd5dd5ab803bf43" target="_blank" rel="noopener">Wise payouts implementation checklist</a></div>
+    <div class="sp-links"><a href="https://docs.leantech.me/docs/single-payment-mechanism" target="_blank" rel="noopener">Making Payouts using Single Payment Mechanism</a></div>
     <p class="sp-note">Existing payout endpoints remain supported as the v4 payout surface rolls out.</p>
   </div>
 </aside>
@@ -859,5 +1037,308 @@ function closePanels(){
 document.addEventListener('keydown',function(e){if(e.key==='Escape')closePanels();});
 </script>
 
+<!-- leanbp-standalone: checkboxes and progress for this copy, saved in this browser -->
+<script>window.__LEAN_BP={"local":true,"persist":true,"slug":"wise"};</script>
+<script>// Injected into every blueprint served from /b/<token>.
+// 1. Records the visit once the page has been visible for 10 seconds, then adds visible time.
+// 2. Turns every element with data-check="<key>" into a saved checklist item.
+(() => {
+  const cfg = window.__LEAN_BP;
+  // Local mode (admin Preview, Edit on page, or a copy opened outside the site): checkboxes and
+  // progress work, ticks stay in this browser (cfg.persist) or only on this page, and nothing is tracked.
+  const local = !!(cfg && cfg.local);
+  if (!cfg || (!cfg.token && !local)) return;
+  const token = cfg.token;
+  const view = cfg.view || null; // set when Lean opens a client team's page from the admin page
+  const session = crypto.randomUUID
+    ? crypto.randomUUID()
+    : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12);
+
+  // ---------- Visit tracking (never in a Lean view or local mode) ----------
+  if (!view && !local) {
+    const OPEN_AFTER = 10; // seconds visible before a visit counts
+    const BEAT_EVERY = 30; // seconds of visible time per update
+    let visibleMs = 0;
+    let lastTick = document.visibilityState === 'visible' ? Date.now() : null;
+    let opened = false;
+    let reported = 0;
+
+    function tick() {
+      if (lastTick === null) return;
+      const now = Date.now();
+      visibleMs += now - lastTick;
+      lastTick = now;
+    }
+
+    function post(body, useBeacon) {
+      const data = JSON.stringify({ token, session, ...body });
+      if (useBeacon && navigator.sendBeacon) {
+        navigator.sendBeacon('/api/track', new Blob([data], { type: 'text/plain' }));
+        return;
+      }
+      fetch('/api/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: data,
+        keepalive: true,
+      }).catch(() => {});
+    }
+
+    function report(event, useBeacon) {
+      tick();
+      const total = Math.floor(visibleMs / 1000);
+      if (!opened) {
+        if (total >= OPEN_AFTER) {
+          opened = true;
+          reported = OPEN_AFTER;
+          post({ event: 'open' });
+        }
+        return;
+      }
+      const delta = total - reported;
+      if (delta >= BEAT_EVERY || (event === 'leave' && delta > 0)) {
+        reported = total;
+        post({ event, seconds: delta }, useBeacon);
+      }
+    }
+
+    setInterval(() => {
+      if (document.visibilityState === 'visible') report('beat');
+    }, 5000);
+
+    function onHide() {
+      report('leave', true);
+      lastTick = null;
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') onHide();
+      else lastTick = Date.now();
+    });
+    window.addEventListener('pagehide', onHide);
+  } else if (view) {
+    const bar = document.createElement('div');
+    bar.setAttribute('role', 'note');
+    bar.textContent = `Lean view of ${cfg.team || 'this team'}’s page: read only, not counted as a visit.`;
+    bar.style.cssText = 'position:fixed;left:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:300;background:#1c2024;color:#fff;' +
+      'font:600 13px/1.4 system-ui,sans-serif;padding:8px 14px;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.25);' +
+      'border:1px solid var(--bright,#3dd68c);max-width:calc(100vw - 24px)';
+    document.addEventListener('DOMContentLoaded', () => document.body.appendChild(bar));
+    if (document.readyState !== 'loading') document.body.appendChild(bar);
+  }
+
+  // ---------- Checklists ----------
+  // Client team links tick their own team's checklist. Lean team links see a client
+  // team's ticks, read only, with a switcher when the blueprint has several client teams.
+  const items = [...document.querySelectorAll('[data-check]')];
+  if (!items.length) return;
+
+  const style = document.createElement('style');
+  style.textContent = `
+    [data-check]{position:relative;padding-right:46px !important}
+    .bp-check{position:absolute;right:12px;top:9px;width:22px;height:22px;border-radius:6px;cursor:pointer;
+      border:1.5px solid #aeb7c2;background:#fff;display:grid;place-items:center;padding:0;transition:background .15s,border-color .15s}
+    .bp-check:hover{border-color:var(--bright,#3dd68c)}
+    .bp-check:focus-visible{outline:2px solid #1c2024;outline-offset:2px}
+    .bp-check svg{width:13px;height:13px;opacity:0;transition:opacity .15s}
+    .bp-check svg path{stroke:var(--on-bright,#0f2a1e)}
+    .bp-check[aria-pressed="true"]{background:var(--bright,#3dd68c);border-color:var(--bright,#3dd68c)}
+    .bp-check[aria-pressed="true"] svg{opacity:1}
+    .bp-check[disabled]{cursor:default}
+    .bp-check.ro:hover{border-color:#aeb7c2}
+    .bp-check.ro[aria-pressed="true"]:hover{border-color:var(--bright,#3dd68c)}
+    [data-check].is-done{color:#6b7280 !important}
+    .bp-progress{font-family:inherit;font-size:11px;font-weight:700;letter-spacing:0;text-transform:none;
+      color:#1c2024;background:color-mix(in srgb,var(--bright,#3dd68c) 18%,#fff);border-radius:999px;padding:2px 9px;white-space:nowrap}
+    .bp-view{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:-4px 0 12px;font:600 12.5px/1.4 system-ui,sans-serif;color:#4b5563}
+    .bp-view select{font:inherit;border:1px solid #d3d7dd;border-radius:8px;padding:3px 6px;background:#fff;color:#1c2024}
+    .bp-toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
+      background:#1c2024;color:#fff;font:600 13px/1.4 system-ui,sans-serif;padding:10px 16px;border-radius:10px;z-index:200;
+      box-shadow:0 8px 24px rgba(0,0,0,.25)}
+    .phase[data-panels]{display:flex;flex-direction:column}
+    .phase[data-panels] > .ph{align-self:flex-start}
+    .bp-phase{margin-top:auto;padding-top:12px;border-top:1px solid #e5e7eb}
+    .phase[data-panels] > ul{margin-bottom:16px}
+    .bp-phase .bar{height:6px;border-radius:6px;background:#eef0f2;overflow:hidden}
+    .bp-phase .bar i{display:block;height:100%;width:0;background:var(--bright,#3dd68c);border-radius:6px;transition:width .3s}
+    .bp-phase .txt{display:block;margin-top:7px;font:600 12.5px/1.4 system-ui,sans-serif;color:#4b5563}
+    .bp-phase .txt b{color:#1c2024}
+    @media (prefers-reduced-motion:reduce){.bp-phase .bar i{transition:none}}
+    @media print{.bp-check,.bp-progress,.bp-view{display:none}}
+  `;
+  document.head.appendChild(style);
+
+  const TICK_SVG =
+    '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  let state = {};
+  let readOnly = true;
+  let teams = [];
+  let teamIndex = 0;
+  const buttons = new Map();
+  const lists = new Set(items.map((li) => li.parentElement));
+  // Production steps (keys containing "-prod-") can be ticked but aren't counted in any progress.
+  const counted = (k) => !k.includes('-prod-');
+
+  const fmtDate = (iso) => { try { return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }); } catch { return ''; } };
+
+  function paint(key) {
+    const btn = buttons.get(key);
+    const s = state[key];
+    const done = !!(s && s.done);
+    btn.setAttribute('aria-pressed', String(done));
+    btn.disabled = readOnly;
+    btn.classList.toggle('ro', readOnly);
+    btn.closest('[data-check]').classList.toggle('is-done', done);
+    if (readOnly) btn.title = done ? `Done${s.at ? ', ' + fmtDate(s.at) : ''}. Read only: the client team ticks these.` : 'Not done yet. Read only: the client team ticks these.';
+    else btn.title = done && s.at ? `Done, ${fmtDate(s.at)}. Click to untick.` : 'Mark as done';
+  }
+
+  function heading(list) {
+    let h = list.previousElementSibling;
+    while (h && !h.classList.contains('sp-h')) h = h.previousElementSibling;
+    return h;
+  }
+
+  // Phase cards list their guide checklists in data-panels="otp rec"; show progress across them.
+  const phaseCards = [...document.querySelectorAll('.phase[data-panels]')].map((card) => {
+    const ids = card.dataset.panels.split(/\s+/).filter(Boolean);
+    const keys = items.map((li) => li.dataset.check).filter((k) => counted(k) && ids.some((id) => k.startsWith(id + '-')));
+    return { card, keys };
+  }).filter((p) => p.keys.length);
+  function paintPhases() {
+    for (const { card, keys } of phaseCards) {
+      const done = keys.filter((k) => state[k] && state[k].done).length;
+      let box = card.querySelector('.bp-phase');
+      if (!box) {
+        box = document.createElement('div');
+        box.className = 'bp-phase';
+        box.innerHTML = '<div class="bar" role="progressbar" aria-valuemin="0"><i></i></div><span class="txt"></span>';
+        card.appendChild(box);
+      }
+      const bar = box.querySelector('.bar');
+      bar.setAttribute('aria-valuemax', String(keys.length));
+      bar.setAttribute('aria-valuenow', String(done));
+      bar.setAttribute('aria-label', 'Checklist progress for this phase');
+      box.querySelector('i').style.width = Math.round((done / keys.length) * 100) + '%';
+      box.querySelector('.txt').innerHTML = `<b>${done} of ${keys.length}</b> checklist items done`;
+    }
+  }
+
+  function paintAll() {
+    paintPhases();
+    for (const key of buttons.keys()) paint(key);
+    for (const list of lists) {
+      const h = heading(list);
+      if (!h) continue;
+      const keys = [...list.querySelectorAll('[data-check]')].map((li) => li.dataset.check).filter(counted);
+      const done = keys.filter((k) => state[k] && state[k].done).length;
+      let pill = h.querySelector('.bp-progress');
+      if (!keys.length) { if (pill) pill.remove(); continue; }
+      if (!pill) { pill = document.createElement('span'); pill.className = 'bp-progress'; h.appendChild(pill); }
+      pill.textContent = `${done} of ${keys.length} done`;
+    }
+  }
+
+  // Lean view: a line above each checklist saying whose progress is shown.
+  function paintViewLabels() {
+    for (const list of lists) {
+      let bar = list.previousElementSibling && list.previousElementSibling.classList.contains('bp-view') ? list.previousElementSibling : null;
+      if (!bar) { bar = document.createElement('div'); bar.className = 'bp-view'; list.parentElement.insertBefore(bar, list); }
+      if (!teams.length) { bar.textContent = 'Read only. No client team has a link to this blueprint yet.'; continue; }
+      if (teams.length === 1) { bar.textContent = `Showing ${teams[0].name}’s progress. Read only.`; continue; }
+      bar.innerHTML = '<span>Showing progress for</span>';
+      const sel = document.createElement('select');
+      sel.setAttribute('aria-label', 'Client team');
+      teams.forEach((t, i) => { const o = document.createElement('option'); o.value = String(i); o.textContent = t.name; if (i === teamIndex) o.selected = true; sel.appendChild(o); });
+      sel.addEventListener('change', () => { teamIndex = Number(sel.value); state = teams[teamIndex].items || {}; paintViewLabels(); paintAll(); });
+      bar.appendChild(sel);
+      const ro = document.createElement('span'); ro.textContent = 'Read only.'; bar.appendChild(ro);
+    }
+  }
+
+  let toastTimer;
+  function toast(msg) {
+    let el = document.querySelector('.bp-toast');
+    if (!el) { el = document.createElement('div'); el.className = 'bp-toast'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
+    el.textContent = msg;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.remove(), 3500);
+  }
+
+  for (const li of items) {
+    const key = li.dataset.check;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'bp-check';
+    btn.innerHTML = TICK_SVG;
+    const plain = li.cloneNode(true);
+    plain.querySelectorAll('.tip, .evgroups').forEach((n) => n.remove());
+    btn.setAttribute('aria-label', 'Mark as done: ' + plain.textContent.replace(/\s+/g, ' ').trim().slice(0, 80));
+    btn.disabled = true; // enabled once saved state has loaded, for client team links only
+    btn.addEventListener('click', async () => {
+      if (readOnly) return;
+      const before = state[key];
+      const next = !(before && before.done);
+      state[key] = { done: next, at: before && before.at };
+      paintAll();
+      if (local) { state[key].at = new Date().toISOString(); saveLocal(); paintAll(); return; }
+      try {
+        const r = await fetch('/api/checklist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, item: key, done: next }),
+        });
+        if (!r.ok) throw new Error();
+        const saved = await r.json();
+        state[key] = { done: saved.done, at: saved.at };
+      } catch {
+        state[key] = before;
+        toast('Couldn’t save that change. Check your connection and try again.');
+      }
+      paintAll();
+    });
+    li.appendChild(btn);
+    buttons.set(key, btn);
+  }
+
+  // Local mode: ticks live in this browser (or only on this page) instead of the site.
+  const storeKey = 'leanbp-ticks:' + (cfg.slug || location.pathname);
+  function saveLocal() {
+    if (!cfg.persist) return;
+    try { localStorage.setItem(storeKey, JSON.stringify(state)); } catch {}
+  }
+  if (local) {
+    readOnly = false;
+    if (cfg.persist) { try { state = JSON.parse(localStorage.getItem(storeKey) || '{}') || {}; } catch { state = {}; } }
+    paintAll();
+    const note = document.createElement('div');
+    note.setAttribute('role', 'note');
+    note.textContent = cfg.persist ? 'Ticks on this copy are saved in this browser only.' : 'Preview: checkboxes work, but ticks aren’t saved.';
+    note.style.cssText = 'position:fixed;left:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:300;background:#1c2024;color:#fff;' +
+      'font:600 13px/1.4 system-ui,sans-serif;padding:8px 14px;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.25);border:1px solid var(--bright,#3dd68c);max-width:calc(100vw - 24px)';
+    const add = () => document.body.appendChild(note);
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', add); else add();
+    return;
+  }
+
+  fetch('/api/checklist?token=' + encodeURIComponent(token) + (view ? '&view=' + encodeURIComponent(view) : ''))
+    .then((r) => (r.ok ? r.json() : Promise.reject()))
+    .then((data) => {
+      if (data.mode === 'edit') {
+        readOnly = false;
+        state = data.items || {};
+      } else {
+        readOnly = true;
+        teams = data.teams || [];
+        state = teams.length ? teams[0].items || {} : {};
+        paintViewLabels();
+      }
+      paintAll();
+    })
+    .catch(() => {
+      paintAll();
+      toast('Checklist progress couldn’t load. Reload the page to try again.');
+    });
+})();
+</script>
 </body>
 </html>

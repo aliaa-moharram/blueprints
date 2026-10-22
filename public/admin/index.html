@@ -963,7 +963,7 @@ async function loadProgress(bp) {
   // Guides not attached to any phase (e.g. files without phase markers) still get a card.
   const used = new Set(st.phases.flatMap((p) => p.panels));
   const unphased = Object.keys(st.panels).filter((id) => !used.has(id));
-  const SETUP = ['dev', 'start'];
+  const SETUP = ['dev', 'start', 'wh'];
   const startIds = SETUP.filter((id) => unphased.includes(id));
   const otherIds = unphased.filter((id) => !SETUP.includes(id));
   const cards = (startIds.length ? [phaseCard('Phase 0 · Setup', startIds)] : [])
