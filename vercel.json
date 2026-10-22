@@ -2,6 +2,10 @@
   "outputDirectory": "public",
   "rewrites": [
     {
+      "source": "/api/admin/:route",
+      "destination": "/api/admin?__route=:route"
+    },
+    {
       "source": "/b/:token",
       "destination": "/api/b?token=:token"
     },
@@ -30,7 +34,7 @@
     }
   ],
   "functions": {
-    "api/admin/draft.js": {
+    "api/admin.js": {
       "maxDuration": 120
     }
   }

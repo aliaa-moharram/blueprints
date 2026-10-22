@@ -168,6 +168,13 @@
     .bp-journey .j-err:empty{display:none}
     .bp-jwrap .j-live{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
     .bp-mile.wait{background:#fff8e6;border-color:#e0a400;color:#8a5a00}
+    .bp-jmain{margin:0 0 30px}
+    .bp-jmain .bp-journey{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-radius:16px}
+    .bp-jmain .bp-journey .j-step{border-top:0;border-left:1px solid #eef0f2;padding:16px}
+    .bp-jmain .bp-journey .j-step:first-child{border-left:0}
+    .bp-journey .j-link{font:700 13px/1.3 system-ui,-apple-system,"Segoe UI",sans-serif;background:none;border:0;padding:0;color:#1c2024;text-decoration:underline;text-decoration-color:var(--bright,#3dd68c);text-underline-offset:3px;cursor:pointer}
+    .bp-journey .j-link:focus-visible{outline:2px solid var(--bright,#3dd68c);outline-offset:2px;border-radius:3px}
+    @media (max-width:900px){.bp-jmain .bp-journey{grid-template-columns:1fr}.bp-jmain .bp-journey .j-step{border-left:0;border-top:1px solid #eef0f2}.bp-jmain .bp-journey .j-step:first-child{border-top:0}}
     .bp-prodnow{margin:-4px 0 10px;padding:8px 10px;border-radius:8px;font:600 12.5px/1.45 system-ui,sans-serif;
       background:color-mix(in srgb,var(--bright,#3dd68c) 18%,#fff);color:#1c2024}
     @media print{.bp-check,.bp-progress,.bp-view{display:none}}
@@ -357,6 +364,17 @@
     if (requestFormOpen) return; // don't redraw over a note being typed
     const steps = journey();
     if (!steps) return;
+    // On the main page, above Delivery phases, so it's visible without opening a guide; and at the top of the
+    // Developer portal setup and End-to-end test guides.
+    const targets = [];
+    const phases = document.querySelector('.phases');
+    if (phases) {
+      const head = [...document.querySelectorAll('h3.sub-h')].find((h) => /Delivery phases/i.test(h.textContent));
+      const before = head || phases;
+      let main = document.querySelector('.bp-jmain');
+      if (!main) { main = document.createElement('section'); main.className = 'bp-jwrap bp-jmain'; main.setAttribute('aria-label', 'Your path to production'); before.parentElement.insertBefore(main, before); }
+      targets.push(main);
+    }
     for (const pid of ['dev', 'e2e']) {
       const body = document.querySelector('#panel-' + pid + ' .sp-body');
       if (!body) continue;
@@ -365,12 +383,17 @@
         wrap = document.createElement('section'); wrap.className = 'bp-jwrap'; wrap.setAttribute('aria-label', 'Your path to production');
         body.insertBefore(wrap, body.firstChild);
       }
+      targets.push(wrap);
+    }
+    for (const wrap of targets) {
+      const isMain = wrap.classList.contains('bp-jmain');
       const n = { done: '✓', waiting: '…' };
-      wrap.innerHTML = '<div class="sp-h">Your path to production</div><ol class="bp-journey">' + steps.map((x, i) =>
+      wrap.innerHTML = (isMain ? '<h3 class="sub-h">Your path to production</h3>' : '<div class="sp-h">Your path to production</div>') + '<ol class="bp-journey">' + steps.map((x, i) =>
         `<li class="j-step ${x.state}${x.current ? ' current' : ''}"${x.current ? ' aria-current="step"' : ''}>` +
         `<span class="j-dot" aria-hidden="true">${n[x.state] || i + 1}</span>` +
         `<div><div class="j-title">${escH(x.title)}</div><div class="j-status">${escH(x.status)}${x.state === 'locked' ? ' <span class="j-lock">Locked</span>' : ''}</div>` +
-        (x.key === 'access' ? `<div class="j-access">${accessAction(x)}</div>` : '') + '</div></li>').join('') + '</ol>' +
+        (x.key === 'access' ? `<div class="j-access">${accessAction(x)}</div>` : '') +
+        (isMain && x.panel && x.state !== 'locked' && x.state !== 'done' ? `<div class="j-act"><button type="button" class="j-link" data-jguide="${escH(x.panel)}">Open the guide →</button></div>` : '') + '</div></li>').join('') + '</ol>' +
         '<div class="j-live" role="status" aria-live="polite"></div>';
     }
   }
@@ -400,6 +423,8 @@
   document.addEventListener('click', (e) => {
     const b = e.target.closest('[data-jopen]');
     if (b) openRequestForm(b);
+    const g = e.target.closest('[data-jguide]');
+    if (g && typeof window.openPanel === 'function') window.openPanel(g.dataset.jguide);
   });
 
   function paintAll() {

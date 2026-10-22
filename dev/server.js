@@ -16,6 +16,8 @@ async function route(req, res) {
   const b = pathname.match(/^\/b\/([^/]+)$/);
   if (b) { pathname = '/api/b'; url.searchParams.set('token', b[1]); }
   if (pathname === '/admin') pathname = '/admin/index.html';
+  const adm = pathname.match(/^\/api\/admin\/([^/]+)$/); // same rewrite as vercel.json
+  if (adm) { pathname = '/api/admin'; url.searchParams.set('__route', adm[1]); req.url = pathname + url.search; }
 
   if (pathname.startsWith('/api/')) {
     const file = path.join(root, pathname + '.js');

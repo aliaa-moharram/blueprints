@@ -169,3 +169,6 @@ Then open http://localhost:3000/admin. `npm test` runs the end-to-end checks aga
 When steps 1 and 2 are complete, step 3's **Request production access** is the main action. Before that, it shows what's left and offers **Request anyway**. The client team can add a note. Only the client team's own link can send a request; Lean views show the status read-only.
 
 A request is saved on the team's link and shows in the admin page in two places: a **Production requested** badge on the blueprint in the sidebar, and the request, with its note, on the team's row in the links table. It's also sent to Slack if `SLACK_WEBHOOK_URL` is set, with the team's sandbox and end-to-end progress and a link to the admin page. To grant it, set the team's Environment to **Production**. The client's page then shows the request as granted and unlocks Production setup.
+
+
+**Vercel's Hobby plan allows 12 serverless functions per deployment.** Every file in `api/` is one function, so the admin endpoints share one: `api/admin.js` routes each `/api/admin/<name>` request (rewritten in `vercel.json`) to its handler in `lib/admin/`. The site uses 5 functions. Add new admin endpoints to `lib/admin/` and the router, not as new files in `api/`.
