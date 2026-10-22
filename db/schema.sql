@@ -89,3 +89,11 @@ CREATE TABLE IF NOT EXISTS verticals (
   updated_by  TEXT,
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- The client team's environment, set by Lean: 'sandbox' until Lean upgrades them, then 'production'.
+ALTER TABLE links ADD COLUMN IF NOT EXISTS environment TEXT NOT NULL DEFAULT 'sandbox';
+ALTER TABLE links ADD COLUMN IF NOT EXISTS environment_changed_at TIMESTAMPTZ;
+
+-- A client team's request for production access, sent from their blueprint (Lean grants it by setting the environment).
+ALTER TABLE links ADD COLUMN IF NOT EXISTS production_requested_at TIMESTAMPTZ;
+ALTER TABLE links ADD COLUMN IF NOT EXISTS production_request_note TEXT;

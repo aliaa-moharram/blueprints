@@ -9,13 +9,15 @@ const PORT = 3999;
 const BASE = `http://localhost:${PORT}`;
 const ADMIN = 'test-admin-password-123';
 const MOCK_PORT = 3998;
-const env = { ...process.env, PORT: String(PORT), ADMIN_PASSWORD: ADMIN, SLACK_WEBHOOK_URL: '',
+const env = { ...process.env, PORT: String(PORT), ADMIN_PASSWORD: ADMIN, SLACK_WEBHOOK_URL: `http://localhost:3998/slack`,
   ANTHROPIC_API_KEY: 'test-key', ANTHROPIC_BASE_URL: `http://localhost:${MOCK_PORT}`, ANTHROPIC_MODEL: 'test-model' };
 // Stand-in for the Claude API: records the request and replies with a canned draft.
 const http = await import('node:http');
 let lastClaudeRequest = null;
+const slackMessages = [];
 const mock = http.createServer(async (req, res) => {
   let body = ''; for await (const c of req) body += c;
+  if (req.url === '/slack') { slackMessages.push(JSON.parse(body)); res.writeHead(200); return res.end('ok'); }
   lastClaudeRequest = { headers: req.headers, body: JSON.parse(body), url: req.url };
   const draft = { subtitle: 'How Nova maps to Lean.', summary: 'Nova wants pay-ins from UAE banks.', market: 'UAE', vertical: 'Wallet',
     painPoints: [{ group: 'business', pain: 'Card fees on top-ups.', solve: 'Lean **Pay by Bank**.', advantage: 'Lower costs.' }],
@@ -177,8 +179,10 @@ try {
   const pv = (await r.json()).html;
   assert.ok(pv.includes('Acme Remit') && pv.includes('<b>Pay by Bank</b>') && pv.includes('openPanel(\'otp\')')); ok('preview renders content, bold text and the guide button');
   assert.ok(pv.includes('--bright:#e60000') && pv.includes('--on-bright:#ffffff')); ok('client colour applied, with white text on a dark accent');
+  const rt = await (await fetch(`${BASE}/bp-runtime.js`)).text();
+  assert.ok(rt.includes('bp-rowbar') && rt.includes('function paintGuides') && rt.includes('bp-guidebar')); ok('the page script draws progress bars on guide rows and in guide headers');
   assert.ok(pv.includes('<script>window.__LEAN_BP={"local":true};</script>') && pv.includes('/bp-runtime.js"></script>') && !/"token"/.test(pv)); ok('previews load checkboxes and progress in local mode, with no link and no tracking');
-  assert.equal((pv.match(/data-check="otp-/g) || []).length, 7); ok('guide checklist items get stable keys');
+  assert.equal((pv.match(/data-check="otp-/g) || []).length, 6); ok('guide checklist items get stable keys');
   assert.ok(pv.includes('Reconciliation') && pv.includes('GET /recon')); ok('custom products render in cards and table');
   assert.ok(pv.includes('<span class="client-name">Acme Remit</span>')); ok('name-only header shows the client name');
   assert.ok(pv.includes('<div class="phase" data-panels="otp e2e">')); ok('phase cards list their guide checklists for phase progress');
@@ -204,6 +208,38 @@ try {
   const builtItems = (await (await admin(`/api/admin/progress?slug=${B}`)).json()).structure.panels;
   const allKeys = Object.values(builtItems).flatMap((p) => p.items.map((i) => i.key));
   assert.equal(builtBp.items, allKeys.filter((k) => !k.includes('-prod-')).length); ok('the item total leaves production steps out');
+  let envr = await (await fetch(`${BASE}/api/checklist?token=${built.token}`)).json();
+  assert.equal(envr.environment, 'sandbox'); ok('a client team starts in Sandbox');
+  r = await admin('/api/admin/links', { method: 'PATCH', body: JSON.stringify({ token: built.token, environment: 'live' }) });
+  assert.equal(r.status, 400); ok('only sandbox or production can be set');
+  r = await admin('/api/admin/links', { method: 'PATCH', body: JSON.stringify({ token: built.token, environment: 'production' }) });
+  assert.equal(r.status, 200); envr = await (await fetch(`${BASE}/api/checklist?token=${built.token}`)).json();
+  assert.equal(envr.environment, 'production'); ok('Lean sets the team to production, and the page is told');
+  r = await fetch(`${BASE}/api/admin/links`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: built.token, environment: 'sandbox' }) });
+  assert.equal(r.status, 401); ok('only Lean can change the environment');
+  await admin('/api/admin/links', { method: 'PATCH', body: JSON.stringify({ token: built.token, environment: 'sandbox' }) });
+  // Requesting production access
+  const prodReq = (body) => fetch(`${BASE}/api/production`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  r = await prodReq({ token: built.token, note: '  Target go-live 1 Dec \u0007 ' });
+  let pj = await r.json();
+  assert.equal(r.status, 200); assert.ok(pj.requestedAt); assert.equal(pj.note, 'Target go-live 1 Dec'); ok('a client team can request production access, with an optional note');
+  const sm = slackMessages.find((m) => /requested production access/.test(m.text));
+  assert.ok(sm && /Sandbox setup: \d+ of \d+/.test(sm.text) && /End-to-end test: \d+ of \d+/.test(sm.text) && sm.text.includes('Target go-live 1 Dec') && sm.text.includes('/admin')); ok('Lean is notified in Slack, with readiness from the server, the note and a link to the admin page');
+  r = await prodReq({ token: built.token, note: 'again' }); pj = await r.json();
+  assert.equal(r.status, 200); assert.ok(pj.alreadyRequested && pj.note === 'Target go-live 1 Dec'); assert.equal(slackMessages.filter((m) => /requested production access/.test(m.text)).length, 1); ok('asking twice is harmless and doesn’t notify again');
+  envr = await (await fetch(`${BASE}/api/checklist?token=${built.token}`)).json();
+  assert.ok(envr.production.requestedAt && !envr.production.grantedAt); ok('the page is told the request is waiting');
+  ov = await (await admin('/api/admin/overview')).json();
+  assert.ok(ov.links.find((l) => l.token === built.token).production_requested_at); ok('the admin page lists the request');
+  r = await prodReq({ token: 'nope' }); assert.equal(r.status, 404); ok('unknown links can’t request');
+  r = await prodReq({ token: lean.token }); assert.equal(r.status, 403); ok('Lean team links can’t request production access');
+  await admin('/api/admin/links', { method: 'PATCH', body: JSON.stringify({ token: built.token, environment: 'production' }) });
+  envr = await (await fetch(`${BASE}/api/checklist?token=${built.token}`)).json();
+  assert.ok(envr.production.grantedAt); ok('setting the team to Production grants it, and the page is told');
+  r = await prodReq({ token: built.token }); assert.equal(r.status, 409); ok('a team already in production can’t request again');
+  await admin('/api/admin/links', { method: 'PATCH', body: JSON.stringify({ token: built.token, environment: 'sandbox' }) });
+  const rtJ = await (await fetch(`${BASE}/bp-runtime.js`)).text();
+  assert.ok(rtJ.includes('Your path to production') && rtJ.includes('Request production access') && rtJ.includes('Request anyway') && rtJ.includes("aria-current=\"step\"")); ok('the page shows the path to production, with the request button');
   r = await json('/api/checklist', { token: built.token, item: 'otp-2', done: true });
   assert.equal((await json('/api/checklist', { token: built.token, item: 'otp-2', done: true })).status, 200);
   assert.equal(r.status, 200); ok('its guide checklist ticks save');
@@ -251,8 +287,8 @@ try {
   assert.equal(tc.items['sample-1'].done, true); ok('shows each client team’s ticks');
   assert.ok(!pgr.teams.some((t) => t.label === 'Second team')); ok('revoked teams are left out of the breakdown');
   pgr = await (await admin(`/api/admin/progress?slug=${B}`)).json();
-  assert.equal(pgr.structure.phases[0].label, 'Phase 1'); assert.deepEqual(pgr.structure.phases[0].panels, ['otp', 'e2e']);
-  assert.equal(pgr.structure.panels.otp.items.length, 7); assert.equal(pgr.structure.panels.otp.name, 'One-Time Payments'); ok('a form blueprint’s phases and guides are read on publish');
+  assert.equal(pgr.structure.phases[0].label, 'Phase 0'); assert.deepEqual(pgr.structure.phases[0].panels, ['dev', 'start', 'wh']); assert.equal(pgr.structure.phases[1].label, 'Phase 1'); assert.deepEqual(pgr.structure.phases[1].panels, ['otp', 'e2e']);
+  assert.equal(pgr.structure.panels.otp.items.length, 6); assert.equal(pgr.structure.panels.otp.name, 'One-Time Payments'); ok('a form blueprint’s phases and guides are read on publish');
   assert.equal(pgr.teams[0].items['otp-2'].done, true); ok('the breakdown shows ticks per guide item');
   assert.equal((await admin('/api/admin/progress?slug=no-such-blueprint')).status, 404); ok('the breakdown reports a missing blueprint');
 
@@ -294,8 +330,11 @@ try {
   assert.ok(ppv.indexOf('id="panel-dev"') < ppv.indexOf('id="panel-start"')); ok('the setup guides come in order: portal setup, then getting started');
   assert.ok(['dev-5', 'dev-6', 'dev-7', 'dev-8', 'dev-9', 'dev-10'].every((k) => ppv.includes(`data-check="${k}"`)) && /client secret/.test(ppv) && /with the HTTPS endpoint where your backend receives events/.test(ppv) && /redirect URLs/.test(ppv) && /enable Open Finance/.test(ppv) && /purpose statement and the benefit/.test(ppv)); ok('portal setup covers client secret, webhooks, redirect URLs, Open Finance and consent copy');
   const devPanel = ppv.slice(ppv.indexOf('id="panel-dev"'), ppv.indexOf('</aside>', ppv.indexOf('id="panel-dev"')));
-  assert.ok(devPanel.includes('<b>[Client Name] Accounts</b>') && devPanel.includes('<b>Settlement</b> as the purpose') && devPanel.includes('docs/creating-a-payment-destination')); ok('portal setup creates the Settlement Account, as the docs describe, and links the guide');
-  assert.ok(/data-check="dev-prod-3">Create the production Settlement Account/.test(devPanel)); ok('production includes its own Settlement Account');
+  const authP = ppv.slice(ppv.indexOf('id="panel-start"'), ppv.indexOf('</aside>', ppv.indexOf('id="panel-start"')));
+  assert.ok(!devPanel.includes('Settlement Account') && !devPanel.includes('Add Account')); ok('portal setup no longer creates the Settlement Account: it’s an API call now');
+  assert.ok(/data-check="start-4">Create your <span class="term"[^>]*>Settlement Account/.test(authP) && authP.includes('POST /payments/v1/destinations') && authP.includes('TRADE_LICENSE_NUMBER') && authP.includes('reference/createpaymentdestination')); ok('Authentication creates the Settlement Account with POST /payments/v1/destinations, with its fields and reference');
+  assert.ok(/data-check="start-prod-1">Create your production Settlement Account/.test(authP)); ok('production includes its own Settlement Account, by API');
+  assert.ok(/Lean creates a <span class="term"[^>]*>Payment Instrument/.test(ppv) && ppv.includes('Lean creates one when the customer selects the account to pay with')); ok('guides say Lean creates a Payment Instrument when the customer selects an account, with a definition');
   assert.ok(ppv.includes('Also in the dev portal') && ppv.includes('consumption and billing') && ppv.includes('docs/configuring-your-application')); ok('the guide lists what the dev portal shows and links the configuration guide');
   assert.ok(ppv.indexOf('<td>Authentication') < ppv.indexOf('<td>Webhooks') && ppv.includes(`openPanel('wh')`)); ok('Phase 0 has a Webhooks row with its own guide');
   assert.ok(['wh-1', 'wh-6', 'wh-prod-1'].every((k) => ppv.includes(`data-check="${k}"`)) && !ppv.includes('data-check="wh-7"')); ok('the Webhooks guide has six core steps and a production step; testing is in the end-to-end test');
@@ -310,11 +349,38 @@ try {
   assert.ok(!/payout lifecycle webhooks|listen for both agreement\.\* and charge\.\*|Configure a webhook endpoint with signature verification/.test(ppv)); ok('no generic webhook wording left in the guides');
   for (const id of ['dev', 'start']) { const pn = ppv.slice(ppv.indexOf(`id="panel-${id}"`), ppv.indexOf('</aside>', ppv.indexOf(`id="panel-${id}"`))); assert.ok(pn.includes('<svg class="seqsvg"')); }
   ok('every Phase 0 guide has a sequence diagram');
+  const whRef = ppv.slice(ppv.indexOf('id="panel-wh"'), ppv.indexOf('</aside>', ppv.indexOf('id="panel-wh"')));
+  assert.ok(whRef.includes('<div class="sp-sub-h">Instrument events</div>') && whRef.includes('same shape as Fetch Payment Instrument') && whRef.includes('rather than merging fields') && whRef.includes('&quot;type&quot;: &quot;BANK_ACCOUNT&quot;')); ok('the Webhooks reference explains instrument.created and instrument.updated, with an example');
+  assert.ok(/sends <code>instrument\.created<\/code>/.test(ppv)); ok('the payment guides say Lean sends instrument.created when it creates the instrument');
+  assert.ok(ppv.includes('A Payment Instrument is a funding source, created once and then referenced by its id from Charges and Agreements')); ok('hovering Payment Instrument explains what it is');
+  const guidesOnly = (ppv.match(/<aside class="spanel"[\s\S]*?<\/aside>/g) || []).join('');
+  assert.ok(!/\b[Cc]ards?\b/.test(guidesOnly)); ok('nothing in the guides mentions cards');
+  const authRef = ppv.slice(ppv.indexOf('id="panel-start"'), ppv.indexOf('</aside>', ppv.indexOf('id="panel-start"')));
+  assert.ok(['bank_identifier', 'CONFIRMED', 'NBF_OF_UAE', 'YOUR COMPANY LLC'].every((t) => authRef.includes(t)) && !/NAVIN|AE710380000012706550621/i.test(ppv)); ok('the Settlement Account example follows the working request, with sample values only');
   assert.ok(!/Saudi|sa\.leantech/.test(ppv)); ok('no Saudi Arabia details');
   assert.ok(/<span class="term" tabindex="0">Charge<span class="tip" role="tooltip">A Charge is a single payment/.test(ppv) && !ppv.includes('[[')); ok('key terms carry hover definitions');
   const otpPanel = ppv.slice(ppv.indexOf('id="panel-otp"'), ppv.indexOf('</aside>', ppv.indexOf('id="panel-otp"')));
-  const order = ['POST /v4/payment-charges</code> with an', 'in the same request', 'Store the Charge', 'details.url', '10 minutes', 'PENDING_PROVIDER_CONFIRMATION', 'never comes back'].map((t) => otpPanel.indexOf(t));
-  assert.ok(order.every((i, n) => i > 0 && (n === 0 || i > order[n - 1]))); ok('One-Time Payments follows the guide: create, customer, store the ID, redirect, wait, outcome, webhooks');
+  const otpSteps = otpPanel.slice(otpPanel.indexOf('<div class="sp-h">Integration checklist</div>'));
+  const order = ['POST /v4/payment-charges</code> with an', 'in the same request', 'Store the Charge', 'details.url', 'PENDING_PROVIDER_CONFIRMATION', 'never comes back'].map((t) => otpSteps.indexOf(t));
+  assert.ok(order.every((i, n) => i > 0 && (n === 0 || i > order[n - 1]))); ok('One-Time Payments follows the guide: create, customer, store the ID, redirect, outcome, webhooks');
+  const mind = (pn) => { const a = pn.indexOf('<ul class="sp-mind">'); return a < 0 ? '' : pn.slice(a, pn.indexOf('</ul>', a)); };
+  assert.ok(mind(otpPanel).includes('10 minutes') && !mind(otpPanel).includes('data-check')); ok('One-Time Payments keeps the 10-minute window in Keep in mind, without a checkbox');
+  const authPanel = ppv.slice(ppv.indexOf('id="panel-start"'), ppv.indexOf('</aside>', ppv.indexOf('id="panel-start"')));
+  assert.ok(mind(authPanel).includes('Idempotency-Key') && mind(authPanel).includes('source of payment state') && !mind(authPanel).includes('data-check')); ok('idempotency and the source of payment state are things to keep in mind, not steps');
+  assert.ok(['start-1', 'start-4'].every((k) => authPanel.includes(`data-check="${k}"`)) && !authPanel.includes('data-check="start-5"') && /data-check="start-1">Configure your backend with the Sandbox addresses/.test(authPanel)); ok('Authentication has four real steps, starting with the Sandbox addresses and ending with the Settlement Account');
+  assert.ok(authPanel.indexOf('<div class="sp-h">Keep in mind</div>') < authPanel.indexOf('<div class="sp-h">Integration checklist</div>')); ok('Keep in mind comes before the checklist');
+  assert.ok((ppv.match(/<button class="sp-wide"[^>]*onclick="toggleWide\(this\)"/g) || []).length >= 6); ok('every guide has an Expand button');
+  assert.equal((ppv.match(/<button class="sp-zoom"/g) || []).length, (ppv.match(/<div class="sp-diagram">/g) || []).length); ok('every diagram can open full screen');
+  assert.ok(ppv.includes('function toggleWide') && ppv.includes('function zoomDiagram') && ppv.includes('svg.seqsvg') && ppv.includes('if(!closeZoom())closePanels()')); ok('the page carries the expand script, and Escape closes the diagram first');
+  assert.ok(ppv.includes('Authorization: Bearer &lt;token&gt;')); ok('diagram labels are escaped, so <token> shows');
+  assert.ok(['dev', 'start', 'wh', 'otp', 'e2e'].every((id) => ppv.includes(`<tr data-row-panel="${id}">`))); ok('every row with a guide carries its progress count');
+  assert.ok(/data-check="dev-10">In <b>Development<\/b>, <b>Integration settings<\/b>, copy your webhook/.test(ppv)); ok('portal setup includes copying the webhook signing secret');
+  assert.ok(!/setup \(steps? \d/.test(ppv)); ok('guides refer to each other by name, not step numbers');
+  assert.ok(/<tr class="grp" data-setup="dev start wh">/.test(ppv)); ok('the Phase 0 header carries the setup milestone');
+  assert.ok(/<div class="phase" data-panels="dev start wh"><span class="ph">Phase 0<\/span><h3>Setup<\/h3>/.test(ppv) && ppv.indexOf('<span class="ph">Phase 0') < ppv.indexOf('<span class="ph">Phase 1')); ok('a Phase 0 card comes first in Delivery phases, so setup gets a progress bar');
+  assert.equal((ppv.match(/<span class="lbl">Expand<\/span>/g) || []).length, (ppv.match(/<aside class="spanel"/g) || []).length); ok('every guide has a labelled Expand button');
+  assert.ok(['function spInit', 'sp-next', 'sp-prev', "'Back to the plan'", 'tr[data-row-panel]'].every((t) => ppv.includes(t))); ok('guides get Next and Previous buttons, in the plan table’s order');
+  assert.ok(['sp-resize', "role','separator'", 'pointerdown', 'ArrowLeft', 'leanbp-panel-width'].every((t) => ppv.includes(t))); ok('guides can be resized by dragging or from the keyboard, and keep their width');
   assert.ok(otpPanel.includes('<div class="sp-sub-h">The payment lifecycle</div>')); ok('One-Time Payments shows the payment lifecycle diagram');
   const recPv = (await (await builder({ action: 'preview', content: { client: { name: 'Rec Co' }, launch: { phases: [{ label: 'Phase 1', title: 'Pay-ins' }], assign: { rec: { phase: 0 } } } } })).json()).html;
   const recPanel = recPv.slice(recPv.indexOf('id="panel-rec"'), recPv.indexOf('</aside>', recPv.indexOf('id="panel-rec"')));
@@ -329,24 +395,25 @@ try {
   assert.ok(/data-panels="[^"]*\be2e\b/.test(recPv)); ok('the end-to-end test counts in Phase 1’s progress');
   assert.ok(/data-check="dev-11">In <b>Development<\/b>, open the test-user management section/.test(recPv)); ok('portal setup creates a Sandbox test user');
   assert.ok(!/Test in Sandbox:/.test(recPv.slice(recPv.indexOf('id="panel-otp"'), recPv.indexOf('id="panel-e2e"')))); ok('test steps live in the end-to-end test only, not repeated in each guide');
-  const step7 = ppv.slice(ppv.indexOf('data-check="dev-10"'), ppv.indexOf('</li>', ppv.indexOf('data-check="dev-10"')));
-  assert.equal((step7.match(/<details class="evgroup">/g) || []).length, 3); assert.ok(!step7.includes('<details class="evgroup" open')); ok('the events step shows three collapsible groups, closed by default');
-  assert.ok(['Charge events', 'Agreement events', 'Optional: refunds'].every((g) => step7.includes(`<span class="evt">${g}</span>`))); ok('the groups are Charge, Agreement and optional refunds');
+  const step7 = ppv.slice(ppv.indexOf('data-check="dev-9"'), ppv.indexOf('</li>', ppv.indexOf('data-check="dev-9"')));
+  assert.equal((step7.match(/<details class="evgroup">/g) || []).length, 4); assert.ok(!step7.includes('<details class="evgroup" open')); ok('the events step shows four collapsible groups, closed by default');
+  assert.ok(['Charge events', 'Agreement events', 'Instrument events', 'Optional: refunds'].every((g) => step7.includes(`<span class="evt">${g}</span>`))); ok('the groups are Charge, Agreement, Instrument and optional refunds');
+  assert.ok(step7.includes('<code>instrument.created</code>') && step7.includes('<code>instrument.updated</code>')); ok('instrument.created and instrument.updated are among the events to select');
   assert.ok(!/capture\.(pending|succeeded|failed)|void\.(pending|succeeded|failed)|charge\.(authorized|voided)/.test(ppv)); ok('no capture or void events: Pay by Bank doesn’t support manual capture or voids');
   assert.ok(!/<li[^>]*>[^<]*<li/.test(step7) && !step7.includes('<li>')); ok('the groups don’t nest list items inside the checklist step');
   const whRow = ppv.slice(ppv.indexOf('<td>Webhooks'), ppv.indexOf('</tr>', ppv.indexOf('<td>Webhooks')));
-  assert.equal((whRow.match(/<details class="evgroup">/g) || []).length, 3); ok('the Webhooks row lists its events in the same groups');
+  assert.equal((whRow.match(/<details class="evgroup">/g) || []).length, 4); ok('the Webhooks row lists its events in the same groups');
   assert.ok(step7.includes('under <b>Other</b>') && whRow.includes('under <b>Other</b>')); ok('the events step and the Webhooks row say the events are under Other in the dev portal');
   const devItems = (await (await admin(`/api/admin/progress?slug=${B}`)).json()).structure.panels.dev.items;
-  const st7 = devItems.find((i) => i.key === 'dev-10');
+  const st7 = devItems.find((i) => i.key === 'dev-9');
   assert.ok(st7.text.startsWith('Select these webhook events') && !st7.text.includes('charge.created')); ok('the admin Progress section shows the events step’s sentence, not every event');
   assert.ok(!devItems.some((i) => i.text.includes('Your application ID from the dev portal'))); ok('hover definitions aren’t part of a step’s text in the admin page');
   assert.ok(!ppv.includes('class="apiref"') && !ppv.includes('API reference: ')); ok('no separate API reference block or links at the end');
-  assert.ok(ppv.includes(`openPanel('start')`) && ppv.includes('id="panel-start"') && ppv.includes('data-check="start-5"')); ok('the Prerequisites row opens a Getting started guide with its own checklist');
+  assert.ok(ppv.includes(`openPanel('start')`) && ppv.includes('id="panel-start"') && ppv.includes('data-check="start-4"')); ok('the Prerequisites row opens a Getting started guide with its own checklist');
   assert.ok(ppv.includes('docs/introduction') && ppv.includes('docs/sandbox-testing') && ppv.includes('https://dev.leantech.me')); ok('the guide links to the intro, Sandbox testing and the Lean Dashboard');
   assert.ok(/create the <span class="term"[^>]*>Customer<span class="tip"[^>]*>[^<]*<\/span><\/span> in the same request/.test(ppv) && !ppv.includes('Create a Customer for each user before')); ok('customers are created with the first payment, as the guides describe');
   const howItWorks = ppv.split('<div class="sp-h">How it works</div>').slice(1);
-  assert.ok(howItWorks.length >= 4 && howItWorks.every((part) => /^\s*(<div class="sp-sub-h">[^<]*<\/div>)?<div class="sp-diagram"><svg/.test(part))); ok('every How it works section has a diagram');
+  assert.ok(howItWorks.length >= 4 && howItWorks.every((part) => /^\s*(<div class="sp-sub-h">[^<]*<\/div>)?<div class="sp-diagram">(<button class="sp-zoom"[\s\S]*?<\/button>)?<svg class="seqsvg"/.test(part))); ok('every How it works section has a diagram');
   const noPay = (await (await builder({ action: 'preview', content: { client: { name: 'Data Co' }, launch: { phases: [{ label: 'Phase 1', title: 'Data' }], assign: { data: { phase: 0 } } } } })).json()).html;
   assert.ok(!noPay.includes('Phase 0 · Setup</td>')); ok('blueprints without v4 payments products have no Phase 0');
 

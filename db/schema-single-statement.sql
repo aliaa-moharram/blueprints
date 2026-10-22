@@ -83,5 +83,13 @@ BEGIN
     updated_by  TEXT,
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
   );
+
+  -- The client team's environment, set by Lean (added in the environment update).
+  ALTER TABLE links ADD COLUMN IF NOT EXISTS environment TEXT NOT NULL DEFAULT 'sandbox';
+  ALTER TABLE links ADD COLUMN IF NOT EXISTS environment_changed_at TIMESTAMPTZ;
+
+  -- A client team's request for production access (added in the production request update).
+  ALTER TABLE links ADD COLUMN IF NOT EXISTS production_requested_at TIMESTAMPTZ;
+  ALTER TABLE links ADD COLUMN IF NOT EXISTS production_request_note TEXT;
 END
 $$;

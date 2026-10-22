@@ -1,5 +1,6 @@
 // POST  /api/admin/links  { slug, label, kind, createdBy } -> new link with its URL
 // PATCH /api/admin/links  { token, revoked: true|false }   -> revoke or restore a link
+// PATCH /api/admin/links  { token, environment }            -> set a client team's environment ('sandbox' or 'production')
 // DELETE /api/admin/links { token }                        -> delete a link with its visits and ticks
 import { randomBytes } from 'node:crypto';
 import { handler, readJson, send, httpError, baseUrl } from '../../lib/http.js';
@@ -58,6 +59,14 @@ export default handler(['POST', 'PATCH', 'DELETE'], async (req, res) => {
     return send(res, 200, { deleted: true, ...removed });
   }
 
+  if (body.environment !== undefined) {
+    if (!['sandbox', 'production'].includes(body.environment)) throw httpError(400, 'Environment must be sandbox or production.');
+    const { rows } = await query(
+      `UPDATE links SET environment = $2, environment_changed_at = now() WHERE token = $1 AND kind = 'client'
+       RETURNING token, environment, environment_changed_at`, [body.token, body.environment]);
+    if (!rows.length) throw httpError(404, 'No client team link with that token.');
+    return send(res, 200, rows[0]);
+  }
   if (body.revoked === false) {
     const l = await query('SELECT slug, kind FROM links WHERE token = $1', [body.token]);
     if (l.rows.length && l.rows[0].kind === 'client') {

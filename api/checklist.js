@@ -8,6 +8,10 @@ import { query } from '../lib/db.js';
 import { findActiveLink, loadMeta, ITEM_RE } from '../lib/blueprints.js';
 import { checkViewParam } from '../lib/viewsig.js';
 
+// A team's path to production: when they asked, and when Lean switched them to production.
+const production = (l) => ({ requestedAt: l.production_requested_at || null, note: l.production_request_note || null,
+  grantedAt: l.environment === 'production' ? (l.environment_changed_at || null) : null });
+
 async function itemsFor(token, allowed) {
   const { rows } = await query('SELECT item, done, updated_at FROM team_checklist WHERE token = $1', [token]);
   const items = {};
@@ -25,17 +29,17 @@ export default handler(['GET', 'POST'], async (req, res) => {
   if (input.view !== undefined) {
     if (req.method !== 'GET') throw httpError(403, 'Lean views are read only.');
     if (link.kind !== 'client' || checkViewParam(link.token, input.view) !== 'ok') throw httpError(403, 'This view has expired. Open it again from the admin page.');
-    return send(res, 200, { mode: 'view', teams: [{ name: link.label, items: await itemsFor(link.token, bp.items) }] });
+    return send(res, 200, { mode: 'view', teams: [{ name: link.label, environment: link.environment, production: production(link), items: await itemsFor(link.token, bp.items) }] });
   }
 
   if (req.method === 'GET') {
-    if (link.kind === 'client') return send(res, 200, { mode: 'edit', team: link.label, items: await itemsFor(link.token, bp.items) });
+    if (link.kind === 'client') return send(res, 200, { mode: 'edit', team: link.label, environment: link.environment, production: production(link), items: await itemsFor(link.token, bp.items) });
     const { rows } = await query(
-      `SELECT token, label FROM links WHERE slug = $1 AND kind = 'client' AND revoked_at IS NULL ORDER BY created_at`,
+      `SELECT token, label, environment, environment_changed_at, production_requested_at, production_request_note FROM links WHERE slug = $1 AND kind = 'client' AND revoked_at IS NULL ORDER BY created_at`,
       [link.slug],
     );
     const teams = [];
-    for (const t of rows) teams.push({ name: t.label, items: await itemsFor(t.token, bp.items) });
+    for (const t of rows) teams.push({ name: t.label, environment: t.environment, production: production(t), items: await itemsFor(t.token, bp.items) });
     return send(res, 200, { mode: 'view', teams });
   }
 

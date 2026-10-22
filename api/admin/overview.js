@@ -13,7 +13,7 @@ export default handler(['GET'], async (req, res) => {
        FROM blueprints b ORDER BY lower(coalesce(b.name, b.title))`,
   );
   const links = await query(
-    `SELECT l.token, l.slug, l.label, l.kind, l.created_by, l.created_at, l.revoked_at,
+    `SELECT l.token, l.slug, l.label, l.kind, l.created_by, l.created_at, l.revoked_at, l.environment, l.environment_changed_at, l.production_requested_at, l.production_request_note,
             count(v.id)::int AS views, min(v.opened_at) AS first_view, max(v.opened_at) AS last_view,
             coalesce(sum(v.seconds_visible), 0)::int AS seconds,
             (SELECT count(*)::int FROM team_checklist t JOIN blueprints b ON b.slug = l.slug

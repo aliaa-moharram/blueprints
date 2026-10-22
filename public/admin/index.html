@@ -76,6 +76,15 @@ td .who{font-weight:700}
 .tablewrap .actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .tablewrap .actions .ghost{text-align:center}
 .tablewrap td .by{white-space:nowrap}
+.envsel{display:flex;align-items:center;gap:6px;margin:8px 0 0;font-size:12.5px;font-weight:600;color:var(--muted)}
+.prodreq{margin:8px 0 0;padding:8px 10px;border-radius:8px;background:#fff8e6;border:1px solid #f3d27a;font-size:12.5px;color:#5c4100;max-width:340px}
+.prodnote{margin-top:4px;font-style:italic;color:#6b5200;white-space:pre-wrap}
+.prodbadge{display:inline-block;margin-top:5px;font-size:11px;font-weight:700;padding:1px 8px;border-radius:999px;background:#fff8e6;border:1px solid #e0a400;color:#8a5a00}
+.pg-mile.wait{background:#fff8e6;border-color:#e0a400;color:#8a5a00}
+.envsel select{height:30px;width:auto;padding:0 8px;font-size:12.5px}
+.pg-miles{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}
+.pg-mile{font-size:12.5px;font-weight:700;border-radius:999px;padding:3px 10px;background:var(--card);border:1px solid var(--line)}
+.pg-mile.done{background:var(--mint);border-color:transparent}
 td .by{font-size:12.5px;color:var(--muted)}
 .tag{display:inline-block;font-size:12px;font-weight:600;border-radius:999px;padding:2px 9px;background:var(--paper);border:1px solid var(--line);white-space:nowrap}
 .tag.client{background:var(--mint);border-color:transparent;color:var(--ink)}
@@ -306,6 +315,7 @@ function render() {
       <button class="bp" data-slug="${esc(b.slug)}" aria-current="${b.slug === selected}">
         <span class="t">${esc(nameOf(b))}</span>
         <span class="s">${sideLine(b)}${b.unpublished_changes && b.published ? ', unpublished changes' : ''}</span>
+        ${clientTeams(b.slug).some((l) => l.production_requested_at && l.environment !== 'production') ? '<span class="prodbadge">Production requested</span>' : ''}
         ${(() => { const t = clientTeams(b.slug); return b.published && b.items && t.length === 1 ? `<div class="meter" aria-hidden="true"><i style="width:${Math.round((t[0].done / b.items) * 100)}%"></i></div>` : ''; })()}
       </button>`;
   const pub = data.blueprints.filter((b) => b.published);
@@ -525,7 +535,10 @@ function renderDetail(bp) {
         <thead><tr><th>Team</th><th>Type</th><th>Visits</th><th>Time on page</th><th>Last opened</th><th>Checklist</th><th></th></tr></thead>
         <tbody>${links.map((l) => `
           <tr class="${l.revoked_at ? 'revoked' : ''}">
-            <td><div class="who">${esc(l.label)}</div><div class="by">${l.created_by ? 'Created by ' + esc(l.created_by) + ', ' : 'Created '}${esc(when(l.created_at))}${l.revoked_at ? ', revoked' : ''}</div></td>
+            <td><div class="who">${esc(l.label)}</div><div class="by">${l.created_by ? 'Created by ' + esc(l.created_by) + ', ' : 'Created '}${esc(when(l.created_at))}${l.revoked_at ? ', revoked' : ''}</div>
+              ${l.kind === 'client' && !l.revoked_at ? `<label class="envsel">Environment <select data-env="${esc(l.token)}" aria-label="Environment for ${esc(l.label)}"><option value="sandbox"${l.environment !== 'production' ? ' selected' : ''}>Sandbox</option><option value="production"${l.environment === 'production' ? ' selected' : ''}>Production</option></select></label>` : ''}
+              ${l.kind === 'client' && l.production_requested_at && l.environment !== 'production' ? `<div class="prodreq" role="note"><b>Production requested</b> ${esc(when(l.production_requested_at))}. Set Environment to Production to grant it.${l.production_request_note ? `<div class="prodnote">“${esc(l.production_request_note)}”</div>` : ''}</div>` : ''}
+              ${l.kind === 'client' && l.environment === 'production' && l.environment_changed_at ? `<div class="by">Production since ${esc(when(l.environment_changed_at))}${l.production_requested_at ? `, requested ${esc(when(l.production_requested_at))}` : ''}</div>` : ''}</td>
             <td><span class="tag ${l.kind}">${l.kind === 'client' ? 'Client' : 'Lean'}</span></td>
             <td class="num">${l.views}</td>
             <td class="num">${l.views ? `${dur(l.seconds)}<div class="by">${dur(Math.round(l.seconds / l.views))} per visit</div>` : ''}</td>
@@ -594,6 +607,12 @@ function renderDetail(bp) {
   const sr = $('showRevoked'); if (sr) sr.addEventListener('change', () => { showRevoked = sr.checked; render(); });
   if (bp.published) loadProgress(bp);
   document.querySelectorAll('[data-open]').forEach((el) => el.addEventListener('click', () => openLink(el.dataset.open, el.dataset.kind)));
+  document.querySelectorAll('[data-env]').forEach((el) => el.addEventListener('change', async () => {
+    const env = el.value;
+    if (env === 'production' && !confirm('Set this client team to Production? Their page will show Production, and their production steps will be marked as applying now.')) { el.value = 'sandbox'; return; }
+    try { await api('/api/admin/links', { method: 'PATCH', body: JSON.stringify({ token: el.dataset.env, environment: env }) }); await load(); status(env === 'production' ? 'Set to Production' : 'Set to Sandbox'); }
+    catch (err) { status(err.message); el.value = env === 'production' ? 'sandbox' : 'production'; }
+  }));
   document.querySelectorAll('[data-dellink]').forEach((el) => el.addEventListener('click', async () => {
     const n = Number(el.dataset.views);
     const live = el.dataset.active ? `This link is active: it stops working for ${el.dataset.label} straight away. ` : '';
@@ -970,7 +989,12 @@ async function loadProgress(bp) {
     .concat(st.phases.map((p) => phaseCard(`${p.label} · ${p.title}`, p.panels)))
     .concat(otherIds.length || st.loose.length ? [phaseCard(st.phases.length ? 'Other checklists' : 'Checklist', otherIds, st.loose)] : []);
   const allDone = Object.values(st.panels).flatMap((p) => p.items).concat(st.loose).filter(counts).filter((i) => isDone(i.key)).length;
-  el.innerHTML = `<div class="pg-top">
+  const SET = ['dev', 'start', 'wh'];
+  const keysOf = (ids, prod) => ids.filter((id) => st.panels[id]).flatMap((id) => st.panels[id].items).filter((i) => (prod ? i.key.includes('-prod-') : !i.key.includes('-prod-')));
+  const mile = (name, list) => { const d = list.filter((i) => isDone(i.key)).length; return list.length ? `<span class="pg-mile${d === list.length ? ' done' : ''}">${d === list.length ? '✓ ' + name + ' complete' : `${name}: ${d} of ${list.length}`}</span>` : ''; };
+  const env = chosen.environment === 'production' ? 'production' : 'sandbox';
+  const miles = `<div class="pg-miles"><span class="pg-mile">${env === 'production' ? 'Production' : 'Sandbox'}</span>${mile('Sandbox setup', keysOf(SET, false))}${mile('End-to-end test', keysOf(['e2e'], false))}${env !== 'production' && chosen.productionRequestedAt ? `<span class="pg-mile wait">Production requested ${esc(short(chosen.productionRequestedAt))}</span>` : ''}${env === 'production' ? mile('Production setup', keysOf(SET, true)) : ''}</div>`;
+  el.innerHTML = miles + `<div class="pg-top">
       ${pg.teams.length > 1 ? `<label for="pgTeam" style="margin:0">Client team</label><select id="pgTeam">${pg.teams.map((t) => `<option value="${esc(t.token)}"${t.token === chosen.token ? ' selected' : ''}>${esc(t.label)}</option>`).join('')}</select>` : `<strong style="color:var(--ink)">${esc(chosen.label)}</strong>`}
       <span>${allDone} of ${totalItems} checklist items done overall${lastAt ? `, last ticked ${esc(short(lastAt))}` : ''}.</span>
     </div><div class="pg">${cards.join('')}</div>`;

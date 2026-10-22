@@ -31,7 +31,7 @@ Blueprints are uploaded from the admin page and stored in the database, never in
 3. **Add a Postgres database.** Any Postgres works: one from Vercel's storage marketplace (such as Neon), Supabase, or Lean's own. Connect it to the project so the connection string is available as `DATABASE_URL`. If your provider names the variable differently, add `DATABASE_URL` yourself with the same value.
 4. **Set the environment variables** (see `.env.example`):
    - `ADMIN_PASSWORD`: required, at least 12 characters. Use a long random value and share it with your team through a password manager.
-   - `SLACK_WEBHOOK_URL`: optional. A Slack incoming-webhook URL for alerts when a client first opens a blueprint.
+   - `SLACK_WEBHOOK_URL`: optional, but recommended. A Slack incoming-webhook URL for alerts when a client first opens a blueprint, and when a client team requests production access.
    - `PUBLIC_BASE_URL`: optional. Set it if you add a custom domain, so new links use that domain.
 5. **Create the tables.** Either run `DATABASE_URL=<connection string> npm run migrate` from a laptop, or paste `db/schema.sql` into your provider's SQL editor. If the editor says it "cannot insert multiple commands into a prepared statement", paste `db/schema-single-statement.sql` instead; it's the same schema as one command. Both are safe to run more than once.
 6. **Deploy, then check these things on the live site:**
@@ -102,10 +102,14 @@ Each card under **Delivery phases** shows how many guide checklist items in that
 Endpoints in the plan table and in the implementation guides link to their page in Lean's v4 API reference (marked ↗). Blueprints that include One-Time Payments, Recurring Payments, CMI or Name match also get **Phase 0 · Setup** at the top of the table, with three rows, each with its own guide and checklist:
 
 - **Developer portal setup:** account and application, the sandbox app token (shared with Lean), Open Finance enablement, client secret, redirect URLs (the host is enough), purpose and benefit statements, a Settlement Account, and the webhook endpoint and events (in collapsible groups, under **Other** in the dev portal). Production steps follow, not counted.
-- **Authentication:** the access token, the Bearer header, the Sandbox, idempotency and treating Lean as the source of payment state.
+- **Authentication:** the Sandbox addresses, the access token, the Bearer header, then the first API call: creating the Settlement Account with `POST /payments/v1/destinations` (no `customer_id`). Its `id` is the `settlement_account_id`. Idempotency and treating Lean as the source of payment state are listed under Keep in mind.
 - **Webhooks:** the seven core steps (signing secret, endpoint, `lean-signature`, fast acknowledgement, `event_id`, ordering, Sandbox tests). Reference material sits in collapsed sections, and edge cases (IP allowlisting, failed deliveries, rotating secrets, unknown events) are linked to the exact doc sections rather than listed as steps.
 
 Phase 1 ends with an **End-to-end test** row and guide, counted in Phase 1's progress. It runs the whole integration against the Sandbox in six groups (environment, a one-time payment, a recurring payment, webhooks, failure cases, the go-live checklist), followed by the go-live steps (not counted). Following the checklists in order (Phase 0, then One-Time and Recurring Payments, then the end-to-end test) gives a working, tested integration. It follows Lean's "Testing your integration" guide.
+
+**Progress and environment.** The Phase 0 header shows "Sandbox setup: x of y", then "✓ Sandbox setup complete" once every sandbox step in Phase 0 is ticked, and every row with a guide shows its own count. Lean sets each client team's environment in the links table (Environment: Sandbox or Production). The page shows it next to Market and Vertical. Once a team is in Production, a "Production setup" count appears and the production steps are marked as applying now. Production steps are never counted in phase progress.
+
+**Guides** put things to keep in mind (not to-dos) in a Keep in mind list above the checklist. Each guide has a progress bar in its header, and Next and Previous buttons at the end, in the plan table's order. Guides can be resized: drag the handle on the left edge, use the arrow keys on it, or click **Expand**. The width is remembered in that browser. Every diagram can open full screen. A Phase 0 · Setup card in Delivery phases shows setup progress, and every row with a guide shows its own progress bar.
 
 **Checkboxes and progress bars** appear in every view. On a client link, ticks save for the client team. In the admin Preview and Edit on page, they work but aren't saved. A copy of the page opened outside the site saves ticks in that browser only.
 
@@ -153,3 +157,15 @@ Then open http://localhost:3000/admin. `npm test` runs the end-to-end checks aga
 - **Teammate comments.** Options are a comment widget added to `bp-runtime.js`, or a review tool on preview deployments. Check what your Vercel plan offers before building one.
 - **Version history.** Each form-built blueprint has one draft and one published version.
 - **Two people editing one blueprint at once.** The last save wins.
+
+
+**Requesting production access.** The Developer portal setup and End-to-end test guides open with **Your path to production**, a four-step tracker:
+
+1. **Sandbox setup:** not started, in progress (x of y) or complete.
+2. **End-to-end test.**
+3. **Production access:** not requested, requested and waiting for Lean, or granted.
+4. **Production setup:** locked until production access is granted.
+
+When steps 1 and 2 are complete, step 3's **Request production access** is the main action. Before that, it shows what's left and offers **Request anyway**. The client team can add a note. Only the client team's own link can send a request; Lean views show the status read-only.
+
+A request is saved on the team's link and shows in the admin page in two places: a **Production requested** badge on the blueprint in the sidebar, and the request, with its note, on the team's row in the links table. It's also sent to Slack if `SLACK_WEBHOOK_URL` is set, with the team's sandbox and end-to-end progress and a link to the admin page. To grant it, set the team's Environment to **Production**. The client's page then shows the request as granted and unlocks Production setup.

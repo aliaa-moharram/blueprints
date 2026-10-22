@@ -20,13 +20,13 @@ export default handler(['GET'], async (req, res) => {
     await query('UPDATE blueprints SET structure = $2 WHERE slug = $1', [slug, structure]);
   }
   const links = await query(
-    `SELECT token, label FROM links WHERE slug = $1 AND kind = 'client' AND revoked_at IS NULL ORDER BY created_at`, [slug]);
+    `SELECT token, label, environment, environment_changed_at, production_requested_at FROM links WHERE slug = $1 AND kind = 'client' AND revoked_at IS NULL ORDER BY created_at`, [slug]);
   const teams = [];
   for (const l of links.rows) {
     const t = await query('SELECT item, done, updated_at FROM team_checklist WHERE token = $1', [l.token]);
     const items = {};
     for (const r of t.rows) items[r.item] = { done: r.done, at: r.updated_at };
-    teams.push({ token: l.token, label: l.label, items });
+    teams.push({ token: l.token, label: l.label, environment: l.environment, environmentChangedAt: l.environment_changed_at, productionRequestedAt: l.production_requested_at, items });
   }
   send(res, 200, { structure: structure || { phases: [], panels: {}, loose: [] }, teams });
 });
