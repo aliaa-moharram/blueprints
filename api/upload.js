@@ -64,13 +64,19 @@ export default handler(['POST', 'GET'], async (req, res) => {
     return send(res, 200, { url, pathname: file, name: String(name || 'recording').slice(0, 200), bytes: size });
   }
   const body = await readJson(req);
+  if (body.action === 'check') { // asked before an upload starts, so the page can show the real reason if it can't
+    await mayUpload(req, body.token, body.email);
+    if (!process.env.BLOB_READ_WRITE_TOKEN && !local) throw httpError(422, 'Video uploads aren’t set up yet. Tick Not applicable for now and send the recording to Lean another way.');
+    await checkRoom(Math.ceil(Number(body.bytes) || 0));
+    return send(res, 200, { ok: true });
+  }
   if (body.action === 'delete') { // the client replaced or removed a recording
     await mayUpload(req, body.token, body.email);
     const { rows } = await query(`SELECT url FROM blob_uploads WHERE token = $1 AND url = $2 AND deleted_at IS NULL`, [body.token, String(body.url || '')]);
     if (rows.length) await deleteUpload(rows[0].url);
     return send(res, 200, { deleted: rows.length > 0 });
   }
-  if (!process.env.BLOB_READ_WRITE_TOKEN) throw httpError(503, 'Video uploads aren’t set up yet. Tick Not applicable for now and send the recording to Lean another way.');
+  if (!process.env.BLOB_READ_WRITE_TOKEN) throw httpError(422, 'Video uploads aren’t set up yet. Tick Not applicable for now and send the recording to Lean another way.');
   const result = await handleUpload({
     body, request: req,
     onBeforeGenerateToken: async (pathname, clientPayload) => {

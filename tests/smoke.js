@@ -307,6 +307,10 @@ try {
   bj = await bad({ videoNa: false, video: { url: `https://abc.public.blob.vercel-storage.com/production-requests/someone-else/x.mp4` } }); assert.ok(bj.j.fields.video); ok('a recording in another team’s folder is refused');
   // Uploads
   const upLocal = (email, type = 'video/mp4', bytes = 2048) => fetch(`${BASE}/api/upload?token=${built.token}&email=${encodeURIComponent(email)}&name=demo.mp4`, { method: 'POST', headers: { 'Content-Type': type }, body: Buffer.alloc(bytes, 7) });
+  const upCheck = (email, bytes) => fetch(`${BASE}/api/upload`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'check', token: built.token, email, bytes }) });
+  let uc = await upCheck('someone@gmail.com', 1000); assert.equal(uc.status, 403); assert.ok(/Only the client team/.test((await uc.json()).error)); ok('the pre-upload check gives the real reason a person can’t upload');
+  uc = await upCheck(CLIENT_EMAIL, 101 * 1024 * 1024); assert.equal(uc.status, 413); ok('the pre-upload check catches a recording over 100 MB');
+  assert.equal((await upCheck(CLIENT_EMAIL, 1000)).status, 200); ok('the pre-upload check passes for the client team');
   assert.equal((await upLocal('will.smith@leantech.me')).status, 403); ok('a Lean colleague can’t upload a recording to the client’s request');
   assert.equal((await upLocal('someone@gmail.com')).status, 403); ok('an email outside the client’s domains can’t upload');
   const upd = await (await upLocal(CLIENT_EMAIL)).json();

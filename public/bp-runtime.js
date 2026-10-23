@@ -556,7 +556,10 @@
         x.send(file);
       });
     }
-    return import('/blob-client.js').then(({ upload }) => {
+    // Ask the site first: Vercel's upload library replaces the site's reason with a generic message.
+    return fetch('/api/upload', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'check', token, email, bytes: file.size }) })
+      .then((r) => r.json().catch(() => ({})).then((j) => { if (!r.ok) { const e = new Error(j.error || 'The upload couldn’t start.'); e.final = true; throw e; } }))
+      .then(() => import('/blob-client.js')).then(({ upload }) => {
       const safe = file.name.replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+/, '').slice(-80) || 'recording';
       return upload(`production-requests/${token}/${safe}`, file, {
         access: 'public', handleUploadUrl: '/api/upload', clientPayload: JSON.stringify({ token, email, bytes: file.size }),
@@ -564,7 +567,11 @@
         onUploadProgress: (e) => onProgress(Math.round(e.percentage)),
       });
     }).then((r) => ({ url: r.url, name: file.name, bytes: file.size }))
-      .catch((err) => { throw new Error(/not set up yet|storage is full|over 100 MB/i.test(err.message || '') ? err.message : (err.message || 'The upload didn’t finish.') + ' Try again, or tick Not applicable.'); });
+      .catch((err) => {
+        if (err.final) throw err; // the site's own reason, already clear
+        const generic = /client token|failed to fetch|network/i.test(err.message || '');
+        throw new Error(generic ? 'The upload couldn’t start. Check your connection and try again, or tick Not applicable.' : (err.message || 'The upload didn’t finish.') + ' Try again, or tick Not applicable.');
+      });
   }
 
   // A replaced or removed recording is deleted straight away, so storage stays within the free plan.
