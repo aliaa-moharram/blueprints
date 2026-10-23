@@ -730,6 +730,38 @@ try {
   assert.equal(ur.status, 201); ok('a file with the page script inside it uploads without false checklist key errors');
   const urHtml = await (await fetch(BASE + (await (await admin('/api/admin/download', { method: 'POST', body: JSON.stringify({ slug: UR, format: 'html' }) })).json()).url)).text();
   assert.ok(!urHtml.includes('window.__LEAN_BP=') && !/<script>\s*\/\/ Injected into every blueprint/.test(urHtml)); ok('the built-in page script is removed on upload, since the site adds its own');
+  ov = await (await admin('/api/admin/overview')).json();
+  assert.equal(ov.emailReady, true); ok('the admin page knows email is set up');
+  // ---------- Owners: notifications go to the person who created the blueprint ----------
+  const OWN = 'own-' + Date.now().toString(36);
+  assert.equal((await upload({ slug: OWN + 'x', html: sample, ownerEmail: 'someone@gmail.com' })).status, 400); ok('an owner must have a Lean email');
+  assert.equal((await upload({ slug: OWN, html: sample, uploadedBy: 'Sara Sales', ownerEmail: 'Sara.Sales@leantech.me' })).status, 201);
+  let ob = (await (await admin('/api/admin/overview')).json()).blueprints.find((b) => b.slug === OWN);
+  assert.ok(ob.owner_email === 'sara.sales@leantech.me' && ob.owner_name === 'Sara Sales'); ok('uploading a blueprint makes you its owner');
+  await upload({ slug: OWN, html: sample.replace('Sample Client', 'Sample Client v3'), replace: true, uploadedBy: 'Someone Else', ownerEmail: 'someone.else@leantech.me' });
+  ob = (await (await admin('/api/admin/overview')).json()).blueprints.find((b) => b.slug === OWN);
+  assert.equal(ob.owner_email, 'sara.sales@leantech.me'); ok('Replace file keeps the original owner');
+  assert.equal((await admin('/api/admin/blueprints', { method: 'PATCH', body: JSON.stringify({ slug: OWN, ownerEmail: 'x@gmail.com' }) })).status, 400); ok('Change owner only accepts a Lean email');
+  const chg = await (await admin('/api/admin/blueprints', { method: 'PATCH', body: JSON.stringify({ slug: OWN, ownerEmail: 'will.smith@leantech.me' }) })).json();
+  assert.ok(chg.ownerEmail === 'will.smith@leantech.me' && chg.ownerName === 'Will Smith'); ok('Change owner hands the blueprint to someone else');
+  const OWNB = 'ownb-' + Date.now().toString(36);
+  const cr2 = await admin('/api/admin/builder', { method: 'POST', body: JSON.stringify({ action: 'create', slug: OWNB, by: 'Aliaa', ownerEmail: 'aliaa.m@leantech.me', template: 'standard', vertical: 'remittance', clientName: 'Owner Co' }) });
+  assert.ok([200, 201].includes(cr2.status)); ob = (await (await admin('/api/admin/overview')).json()).blueprints.find((b) => b.slug === OWNB);
+  assert.equal(ob.owner_email, 'aliaa.m@leantech.me'); ok('creating a blueprint in the form makes you its owner');
+  // a review comment on the owned blueprint goes to its owner
+  const ownLean = await (await admin('/api/admin/links', { method: 'POST', body: JSON.stringify({ slug: OWN, label: 'Lean review', kind: 'internal' }) })).json();
+  const before2 = emails.length;
+  await fetch(`${BASE}/api/comments`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: ownLean.token, viewer: { email: 'sara.sales@leantech.me' }, action: 'create', anchor: { block: 'x' }, body: 'A note' }) });
+  const ce2 = emails.slice(before2);
+  assert.ok(ce2.length === 1 && ce2[0].to.includes('will.smith@leantech.me') && !ce2[0].to.includes('owner@leantech.me')); ok('review comments are emailed to the blueprint’s owner (not the site-wide default)');
+  await admin('/api/admin/blueprints', { method: 'PATCH', body: JSON.stringify({ slug: OWN, notifyEmail: 'sales.lead@leantech.me' }) });
+  const before3 = emails.length;
+  await fetch(`${BASE}/api/comments`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: ownLean.token, viewer: { email: 'sara.sales@leantech.me' }, action: 'create', anchor: { block: 'y' }, body: 'Another' }) });
+  const ce3 = emails.slice(before3);
+  assert.ok(ce3[0].to.includes('will.smith@leantech.me') && ce3[0].to.includes('sales.lead@leantech.me')); ok('“Also notify” adds people alongside the owner');
+  const actv = await (await admin('/api/admin/activity')).json();
+  assert.ok(actv.events.some((e) => e.type === 'production' && e.team && e.who) && actv.events.some((e) => e.type === 'comment' && e.body) && actv.events.every((e, i, a) => i === 0 || a[i - 1].at >= e.at)); ok('What’s new lists production requests and review comments, newest first');
+  assert.equal((await fetch(`${BASE}/api/admin/activity`)).status, 401); ok('only Lean can see What’s new');
   console.log(`\n${passed} checks passed.`);
 } catch (err) {
   console.error('\nFAILED after ' + passed + ' checks:', err.message);

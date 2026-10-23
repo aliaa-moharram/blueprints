@@ -11,6 +11,7 @@ import { sendEmail } from '../lib/email.js';
 import { classify, viewerEmail } from '../lib/viewer.js';
 import { checkRequest, mask } from '../lib/prodrequest.js';
 import { cleanupExcept } from '../lib/blobstore.js';
+import { notifyList } from '../lib/recipients.js';
 
 const SETUP = ['dev', 'start', 'wh'];
 const counted = (k) => !k.includes('-prod-');
@@ -78,7 +79,7 @@ export default handler(['POST'], async (req, res) => {
   await notifySlack(`🚀 ${who.name} (${link.label}) requested production access for the ${name} blueprint.\n` +
     `Sandbox setup: ${tally(of(SETUP))} · End-to-end test: ${tally(of(['e2e']))} · Recording: ${v.video ? 'uploaded' : 'not applicable'}` +
     (v.note ? `\nNote: ${v.note}` : '') + `\nReview it and grant access in the admin page: ${site}/admin`);
-  const to = (bp.notify_email || process.env.NOTIFY_EMAIL || '').split(',').map((x) => x.trim()).filter(Boolean);
+  const to = notifyList(bp);
   await sendEmail({
     to, replyTo: who.email,
     subject: `${link.label} requested production access (${name})`,

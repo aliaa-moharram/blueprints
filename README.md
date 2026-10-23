@@ -280,3 +280,25 @@ For reviewing a blueprint before it's shared: for example, SolEng writes it, and
 
 
 **Uploading files with the page script inside.** The GitHub Pages copy (`index.html`), or a page saved from the browser, can be uploaded as is. The built-in page script is removed, since the site adds its own. Checklist steps are read from the page's actual elements, so code or text that mentions `data-check` is never mistaken for a step.
+
+
+## Owners: who's emailed
+
+Each blueprint has an **owner**: the Lean person who created it.
+- **Who you are:** the admin page asks once for your name and Lean email, remembered in that browser. Change it from **You: … · Change** in the header.
+- **Ownership:** blueprints you upload or create in the form, including copies, are owned by you. **Replace file** keeps the original owner.
+- **Emails:** production requests and review comments are emailed to the owner, plus anyone under **Also notify (optional)**. A blueprint with no owner falls back to `NOTIFY_EMAIL`.
+- **Changing it:** each blueprint shows its owner, with **Change owner**, or **Make me the owner** when it has none. Owners must have a Lean email.
+- **Resend's limit:** until a sending domain is verified in Resend, it only delivers to the Resend account's own address. Emails reach other owners once a Lean domain is verified there.
+
+
+## What's new (notifications in the admin page)
+
+**What's new** is at the top of the admin sidebar.
+- **What it lists:** every production request and review comment, newest first, grouped by Today and Earlier.
+- **Whose:** blueprints you own, plus any without an owner yet. Tick **Show all blueprints** to see everything.
+- **New items:** they're marked **New**, and the sidebar shows an unread count until you've opened What's new. That's remembered per browser.
+- **Signing in with something new** opens What's new first.
+- **Each item links** straight to its blueprint, with the request or comments section open.
+
+Email is optional. Without `RESEND_API_KEY`, nothing is emailed, and What's new is where requests and comments show up.

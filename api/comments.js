@@ -10,6 +10,7 @@ import { findActiveLink, loadMeta } from '../lib/blueprints.js';
 import { checkViewParam } from '../lib/viewsig.js';
 import { classify, viewerEmail } from '../lib/viewer.js';
 import { sendEmail } from '../lib/email.js';
+import { notifyList } from '../lib/recipients.js';
 
 const text = (v, max) => String(v == null ? '' : v).replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, '').trim().slice(0, max);
 const escH = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -34,7 +35,7 @@ async function threads(slug) {
 }
 
 async function notify(req, link, bp, who, thread, body, kind) {
-  const owner = (bp.notify_email || process.env.NOTIFY_EMAIL || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
+  const owner = notifyList(bp);
   const { rows } = await query('SELECT DISTINCT author_email FROM comments WHERE thread_id = $1 AND deleted_at IS NULL', [thread.id]);
   const participants = kind === 'reply' ? rows.map((r) => r.author_email) : [];
   const to = [...new Set([...owner, ...participants])].filter((e) => e !== who.email);

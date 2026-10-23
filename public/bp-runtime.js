@@ -571,8 +571,8 @@
     }).then((r) => ({ url: r.url, name: file.name, bytes: file.size }))
       .catch((err) => {
         if (err.final) throw err; // the site's own reason, already clear
-        const generic = /client token|presigned|failed to fetch|network/i.test(err.message || '');
-        throw new Error(generic ? 'The upload couldn’t start. Check your connection and try again, or tick Not applicable.' : (err.message || 'The upload didn’t finish.') + ' Try again, or tick Not applicable.');
+        const generic = /client token|presigned|failed to fetch|network|load failed|fetch/i.test(err.message || '') || err.name === 'TypeError';
+        throw new Error(generic ? 'The upload couldn’t reach the storage service. This is usually a VPN, a security tool or an office network blocking it: try another network or browser, or tick Not applicable and send the recording to Lean another way.' : (err.message || 'The upload didn’t finish.') + ' Try again, or tick Not applicable.');
       });
   }
 

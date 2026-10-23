@@ -185,3 +185,8 @@ CREATE TABLE IF NOT EXISTS comments (
   deleted_at TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS comments_thread_idx ON comments (thread_id, created_at);
+
+-- Who owns each blueprint: the Lean person who created it. Production requests and review comments are emailed
+-- to the owner, plus anyone in notify_email ("Also notify").
+ALTER TABLE blueprints ADD COLUMN IF NOT EXISTS owner_email TEXT;
+ALTER TABLE blueprints ADD COLUMN IF NOT EXISTS owner_name TEXT;

@@ -89,6 +89,28 @@ td .who{font-weight:700}
 .clist>li.resolved{opacity:.65}
 .clist .cq{background:#fff8e6;border-left:3px solid #e0a400;padding:5px 8px;border-radius:5px;margin-bottom:6px;font-size:12.5px}
 .clist .cc{margin:0 0 6px;white-space:pre-wrap}
+.menote{font-size:13px;color:#b8c0c9;margin-right:12px}
+.menote b{color:#fff}
+.menote .linkish{color:#fff;border:0;background:none;padding:0;height:auto}
+.linkish{background:none;border:0;padding:0;font:inherit;font-weight:700;color:var(--ink);text-decoration:underline;cursor:pointer}
+.ownerline{font-size:13px;color:var(--muted);margin:12px 0 0}
+.ownerline b{color:var(--ink)}
+.meform label{display:block;font-weight:600;font-size:13px;margin:10px 0 0}
+.meform input{display:block;width:100%;box-sizing:border-box;margin-top:4px;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px}
+.meform .err{color:#b3261e;font-size:13px;margin:6px 0 0}
+.unread{display:inline-block;min-width:18px;padding:0 6px;margin-left:6px;border-radius:999px;background:var(--bright,#3dd68c);color:#0f2a1e;font-size:11.5px;font-weight:800;line-height:18px;text-align:center}
+.wn{list-style:none;margin:0 0 14px;padding:0}
+.wn>li{margin:0 0 8px}
+.wn-item{display:block;width:100%;text-align:left;background:var(--card,#fff);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font:inherit;color:var(--ink);cursor:pointer}
+.wn>li.new .wn-item{border-color:var(--bright,#3dd68c);box-shadow:0 0 0 1px var(--bright,#3dd68c)}
+.wn-item:focus-visible{outline:2px solid var(--bright,#3dd68c);outline-offset:2px}
+.wn-top{font-size:14px}
+.wn-bp{color:var(--muted)}
+.wn-at{float:right;color:var(--muted);font-size:12.5px}
+.wn-new{display:inline-block;font-size:11px;font-weight:800;padding:0 7px;border-radius:999px;background:var(--bright,#3dd68c);color:#0f2a1e;margin-left:4px}
+.wn-body{margin-top:4px;font-size:13px;color:var(--muted);white-space:pre-wrap}
+.wn-q{font-style:italic}
+.wn-all{display:flex;gap:8px;align-items:center;font-size:13px;margin:8px 0 14px}
 .versions{margin:10px 0 4px;font-size:13px;max-width:720px}
 .versions>summary{cursor:pointer;font-weight:700;color:var(--ink)}
 .vlist{list-style:none;margin:6px 0 0;padding:0}
@@ -253,7 +275,7 @@ details.sec[open]>summary::after{content:"Hide"}
 </style>
 </head>
 <body>
-<div class="bar"><div class="mark" aria-hidden="true">L</div><h1>Lean blueprints</h1><div class="spacer"></div><button id="signout" hidden>Sign out</button></div>
+<div class="bar"><div class="mark" aria-hidden="true">L</div><h1>Lean blueprints</h1><div class="spacer"></div><span id="meNote" class="menote" hidden></span><button id="signout" hidden>Sign out</button></div>
 
 <div id="signin" class="signin" hidden>
   <h2>Sign in</h2>
@@ -284,13 +306,50 @@ let verticals = [];
 let drafting = false;
 const NEW = '__new';
 const VERT = '__verticals';
-let selected = location.hash === '#new' ? NEW : location.hash === '#verticals' ? VERT : (location.hash.slice(1).replace(/^edit:/, '') || null);
+const WHATS = '__whatsnew';
+// "What's new": production requests and review comments since you last looked, on blueprints you own (or that
+// have no owner yet), with a switch to show every blueprint. Seen-ness is remembered in this browser.
+let activity = [], whatsAll = false, seenBefore = null, firstLoad = true;
+const seenAt = () => localStorage.getItem('leanbp-seen-at') || '1970-01-01T00:00:00Z';
+const isMine = (e) => !myEmail() || !e.owner_email || e.owner_email === myEmail();
+const unread = () => activity.filter((e) => isMine(e) && e.at > seenAt());
+let selected = location.hash === '#new' ? NEW : location.hash === '#verticals' ? VERT : location.hash === '#whatsnew' ? WHATS : (location.hash.slice(1).replace(/^edit:/, '') || null);
 let editor = null; // { slug, draft, dirty, row, open:Set }
 let showRevoked = false;
 const progressTeam = {}; // slug -> chosen client team token
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const byName = () => localStorage.getItem('leanbp-by') || '';
+// Who's using the admin page: a name and Lean email, asked once and remembered in this browser. Blueprints you
+// create or upload are owned by you, so their production requests and review comments are emailed to you.
+const myEmail = () => localStorage.getItem('leanbp-email') || '';
+function paintMe() {
+  const n = $('meNote'); if (!n) return;
+  if (!myEmail()) { n.hidden = true; return; }
+  n.hidden = false; n.innerHTML = `You: <b></b> · <button type="button" class="linkish">Change</button>`;
+  n.querySelector('b').textContent = byName() || myEmail();
+  n.querySelector('button').onclick = () => askMe(true);
+}
+function askMe(changing) {
+  if (!changing && myEmail()) return;
+  const dlg = document.createElement('dialog'); dlg.className = 'importdlg';
+  dlg.innerHTML = `<h3>${changing ? 'Who’s using the admin page?' : 'Before you start'}</h3><p>Blueprints you create or upload are owned by you: production requests and review comments for them are emailed to you.</p>
+    <form method="dialog" class="meform"><label>Your name<input name="n" autocomplete="name" required></label><label>Your Lean email<input name="e" type="email" autocomplete="email" required placeholder="name@leantech.me"></label><p class="err"></p><div class="iact"><button class="primary" value="ok">Save</button>${changing ? '<button class="ghost" value="cancel" formnovalidate>Cancel</button>' : ''}</div></form>`;
+  document.body.appendChild(dlg);
+  const f = dlg.querySelector('form'); f.n.value = byName(); f.e.value = myEmail();
+  dlg.addEventListener('cancel', (e) => { if (!changing) e.preventDefault(); });
+  f.addEventListener('submit', (e) => {
+    if (e.submitter && e.submitter.value === 'cancel') { dlg.close(); dlg.remove(); return; }
+    const email = f.e.value.trim().toLowerCase();
+    const domains = (data && data.leanDomains) || ['leantech.me'];
+    const dom = email.split('@')[1] || '';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { e.preventDefault(); f.querySelector('.err').textContent = 'Enter your full email address.'; return; }
+    if (!domains.some((d) => dom === d || dom.endsWith('.' + d))) { e.preventDefault(); f.querySelector('.err').textContent = `Use your Lean email (@${domains[0]}).`; return; }
+    localStorage.setItem('leanbp-by', f.n.value.trim()); localStorage.setItem('leanbp-email', email);
+    paintMe(); dlg.remove(); render();
+  });
+  dlg.showModal();
+}
 
 async function api(path, opts = {}) {
   const r = await fetch(path, { ...opts, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + password, ...(opts.headers || {}) } });
@@ -310,11 +369,15 @@ $('signinForm').addEventListener('submit', async (e) => {
 $('signout').addEventListener('click', () => { if (confirmLeave()) signOut(); });
 
 async function load() {
-  const [ov, lib] = await Promise.all([api('/api/admin/overview'), products.length ? null : api('/api/admin/products')]);
+  const [ov, lib, act] = await Promise.all([api('/api/admin/overview'), products.length ? null : api('/api/admin/products'), api('/api/admin/activity').catch(() => ({ events: [] }))]);
+  activity = act.events || [];
   data = ov; if (lib) { products = lib.products; drafting = !!lib.drafting; }
   verticals = (await api('/api/admin/verticals')).verticals;
   $('signin').hidden = true; $('app').hidden = false; $('signout').hidden = false;
-  if (!editor && selected !== NEW && selected !== VERT && !data.blueprints.some((b) => b.slug === selected)) selected = data.blueprints[0]?.slug || NEW;
+  paintMe(); setTimeout(() => askMe(false), 0);
+  // Signing in with something new: start on What's new (unless a page was asked for in the address)
+  if (firstLoad) { firstLoad = false; if (!location.hash && unread().length) selected = WHATS; }
+  if (!editor && selected !== NEW && selected !== VERT && selected !== WHATS && !data.blueprints.some((b) => b.slug === selected)) selected = data.blueprints[0]?.slug || NEW;
   render();
 }
 
@@ -371,15 +434,17 @@ function render() {
   const pub = data.blueprints.filter((b) => b.published);
   const draft = data.blueprints.filter((b) => !b.published);
   const group = (label, list) => list.length ? `<h3 class="grouph">${label} <span>${list.length}</span></h3>${list.map(item).join('')}` : '';
-  $('bpList').innerHTML = `<button class="ghost addbp" id="addBp" aria-current="${selected === NEW}">Add a blueprint</button><button class="ghost addbp" id="vertBtn" aria-current="${selected === VERT}">Verticals</button>` + (data.blueprints.length
+  $('bpList').innerHTML = `<button class="ghost addbp" id="addBp" aria-current="${selected === NEW}">Add a blueprint</button><button class="ghost addbp" id="vertBtn" aria-current="${selected === VERT}">Verticals</button><button class="ghost addbp" id="whatsBtn" aria-current="${selected === WHATS}">What’s new${unread().length ? ` <span class="unread" aria-label="${unread().length} unread">${unread().length}</span>` : ''}</button>` + (data.blueprints.length
     ? group('Published', pub) + group('Not published yet', draft)
     : '<p class="s" style="margin:0 8px;color:var(--muted)">No blueprints yet.</p>');
   $('addBp').addEventListener('click', () => go(NEW));
   $('vertBtn').addEventListener('click', () => go(VERT));
+  $('whatsBtn').addEventListener('click', () => go(WHATS));
   document.querySelectorAll('.bp').forEach((el) => el.addEventListener('click', () => go(el.dataset.slug)));
   if (editor) return renderEditor();
   if (selected === NEW) return renderAdd();
   if (selected === VERT) return renderVerticals();
+  if (selected === WHATS) return renderWhatsNew();
   const bp = data.blueprints.find((b) => b.slug === selected);
   if (!bp) return renderAdd();
   renderDetail(bp);
@@ -387,7 +452,7 @@ function render() {
 function go(slug) {
   if (!confirmLeave()) return;
   editor = null; selected = slug;
-  history.replaceState(null, '', slug === NEW ? '#new' : slug === VERT ? '#verticals' : '#' + slug);
+  history.replaceState(null, '', slug === NEW ? '#new' : slug === VERT ? '#verticals' : slug === WHATS ? '#whatsnew' : '#' + slug);
   render();
 }
 function confirmLeave() {
@@ -396,6 +461,39 @@ function confirmLeave() {
   return !editor || !editor.dirty || confirm('You have unsaved changes. Leave without saving?');
 }
 window.addEventListener('beforeunload', (e) => { if (editor && editor.dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+// ---------- What's new ----------
+function renderWhatsNew() {
+  if (seenBefore === null) seenBefore = seenAt(); // what counts as new for this visit
+  localStorage.setItem('leanbp-seen-at', new Date().toISOString());
+  const list = activity.filter((e) => whatsAll || isMine(e));
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const line = (e) => {
+    const isNew = e.at > seenBefore;
+    const who = esc(e.who ? (e.who.includes('@') ? e.who.split('@')[0].split(/[._-]/).map((w) => w[0].toUpperCase() + w.slice(1)).join(' ') : e.who) : 'Someone');
+    const what = e.type === 'production'
+      ? `🚀 <b>${esc(e.team || 'The client team')}</b> requested production access${e.who ? ` (${who})` : ''}`
+      : `💬 <b>${who}</b> ${e.reply ? 'replied to a comment' : 'commented'}${e.section ? ` in ${esc(e.section)}` : ''}`;
+    const detail = e.type === 'comment' ? `<div class="wn-body">${e.quote ? `<span class="wn-q">“${esc(e.quote)}”</span> ` : ''}${esc(e.body || '')}</div>` : '';
+    return `<li class="${isNew ? 'new' : ''}"><button type="button" class="wn-item" data-slug="${esc(e.slug)}" data-type="${e.type}">
+      <div class="wn-top">${what} · <span class="wn-bp">${esc(e.name || e.slug)}</span>${isNew ? ' <span class="wn-new">New</span>' : ''}<span class="wn-at">${esc(when(e.at))}</span></div>${detail}</button></li>`;
+  };
+  const groups = [['Today', list.filter((e) => new Date(e.at) >= today)], ['Earlier', list.filter((e) => new Date(e.at) < today)]];
+  $('main').innerHTML = `<h2>What’s new</h2>
+    <p class="sub">Production requests and review comments ${whatsAll ? 'on every blueprint' : 'on blueprints you own, and any without an owner yet'}, newest first.${myEmail() ? '' : ' Tell the admin page who you are (top right) to see just yours.'}</p>
+    <label class="wn-all"><input type="checkbox" id="wnAll"${whatsAll ? ' checked' : ''}> Show all blueprints</label>
+    ${list.length ? groups.filter(([, g]) => g.length).map(([t, g]) => `<h3 class="grouph">${t}</h3><ul class="wn">${g.map(line).join('')}</ul>`).join('') : '<p class="by">Nothing yet. Production requests and review comments will show up here.</p>'}`;
+  $('wnAll').addEventListener('change', (e) => { whatsAll = e.target.checked; renderWhatsNew(); });
+  document.querySelectorAll('.wn-item').forEach((b) => b.addEventListener('click', () => {
+    const type = b.dataset.type; go(b.dataset.slug);
+    setTimeout(() => {
+      const target = type === 'production' ? document.querySelector('.reqbox') : $('commentsBox');
+      if (target) { target.open = true; target.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+    }, 60);
+  }));
+  // the badge in the sidebar clears now that they're seen
+  const badge = document.querySelector('#whatsBtn .unread'); if (badge) badge.remove();
+}
 
 // ---------- add a blueprint ----------
 function renderAdd() {
@@ -446,7 +544,7 @@ function renderAdd() {
     const clientName = $('bName').value.trim();
     const start = (document.querySelector('input[name="bStart"]:checked') || {}).value || 'blank';
     try {
-      const body = { action: 'create', slug, by, clientName };
+      const body = { action: 'create', slug, by, clientName, ownerEmail: myEmail() || undefined };
       if (start === 'tpl') { body.template = 'standard'; body.vertical = $('bVertical').value; }
       else if (start === 'copy') body.copyFrom = $('bCopy').value;
       else if (start === 'notes') {
@@ -472,7 +570,7 @@ function renderAdd() {
     try {
       const file = $('upFile').files[0];
       if (file.size > 4_000_000) throw new Error('The file is over 4 MB. Compress or resize its embedded images, then try again.');
-      const r = await api('/api/admin/blueprints', { method: 'POST', body: JSON.stringify({ slug: $('upSlug').value.trim(), name: $('upName').value.trim(), html: await file.text(), uploadedBy: by }) });
+      const r = await api('/api/admin/blueprints', { method: 'POST', body: JSON.stringify({ slug: $('upSlug').value.trim(), name: $('upName').value.trim(), html: await file.text(), uploadedBy: by, ownerEmail: myEmail() || undefined }) });
       selected = r.slug; history.replaceState(null, '', '#' + r.slug); await load(); status('Blueprint uploaded');
     } catch (err) { $('upErr').textContent = err.message; } finally { btn.disabled = false; }
   });
@@ -569,7 +667,10 @@ function renderDetail(bp) {
     <div id="replaceMsg"></div>
     ${bp.published ? `<details class="versions" id="commentsBox"${bp.open_comments ? ' open' : ''}><summary>Review comments${bp.open_comments ? ` · ${bp.open_comments} open` : ''}</summary><div id="commentsList"><p class="by">Loading…</p></div></details>` : ''}
     ${bp.published ? `<details class="versions" id="versionsBox"><summary>Version history</summary><div id="versionsList"><p class="by">Loading…</p></div></details>` : ''}
-    <form class="notifyform" id="notifyForm"><label for="notifyEmail">Notify by email when a client requests production access</label><div class="domrow"><input id="notifyEmail" type="text" value="${esc(bp.notify_email || '')}" placeholder="${esc(data.defaultNotify || 'you@leantech.me')}" autocomplete="email" spellcheck="false"><button class="ghost" type="submit">Save</button></div><p class="by">${bp.notify_email ? 'Comma-separate up to 5 addresses.' : 'Empty: the site-wide default is used (NOTIFY_EMAIL).'}</p></form>
+    <p class="ownerline">${bp.owner_email ? `Owner: <b>${esc(bp.owner_name || bp.owner_email)}</b> (${esc(bp.owner_email)}) · <button type="button" class="linkish" id="ownerChange">Change owner</button>` : `No owner yet, so emails go to ${data.defaultNotify ? esc(data.defaultNotify) : 'nobody'}. <button type="button" class="linkish" id="ownerMe">Make me the owner</button>`}</p>
+    <form class="notifyform" id="notifyForm"><label for="notifyEmail">Also notify (optional): production requests and review comments always go to the owner</label><div class="domrow"><input id="notifyEmail" type="text" value="${esc(bp.notify_email || '')}" placeholder="${esc(data.defaultNotify || 'you@leantech.me')}" autocomplete="email" spellcheck="false"><button class="ghost" type="submit">Save</button></div><p class="by">Comma-separate up to 5 addresses, for example Sales colleagues reviewing this blueprint.</p>
+      ${data.emailReady ? '' : `<p class="by">Email notifications are off: new production requests and review comments show in <b>What’s new</b>.</p>`}
+      ${data.emailReady && !bp.owner_email && !bp.notify_email && !data.defaultNotify ? `<div class="prodreq" role="note"><b>No one to email.</b> Set an owner, add an address above, or set <code>NOTIFY_EMAIL</code> in Vercel.</div>` : ''}</form>
     ${data.storage ? `<p class="by storage">Recording storage: ${Math.round(data.storage.usedBytes / 1048576)} MB of ${Math.round(data.storage.budgetBytes / 1048576)} MB used. Delete recordings once you’ve reviewed them to keep within the free plan.</p>` : ''}
     ${bp.published ? `
     <section class="blk">
@@ -750,6 +851,15 @@ function renderDetail(bp) {
     try { await api('/api/admin/links', { method: 'PATCH', body: JSON.stringify({ token: el.dataset.env, environment: env }) }); await load(); status(env === 'production' ? 'Set to Production' : 'Set to Sandbox'); }
     catch (err) { status(err.message); el.value = env === 'production' ? 'sandbox' : 'production'; }
   }));
+  const setOwner = async (email, name) => {
+    try { const r = await api('/api/admin/blueprints', { method: 'PATCH', body: JSON.stringify({ slug: bp.slug, ownerEmail: email, ownerName: name }) }); await load(); status(`${r.ownerName || r.ownerEmail} now owns this blueprint`); }
+    catch (err) { status(err.message); }
+  };
+  if ($('ownerMe')) $('ownerMe').addEventListener('click', () => { if (!myEmail()) return askMe(true); setOwner(myEmail(), byName()); });
+  if ($('ownerChange')) $('ownerChange').addEventListener('click', () => {
+    const email = prompt('The new owner’s Lean email. Production requests and review comments for this blueprint go to them.', bp.owner_email || '');
+    if (email && email.trim() && email.trim().toLowerCase() !== bp.owner_email) setOwner(email.trim(), email.trim().toLowerCase() === myEmail() ? byName() : undefined);
+  });
   $('notifyForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = e.target.querySelector('button'); btn.disabled = true;
