@@ -7,7 +7,7 @@ import { handler, getQuery, readJson, send, httpError } from '../lib/http.js';
 import { query } from '../lib/db.js';
 import { findActiveLink, loadMeta, ITEM_RE } from '../lib/blueprints.js';
 import { checkViewParam } from '../lib/viewsig.js';
-import { classify } from '../lib/viewer.js';
+import { classify, viewerEmail } from '../lib/viewer.js';
 
 // A team's path to production: when they asked, and when Lean switched them to production.
 const production = (l) => ({ requestedAt: l.production_requested_at || null, note: l.production_request_note || null,
@@ -60,7 +60,7 @@ export default handler(['GET', 'POST'], async (req, res) => {
   }
   if (typeof input.done !== 'boolean') throw httpError(400, '"done" must be true or false');
   // Only someone on the client team (an email on this link's client domains) can tick.
-  const who = classify(input.viewer && input.viewer.email, link.client_domains);
+  const who = classify(viewerEmail(req, input), link.client_domains);
   if (who.kind !== 'client') throw httpError(403, who.kind === 'lean' ? 'Lean team members can view progress but not change it.' : 'Only the client team can tick steps. Check the email you entered (Not you?).');
   const { rows } = await query(
     `INSERT INTO team_checklist (token, item, done, updated_at, updated_by) VALUES ($1, $2, $3, now(), $4)

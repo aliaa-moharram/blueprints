@@ -13,13 +13,15 @@ import path from 'node:path';
 import { handler, readJson, send, httpError, getQuery } from '../lib/http.js';
 import { query } from '../lib/db.js';
 import { findActiveLink } from '../lib/blueprints.js';
-import { classify } from '../lib/viewer.js';
+import { classify, viewerFromRequest } from '../lib/viewer.js';
 import { VIDEO_MAX_BYTES, VIDEO_TYPES, uploadPrefix, budgetBytes } from '../lib/prodrequest.js';
 import { LOCAL_DIR, usedBytes, deleteUpload } from '../lib/blobstore.js';
 
 const MB = 1024 * 1024;
 
-async function mayUpload(token, email) {
+// The identity comes from the request's signed viewer cookie when there is one (passed in, never shared).
+async function mayUpload(req, token, email) {
+  email = viewerFromRequest(req) || email;
   const link = await findActiveLink(token);
   if (!link || link.kind !== 'client') throw httpError(403, 'Uploads are only for the client team’s blueprint link.');
   if (link.environment === 'production') throw httpError(409, 'This team is already in production.');
@@ -47,7 +49,7 @@ export default handler(['POST', 'GET'], async (req, res) => {
   }
   if (local && String(req.headers['content-type'] || '').startsWith('video/')) {
     const { token, email, name } = getQuery(req);
-    await mayUpload(token, email);
+    await mayUpload(req, token, email);
     const type = String(req.headers['content-type']).split(';')[0];
     if (!VIDEO_TYPES.includes(type)) throw httpError(400, 'Upload a video file.');
     const declared = Number(req.headers['content-length']) || 0;
@@ -63,7 +65,7 @@ export default handler(['POST', 'GET'], async (req, res) => {
   }
   const body = await readJson(req);
   if (body.action === 'delete') { // the client replaced or removed a recording
-    await mayUpload(body.token, body.email);
+    await mayUpload(req, body.token, body.email);
     const { rows } = await query(`SELECT url FROM blob_uploads WHERE token = $1 AND url = $2 AND deleted_at IS NULL`, [body.token, String(body.url || '')]);
     if (rows.length) await deleteUpload(rows[0].url);
     return send(res, 200, { deleted: rows.length > 0 });
@@ -73,7 +75,7 @@ export default handler(['POST', 'GET'], async (req, res) => {
     body, request: req,
     onBeforeGenerateToken: async (pathname, clientPayload) => {
       let p = {}; try { p = JSON.parse(clientPayload || '{}'); } catch {}
-      await mayUpload(p.token, p.email);
+      await mayUpload(req, p.token, p.email);
       if (!String(pathname).startsWith(uploadPrefix(p.token))) throw httpError(400, 'Wrong upload folder.');
       const bytes = Math.ceil(Number(p.bytes) || 0);
       await checkRoom(bytes);

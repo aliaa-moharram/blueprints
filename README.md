@@ -194,21 +194,22 @@ To grant access, set the team's Environment to **Production**.
 **Vercel's Hobby plan allows 12 serverless functions per deployment.** Every file in `api/` is one function, so the admin endpoints share one: `api/admin.js` routes each `/api/admin/<name>` request (rewritten in `vercel.json`) to its handler in `lib/admin/`. The site uses 5 functions. Add new admin endpoints to `lib/admin/` and the router, not as new files in `api/`.
 
 
-**Who's viewing a client link.** The first time someone opens a client team's link in a browser, the page asks for their work email. It's required: there's no skip.
+**Who's viewing, and visits.** The server knows who's viewing and records every visit itself.
+- **The gate:** opening a blueprint link (client or Lean team) for the first time in a browser shows only a question asking for a work email. The page content is hidden by the server's response itself, before any script runs, so there's no way past it except answering. Lean's signed **Open** view from the admin page isn't gated or counted.
+- **The cookie:** entering the email sets a signed, HttpOnly cookie (`bp_viewer`), valid for a year on that browser, for every blueprint on the site. The page can't read or change it, and a tampered cookie is ignored.
+- **Every page load is a visit,** recorded by the server when the page is requested: every refresh and every reopened tab, against that person. Time on page is then added every 30 seconds while the tab is in front, and when it's hidden or closed.
+- **Nothing is recorded without an identity,** so link previews (Slack unfurls, crawlers) and HEAD requests never count.
+- **Who counts as the client team:**
 
-| Email | View | Counted as the client team? |
-|---|---|---|
-| A Lean domain (`@leantech.me`, or the domains in `LEAN_EMAIL_DOMAINS`) | Read-only Lean view | Never |
-| One of the link's **client email domains** | Normal: can tick and request production access | Yes |
-| Anything else | Read-only | Never |
+  | Email | View | Counted as the client team? |
+  |---|---|---|
+  | A Lean domain (`@leantech.me`, or `LEAN_EMAIL_DOMAINS`) | Read-only Lean view | Never |
+  | One of the link's client email domains | Normal: can tick and request production access | Yes |
+  | Anything else | Read-only | Never |
 
-- **Client email domains** are set per client link in the admin page, for example `wise.com, transferwise.com`. Lean domains are refused. Until they're set, nobody can tick, so nothing is ever misattributed.
-- **The server applies these rules** to every visit, tick and production request, whatever the page sends.
-- **Each tick records who made it,** so the Progress section shows "Oct 23 · David Vu".
-- **Visits without a valid email** are stored as unknown and never counted.
-- **A "Viewing as … · Not you?" note** lets someone switch.
-
-The email isn't verified, so it prevents mistakes, not deliberate impersonation: someone could still type a fake address on a client domain. Existing links keep working, and visits from before this change stay under the team's name.
+- **Writes use the cookie:** ticks, production requests, uploads and comments take the identity from the signed cookie, so the page can't claim to be someone else.
+- **"Not you?"** clears the cookie and asks again.
+- **The limit:** the email is what the person says it is. Proving it needs a one-time code sent by email (possible with Resend once Lean verifies a sending domain). Visits from before this change stay as they were.
 
 
 ## Staying within Vercel's free (Hobby) plan
@@ -219,7 +220,7 @@ The email isn't verified, so it prevents mistakes, not deliberate impersonation:
 
 | Limit on Hobby | How the site stays within it |
 |---|---|
-| 12 serverless functions per deployment | 6 functions: the admin endpoints share one router (`api/admin.js`). |
+| 12 serverless functions per deployment | 7 functions: the admin endpoints share one router (`api/admin.js`). |
 | 300 s maximum function duration | The longest is 120 s (drafting from notes). |
 | 4.5 MB request body | Recordings upload straight from the browser to Blob, never through a function. |
 | Blob: 1 GB storage in total (Blob is switched off for 30 days if exceeded) | Recordings are capped at 100 MB each, and the total at a budget, `BLOB_BUDGET_MB`, default 900 MB. The server reserves each file's size before issuing an upload token, the token only allows that size, and uploads that would go over are refused with a clear message. Replaced and leftover recordings are deleted automatically. Delete reviewed recordings from the admin page, which shows storage used. |
@@ -243,3 +244,32 @@ The email isn't verified, so it prevents mistakes, not deliberate impersonation:
 3. **Switch,** or keep it as an uploaded file. Switching doesn't change the published page until someone publishes from the form, and the uploaded HTML is kept in Version history. Links, ticks, visits and production requests are unaffected.
 
 Pages not made from the Lean template can't be read into the form. Download them, edit the file, then use Replace file.
+
+
+## Review comments (Lean only)
+
+For reviewing a blueprint before it's shared: for example, SolEng writes it, and Sales reviews it.
+
+**Review:**
+1. In `/admin`, create a **Lean team** link, for example "Sales review", and send it to the reviewers. The admin page's **Open** view works too.
+2. Reviewers comment in either of two ways:
+   - **Select any text,** then click **💬 Comment**.
+   - **Use Comment on a section** in the comments drawer, then click any block: a paragraph, table row, journey card, image, or a step inside a guide.
+3. The first time someone comments, they enter their work email. **Only Lean emails can comment.**
+4. **The comments drawer** opens from the left, so a guide can stay open on the right. It lists every thread with Reply, Resolve and Reopen, and delete for your own comments.
+   - **Commented passages** are highlighted on the page.
+   - **Clicking a thread** takes you to its passage, opening the guide if needed.
+   - **A reply** reopens a resolved thread.
+   - **If the passage was edited later,** the thread is kept and marked as changed.
+
+**Clients never see comments.**
+- **The server refuses comment requests from client links,** and client pages never include comments.
+- **Sharing with open comments asks first.** Creating a client link while comments are open asks you to confirm.
+
+**Notifications** (with `RESEND_API_KEY` set):
+- **The blueprint's owner,** the Notify by email address or `NOTIFY_EMAIL`, is emailed for each new comment.
+- **Everyone in a thread** is emailed when someone replies.
+- **The person who wrote the comment** is never emailed about it.
+- **Each email links** straight to the comment.
+
+**In `/admin`:** the sidebar shows open comments per blueprint, and the blueprint page lists every thread under **Review comments**.

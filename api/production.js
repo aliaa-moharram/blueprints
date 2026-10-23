@@ -8,7 +8,7 @@ import { query } from '../lib/db.js';
 import { findActiveLink, loadMeta } from '../lib/blueprints.js';
 import { notifySlack } from '../lib/notify.js';
 import { sendEmail } from '../lib/email.js';
-import { classify } from '../lib/viewer.js';
+import { classify, viewerEmail } from '../lib/viewer.js';
 import { checkRequest, mask } from '../lib/prodrequest.js';
 import { cleanupExcept } from '../lib/blobstore.js';
 
@@ -24,7 +24,7 @@ export default handler(['POST'], async (req, res) => {
   if (!link) throw httpError(404, 'Link not active');
   if (link.kind !== 'client') throw httpError(403, 'Only the client team can request production access, from their blueprint link.');
   if (link.environment === 'production') throw httpError(409, 'This team is already in production.');
-  const who = classify(input.viewer && input.viewer.email, link.client_domains);
+  const who = classify(viewerEmail(req, input), link.client_domains);
   if (who.kind !== 'client') throw httpError(403, who.kind === 'lean' ? 'Lean team members can’t request production access for the client.' : 'Only the client team can request production access. Check the email you entered (Not you?).');
   const bp = await loadMeta(link.slug);
   if (!bp) throw httpError(404, 'Blueprint not found');

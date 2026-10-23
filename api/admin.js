@@ -2,6 +2,7 @@
 // vercel.json rewrites /api/admin/<route> to /api/admin?__route=<route>; the handlers themselves live in lib/admin/.
 import blueprints from '../lib/admin/blueprints.js';
 import builder from '../lib/admin/builder.js';
+import comments from '../lib/admin/comments.js';
 import draft from '../lib/admin/draft.js';
 import download from '../lib/admin/download.js';
 import versions from '../lib/admin/versions.js';
@@ -13,7 +14,7 @@ import progress from '../lib/admin/progress.js';
 import verticals from '../lib/admin/verticals.js';
 import view from '../lib/admin/view.js';
 
-const ROUTES = { blueprints, builder, download, draft, links, overview, products, progress, recordings, verticals, versions, view };
+const ROUTES = { blueprints, builder, comments, download, draft, links, overview, products, progress, recordings, verticals, versions, view };
 
 export default async function admin(req, res) {
   const u = new URL(req.url, 'http://local');

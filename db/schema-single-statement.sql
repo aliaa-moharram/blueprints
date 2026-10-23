@@ -153,5 +153,29 @@ BEGIN
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
   );
   CREATE INDEX IF NOT EXISTS blueprint_versions_slug_idx ON blueprint_versions (slug, created_at DESC);
+
+  -- Lean-only review comments on a blueprint (never shown to clients): threads anchored to a passage or block
+  -- on the page, with replies, resolve and reopen.
+  CREATE TABLE IF NOT EXISTS comment_threads (
+    id SERIAL PRIMARY KEY,
+    slug TEXT NOT NULL REFERENCES blueprints(slug) ON DELETE CASCADE,
+    anchor JSONB NOT NULL,
+    status TEXT NOT NULL DEFAULT 'open',
+    created_by TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    resolved_by TEXT,
+    resolved_at TIMESTAMPTZ
+  );
+  CREATE INDEX IF NOT EXISTS comment_threads_slug_idx ON comment_threads (slug, created_at);
+  CREATE TABLE IF NOT EXISTS comments (
+    id SERIAL PRIMARY KEY,
+    thread_id INTEGER NOT NULL REFERENCES comment_threads(id) ON DELETE CASCADE,
+    author_email TEXT NOT NULL,
+    author_name TEXT,
+    body TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at TIMESTAMPTZ
+  );
+  CREATE INDEX IF NOT EXISTS comments_thread_idx ON comments (thread_id, created_at);
 END
 $$;

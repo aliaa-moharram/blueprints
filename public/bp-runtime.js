@@ -1,5 +1,6 @@
 // Injected into every blueprint served from /b/<token>.
-// 1. Records the visit once the page has been visible for 10 seconds, then adds visible time.
+// 1. Asks who's viewing when the server doesn't know (the page stays hidden until then), and adds visible time
+//    to the visit the server recorded for this page load.
 // 2. Turns every element with data-check="<key>" into a saved checklist item.
 (() => {
   const cfg = window.__LEAN_BP;
@@ -9,15 +10,13 @@
   if (!cfg || (!cfg.token && !local)) return;
   const token = cfg.token;
   const view = cfg.view || null; // set when Lean opens a client team's page from the admin page
-  const session = crypto.randomUUID
-    ? crypto.randomUUID()
-    : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12);
-
-  // ---------- Who's viewing (client links only) ----------
-  // Asked once per browser, and required. A Lean email gets the read-only Lean view; an email on the link's
-  // client domains is the client team; any other email is read only. The server applies the same rule to
-  // every tick and request. Not verified: it tells people apart, it isn't access control.
-  const askWho = !view && !local && cfg.kind === 'client';
+  // ---------- Who's viewing ----------
+  // The server holds the identity, in a signed cookie, and tells the page who's viewing (cfg.viewer) or that it
+  // needs to ask (cfg.needIdentity: the page content stays hidden until then). Answering sets the cookie and
+  // reloads, and the server records that load as the visit. On a client link, a Lean email gets the read-only
+  // Lean view, an email on the link's client domains is the client team, and any other email is read only.
+  // Not verified: it tells people apart, it isn't access control.
+  const askWho = !!cfg.needIdentity;
   const leanDomains = (cfg.leanDomains || ['leantech.me']).map((d) => String(d).toLowerCase().replace(/^@/, ''));
   const whoKey = 'leanbp-viewer:' + token;
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -25,21 +24,21 @@
   const within = (d, list) => list.some((x) => d === x || d.endsWith('.' + x));
   const kindOf = (email) => { const d = String(email || '').toLowerCase().split('@')[1] || ''; return within(d, leanDomains) ? 'lean' : within(d, clientDomains) ? 'client' : 'other'; };
   const nameOf = (email) => String(email).split('@')[0].split(/[._-]+/).filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
-  let viewer = null;
-  try { const v = JSON.parse(localStorage.getItem(whoKey) || 'null'); if (v && EMAIL_RE.test(v.email)) viewer = { email: v.email, name: v.name || nameOf(v.email) }; } catch {}
-  let whoResolved = !askWho || !!viewer;
+  let viewer = cfg.viewer && EMAIL_RE.test(cfg.viewer.email) ? { email: cfg.viewer.email, name: cfg.viewer.name || nameOf(cfg.viewer.email), kind: cfg.viewer.kind } : null;
   const whoWaiters = [];
-  const leanViewer = () => !!viewer && kindOf(viewer.email) === 'lean';
+  const viewerKind = () => (viewer ? viewer.kind || kindOf(viewer.email) : null);
+  const leanViewer = () => viewerKind() === 'lean';
   // On a client link, only someone on the client team can tick or request production access.
-  const clientViewer = () => !askWho || (!!viewer && kindOf(viewer.email) === 'client');
+  const clientViewer = () => (cfg.kind === 'client' && !view ? viewerKind() === 'client' : true);
+  void whoKey;
   const viewerPayload = () => (viewer ? { email: viewer.email } : undefined);
 
   function whoDialog({ switching } = {}) {
     const ov = document.createElement('div');
     ov.className = 'bp-who-ov';
     ov.innerHTML = '<div class="bp-who" role="dialog" aria-modal="true" aria-labelledby="bpWhoT" aria-describedby="bpWhoD">' +
-      '<h2 id="bpWhoT">' + (switching ? 'Who’s viewing?' : 'Welcome to your integration blueprint') + '</h2>' +
-      '<p id="bpWhoD">Enter your work email to continue. You’ll only be asked once on this device.</p>' +
+      '<h2 id="bpWhoT">' + (switching || (askWho && cfg.kind !== 'client') ? 'Who’s viewing?' : askWho ? 'Welcome to your integration blueprint' : 'Who’s commenting?') + '</h2>' +
+      '<p id="bpWhoD">' + (askWho ? 'Enter your work email to continue.' : 'Enter your Lean work email to comment.') + ' You’ll only be asked once on this device.</p>' +
       '<form novalidate><label for="bpWhoE">Work email</label><input id="bpWhoE" type="email" autocomplete="email" inputmode="email" required>' +
       '<p class="bp-who-err" role="alert"></p><div class="bp-who-act"><button type="submit" class="bp-who-go">Continue</button></div>' +
       '</form></div>';
@@ -48,15 +47,19 @@
     const prevFocus = document.activeElement;
     setTimeout(() => input.focus(), 30);
     const close = () => { ov.remove(); if (prevFocus && prevFocus.focus) prevFocus.focus(); };
-    const done = () => { whoResolved = true; whoWaiters.splice(0).forEach((f) => f()); };
-    ov.querySelector('form').addEventListener('submit', (e) => {
+    void close;
+    ov.querySelector('form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const email = input.value.trim();
       if (!EMAIL_RE.test(email)) { err.textContent = 'Enter a full email address, for example name@company.com.'; input.focus(); return; }
-      viewer = { email, name: nameOf(email) };
-      try { localStorage.setItem(whoKey, JSON.stringify(viewer)); } catch {}
-      if (switching) { location.reload(); return; }
-      close(); done(); applyWho();
+      const go = ov.querySelector('.bp-who-go'); go.disabled = true; go.textContent = 'Opening…';
+      try {
+        // The server sets a signed cookie, then the page reloads: that load is recorded as the visit.
+        const r = await fetch('/api/track', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ event: 'identify', token, email }) });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(j.error || 'That didn’t work. Try again.');
+        location.reload();
+      } catch (x) { go.disabled = false; go.textContent = 'Continue'; err.textContent = x.message; input.focus(); }
     });
     ov.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') { e.preventDefault(); } // the email is required: Escape doesn't dismiss it
@@ -69,81 +72,45 @@
   }
   // "Viewing as …", with a way to switch
   function whoNote() {
-    if (!askWho || !viewer) return;
+    if (view || local || !viewer) return;
     let n = document.querySelector('.bp-whonote');
     if (!n) { n = document.createElement('div'); n.className = 'bp-whonote'; n.setAttribute('role', 'note'); document.body.appendChild(n); }
-    const k = kindOf(viewer.email);
-    n.innerHTML = (k === 'lean' ? '<b>Lean view:</b> read only, not counted as the client team’s visit. '
+    const k = viewerKind();
+    n.innerHTML = (cfg.kind !== 'client' ? '' : k === 'lean' ? '<b>Lean view:</b> read only, not counted as the client team’s visit. '
       : k === 'other' ? '<b>Read only:</b> this email can’t update the blueprint. ' : '') + 'Viewing as <span></span> · <button type="button">Not you?</button>';
     n.querySelector('span').textContent = viewer.name || viewer.email;
-    n.querySelector('button').onclick = () => { try { localStorage.removeItem(whoKey); } catch {} whoDialog({ switching: true }); };
+    n.querySelector('button').onclick = async () => { // "Not you?": forget this browser's identity, then ask again
+      try { await fetch('/api/track', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ event: 'forget', token }) }); } catch {}
+      location.reload();
+    };
   }
   let applyWho = () => whoNote();
-  if (askWho && !whoResolved) {
+  if (askWho) {
     const start = () => whoDialog();
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
   }
 
-  // ---------- Visit tracking (never in a Lean view or local mode) ----------
-  if (!view && !local) {
-    const OPEN_AFTER = 10; // seconds visible before a visit counts
-    const BEAT_EVERY = 30; // seconds of visible time per update
-    let visibleMs = 0;
+  // ---------- Visible time (never in a Lean view or local mode) ----------
+  // The visit itself is recorded by the server when the page loads (cfg.visit). This adds the time the page
+  // was actually in front of the viewer: every 30 seconds, and when they switch away or close it.
+  if (!view && !local && cfg.visit) {
+    const BEAT_EVERY = 30;
+    let visibleMs = 0, reported = 0;
     let lastTick = document.visibilityState === 'visible' ? Date.now() : null;
-    let opened = false;
-    let reported = 0;
-
-    function tick() {
-      if (lastTick === null) return;
-      const now = Date.now();
-      visibleMs += now - lastTick;
-      lastTick = now;
-    }
-
-    function post(body, useBeacon) {
-      const data = JSON.stringify({ token, session, ...body });
-      if (useBeacon && navigator.sendBeacon) {
-        navigator.sendBeacon('/api/track', new Blob([data], { type: 'text/plain' }));
-        return;
-      }
-      fetch('/api/track', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: data,
-        keepalive: true,
-      }).catch(() => {});
-    }
-
-    function report(event, useBeacon) {
+    const tick = () => { if (lastTick === null) return; const now = Date.now(); visibleMs += now - lastTick; lastTick = now; };
+    const post = (body, useBeacon) => {
+      const data = JSON.stringify({ token, visit: cfg.visit, ...body });
+      if (useBeacon && navigator.sendBeacon) { navigator.sendBeacon('/api/track', new Blob([data], { type: 'text/plain' })); return; }
+      fetch('/api/track', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: data, keepalive: true }).catch(() => {});
+    };
+    const report = (event, useBeacon) => {
       tick();
-      const total = Math.floor(visibleMs / 1000);
-      if (!opened) {
-        if (total >= OPEN_AFTER && whoResolved) { // wait for "who's viewing" so the visit is recorded against the right person
-          opened = true;
-          reported = OPEN_AFTER;
-          post({ event: 'open', viewer: viewer ? { email: viewer.email } : undefined });
-        }
-        return;
-      }
-      const delta = total - reported;
-      if (delta >= BEAT_EVERY || (event === 'leave' && delta > 0)) {
-        reported = total;
-        post({ event, seconds: delta }, useBeacon);
-      }
-    }
-
-    setInterval(() => {
-      if (document.visibilityState === 'visible') report('beat');
-    }, 5000);
-
-    function onHide() {
-      report('leave', true);
-      lastTick = null;
-    }
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') onHide();
-      else lastTick = Date.now();
-    });
+      const delta = Math.floor(visibleMs / 1000) - reported;
+      if (delta >= BEAT_EVERY || (event === 'leave' && delta > 0)) { reported += delta; post({ event, seconds: delta }, useBeacon); }
+    };
+    setInterval(() => { if (document.visibilityState === 'visible') report('beat'); }, 5000);
+    const onHide = () => { report('leave', true); lastTick = null; };
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') onHide(); else lastTick = Date.now(); });
     window.addEventListener('pagehide', onHide);
   } else if (view) {
     const bar = document.createElement('div');
@@ -159,8 +126,6 @@
   // ---------- Checklists ----------
   // Client team links tick their own team's checklist. Lean team links see a client
   // team's ticks, read only, with a switcher when the blueprint has several client teams.
-  const items = [...document.querySelectorAll('[data-check]')];
-  if (!items.length) return;
 
   const style = document.createElement('style');
   style.textContent = `
@@ -280,6 +245,44 @@
     .bp-req .rq-cancel{font:600 14px system-ui,sans-serif;padding:10px 14px;border-radius:10px;border:1px solid #cfd4da;background:#fff;color:#1c2024;cursor:pointer}
     .bp-req .rq-x:focus-visible,.bp-req .rq-link:focus-visible,.bp-req .rq-cancel:focus-visible,.bp-req textarea:focus-visible{outline:2px solid var(--bright,#3dd68c);outline-offset:2px}
     .bp-journey .j-sent{margin:8px 0 0;padding-left:18px;font:13px/1.5 system-ui,sans-serif;color:#4b5563}
+    .bp-cmt-fab{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:320;font:700 13.5px system-ui,sans-serif;padding:10px 16px;border-radius:999px;border:0;background:#1c2024;color:#fff;box-shadow:0 8px 24px rgba(0,0,0,.25);cursor:pointer}
+    .bp-cmt-bubble{position:fixed;z-index:360;font:700 13px system-ui,sans-serif;padding:7px 12px;border-radius:999px;border:0;background:#1c2024;color:#fff;box-shadow:0 6px 18px rgba(0,0,0,.25);cursor:pointer}
+    .bp-cmt-drawer{position:fixed;top:0;left:0;bottom:0;width:min(380px,100vw);z-index:340;background:#fff;box-shadow:8px 0 30px rgba(0,0,0,.18);overflow:auto;padding:16px 16px 80px;font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;color:#1c2024}
+    .bp-cmt-drawer .cm-head{display:flex;justify-content:space-between;align-items:center}
+    .bp-cmt-drawer h2{font:800 17px system-ui,sans-serif;margin:0}
+    .bp-cmt-drawer .cm-x{width:32px;height:32px;border-radius:9px;border:1px solid #e5e7eb;background:#fff;cursor:pointer}
+    .bp-cmt-drawer .cm-sub,.bp-cmt-drawer .cm-tip{color:#6b7280;font-size:12.5px;margin:4px 0 10px}
+    .bp-cmt-drawer .cm-tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+    .bp-cmt-drawer .cm-pick{font:700 13px system-ui,sans-serif;padding:8px 12px;border-radius:9px;border:1px solid #1c2024;background:#1c2024;color:#fff;cursor:pointer}
+    .bp-cmt-drawer .cm-res{font-size:12.5px;color:#4b5563;display:flex;gap:6px;align-items:center}
+    .bp-cmt-drawer .cm-t,.bp-cmt-drawer .cm-compose{border:1px solid #e5e7eb;border-radius:12px;padding:10px 12px;margin:0 0 10px;background:#fff}
+    .bp-cmt-drawer .cm-t.resolved{opacity:.7;background:#fafbfc}
+    .bp-cmt-drawer .cm-t.flash{box-shadow:0 0 0 2px var(--bright,#3dd68c)}
+    .bp-cmt-drawer .cm-where{display:block;width:100%;text-align:left;background:#fff8e6;border:0;border-left:3px solid #e0a400;border-radius:6px;padding:6px 8px;font:12.5px/1.45 system-ui,sans-serif;color:#5c4100;cursor:pointer;margin:0 0 8px}
+    .bp-cmt-drawer .cm-where.static{cursor:default}
+    .bp-cmt-drawer .cm-sec{display:block;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:#8a5a00;margin-bottom:2px}
+    .bp-cmt-drawer .cm-gone{font-size:12px;color:#b3261e;margin:-4px 0 8px}
+    .bp-cmt-drawer .cm-c{margin:0 0 8px}
+    .bp-cmt-drawer .cm-meta{font-size:12px;color:#6b7280}
+    .bp-cmt-drawer .cm-body{white-space:pre-wrap;margin-top:2px}
+    .bp-cmt-drawer textarea{width:100%;box-sizing:border-box;font:14px system-ui,sans-serif;padding:8px 10px;border:1px solid #cfd4da;border-radius:9px;resize:vertical}
+    .bp-cmt-drawer .cm-act{display:flex;gap:8px;margin-top:6px}
+    .bp-cmt-drawer .cm-b{font:700 12.5px system-ui,sans-serif;padding:6px 12px;border-radius:8px;border:1px solid #1c2024;background:#1c2024;color:#fff;cursor:pointer}
+    .bp-cmt-drawer .cm-b.ghost{background:#fff;color:#1c2024;border-color:#cfd4da}
+    .bp-cmt-drawer .cm-l{background:none;border:0;padding:0;font:inherit;color:#1c2024;text-decoration:underline;cursor:pointer}
+    .bp-cmt-drawer .cm-err{color:#b3261e;font-weight:600;font-size:12.5px;margin:6px 0 0}
+    .bp-cmt-drawer .cm-err:empty{display:none}
+    .bp-cmt-drawer .cm-empty{color:#6b7280}
+    .bp-cmt-drawer .cm-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+    .bp-cmt-drawer button:focus-visible,.bp-cmt-drawer textarea:focus-visible,.bp-cmt-fab:focus-visible,.bp-cmt-badge:focus-visible{outline:2px solid var(--bright,#3dd68c);outline-offset:2px}
+    .bp-cmt-hl{box-shadow:inset 3px 0 0 #e0a400;background-color:rgba(255,212,0,.10)}
+    img.bp-cmt-hl{outline:3px solid #e0a400;outline-offset:2px}
+    .bp-cmt-badge{margin-left:6px;font:700 11px system-ui,sans-serif;padding:1px 7px;border-radius:999px;border:1px solid #e0a400;background:#fff8e6;color:#8a5a00;cursor:pointer;vertical-align:middle}
+    .bp-cmt-picking *{cursor:crosshair !important}
+    .bp-cmt-pickhl{outline:2px dashed #e0a400 !important;outline-offset:2px}
+    .bp-cmt-flash{animation:bpCmtFlash 1.6s ease}
+    @keyframes bpCmtFlash{0%,100%{box-shadow:none}30%{box-shadow:0 0 0 4px rgba(224,164,0,.55)}}
+    @media print{.bp-cmt-fab,.bp-cmt-drawer,.bp-cmt-bubble,.bp-cmt-badge{display:none !important}}
     @media print{.bp-who-ov,.bp-whonote{display:none}}
     .bp-jmain{margin:0 0 30px}
     .bp-jmain .bp-journey{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-radius:16px}
@@ -293,6 +296,7 @@
     @media print{.bp-check,.bp-progress,.bp-view{display:none}}
   `;
   document.head.appendChild(style);
+  const items = [...document.querySelectorAll('[data-check]')]; // may be empty: a blueprint without checklist steps
 
   const TICK_SVG =
     '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -794,6 +798,169 @@
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', add); else add();
     return;
   }
+
+  // ---------- Review comments (Lean only: Lean team links and the signed Lean view, never a client's link) ----------
+  const commentsOn = !local && (cfg.kind === 'internal' || !!view);
+  if (commentsOn) (function reviewComments() {
+    let threads = [], showResolved = false, picking = false, pending = null;
+    const normT = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+    const BLOCKS = 'li, p, td, th, h1, h2, h3, h4, blockquote, .rv, .jtitle, .phase, .prod, .figcard, .sp-diagram, .ev, img';
+    // A block's own text, without the comment badges added to it.
+    const blockText = (el) => { let t = el.textContent || ''; el.querySelectorAll('.bp-cmt-badge').forEach((b) => { t = t.replace(b.textContent, ''); }); return normT(t); };
+    const isUi = (el) => !!(el && el.closest && el.closest('.bp-cmt-drawer, .bp-cmt-fab, .bp-cmt-bubble, .bp-who-ov, .bp-whonote, .bp-toast'));
+    const api = async (body) => {
+      const r = await fetch('/api/comments', body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, view: view || undefined, viewer: viewer ? { email: viewer.email } : undefined, ...body }) }
+        : undefined || {});
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || 'That didn’t work. Try again.');
+      return j;
+    };
+    const load = async () => {
+      const r = await fetch('/api/comments?token=' + encodeURIComponent(token) + (view ? '&view=' + encodeURIComponent(view) : ''));
+      if (!r.ok) return;
+      threads = (await r.json()).threads || []; paint();
+    };
+    // Who's commenting: asked the first time someone comments, and must be a Lean email.
+    const commenter = () => new Promise((resolve, reject) => {
+      if (viewer && kindOf(viewer.email) === 'lean') return resolve(viewer);
+      if (viewer) return reject(new Error('Only Lean team members can comment. Use “Not you?” to enter your Lean email.'));
+      whoWaiters.push(() => (viewer && kindOf(viewer.email) === 'lean' ? resolve(viewer) : reject(new Error('Only Lean team members can comment, with an @' + (leanDomains[0] || 'leantech.me') + ' email.'))));
+      whoDialog();
+    });
+    // Anchors: where a comment points, re-found by its block's text (and checklist key or guide).
+    const anchorFor = (el, quote) => {
+      const block = el.closest(BLOCKS) || el;
+      const panel = block.closest('aside.spanel');
+      const sec = block.closest('section');
+      const title = panel ? normT((panel.querySelector('.sp-head h2, .sp-title, h2') || {}).textContent) : sec ? normT((sec.querySelector('.sec-title') || {}).textContent) : block.closest('header.hero') ? 'Hero' : '';
+      const chk = block.closest('[data-check]');
+      return { panel: panel ? panel.id.replace(/^panel-/, '') : null, check: chk ? chk.getAttribute('data-check') : null, section: title, tag: block.tagName.toLowerCase(),
+        block: block.tagName === 'IMG' ? 'Image: ' + (block.getAttribute('alt') || '') : blockText(block).slice(0, 300), quote: normT(quote).slice(0, 500) };
+    };
+    const locate = (a) => {
+      const scope = a.panel ? document.getElementById('panel-' + a.panel) : document.body;
+      if (!scope) return null;
+      if (a.check) { const el = scope.querySelector(`[data-check="${CSS.escape(a.check)}"]`); if (el) return el; }
+      const want = normT(a.block).slice(0, 120);
+      if (!want) return null;
+      const cands = scope.querySelectorAll(a.tag && /^[a-z0-9]+$/.test(a.tag) ? a.tag : BLOCKS);
+      for (const el of cands) { if (isUi(el) || (!a.panel && el.closest('aside.spanel'))) continue; const t = el.tagName === 'IMG' ? 'Image: ' + (el.getAttribute('alt') || '') : blockText(el); if (t.slice(0, 120) === want) return el; }
+      return null;
+    };
+    const visible = () => threads.filter((t) => showResolved || t.status !== 'resolved');
+    function paintMarks() {
+      document.querySelectorAll('.bp-cmt-hl').forEach((el) => { el.classList.remove('bp-cmt-hl'); el.removeAttribute('data-cmt'); });
+      document.querySelectorAll('.bp-cmt-badge').forEach((el) => el.remove());
+      for (const t of threads.filter((x) => x.status !== 'resolved')) {
+        const el = locate(t.anchor); t._found = !!el; if (!el) continue;
+        el.classList.add('bp-cmt-hl');
+        const ids = (el.getAttribute('data-cmt') || '').split(' ').filter(Boolean).concat(String(t.id)); el.setAttribute('data-cmt', ids.join(' '));
+      }
+      for (const t of threads.filter((x) => x.status === 'resolved')) t._found = !!locate(t.anchor);
+      document.querySelectorAll('.bp-cmt-hl').forEach((el) => {
+        if (el.tagName === 'IMG' || el.tagName === 'TD' || el.tagName === 'TH') return;
+        const ids = el.getAttribute('data-cmt').split(' ');
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'bp-cmt-badge'; b.textContent = '💬 ' + ids.length;
+        b.setAttribute('aria-label', `${ids.length} review comment${ids.length === 1 ? '' : 's'}`); b.onclick = (e) => { e.stopPropagation(); openDrawer(); focusThread(Number(ids[0])); };
+        el.appendChild(b);
+      });
+    }
+    // The drawer
+    const drawer = document.createElement('aside');
+    drawer.className = 'bp-cmt-drawer'; drawer.setAttribute('aria-label', 'Review comments'); drawer.hidden = true;
+    const fab = document.createElement('button'); fab.type = 'button'; fab.className = 'bp-cmt-fab';
+    const bubble = document.createElement('button'); bubble.type = 'button'; bubble.className = 'bp-cmt-bubble'; bubble.textContent = '💬 Comment'; bubble.hidden = true;
+    document.body.append(drawer, fab, bubble);
+    fab.onclick = () => (drawer.hidden ? openDrawer() : closeDrawer());
+    function openDrawer() { drawer.hidden = false; fab.setAttribute('aria-expanded', 'true'); paint(); }
+    function closeDrawer() { drawer.hidden = true; fab.setAttribute('aria-expanded', 'false'); stopPicking(); pending = null; }
+    const when = (iso) => { try { return new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch { return ''; } };
+    function paint() {
+      const open = threads.filter((t) => t.status !== 'resolved').length, done = threads.length - open;
+      fab.textContent = open ? `💬 Comments · ${open} open` : '💬 Comments';
+      paintMarks();
+      if (drawer.hidden) return;
+      const items = visible();
+      drawer.innerHTML = `<div class="cm-head"><h2>Review comments</h2><button type="button" class="cm-x" aria-label="Close">✕</button></div>
+        <p class="cm-sub">Only the Lean team sees these. Clients never do.</p>
+        <div class="cm-tools"><button type="button" class="cm-pick">${picking ? 'Click a section to comment… (Esc to cancel)' : '＋ Comment on a section'}</button>
+          <label class="cm-res"><input type="checkbox" ${showResolved ? 'checked' : ''}> Show resolved (${done})</label></div>
+        <p class="cm-tip">Or select any text on the page and click <b>💬 Comment</b>.</p>
+        <div class="cm-new"></div>
+        <div class="cm-list">${items.length ? items.map(threadHtml).join('') : `<p class="cm-empty">${threads.length ? 'No open comments.' : 'No comments yet.'}</p>`}</div>`;
+      drawer.querySelector('.cm-x').onclick = closeDrawer;
+      drawer.querySelector('.cm-pick').onclick = () => (picking ? stopPicking() : startPicking());
+      drawer.querySelector('.cm-res input').onchange = (e) => { showResolved = e.target.checked; paint(); };
+      if (pending) composer();
+      drawer.querySelectorAll('[data-go]').forEach((b) => (b.onclick = () => goTo(Number(b.dataset.go))));
+      drawer.querySelectorAll('[data-reply]').forEach((f) => f.addEventListener('submit', (e) => { e.preventDefault(); act({ action: 'reply', threadId: Number(f.dataset.reply), body: f.querySelector('textarea').value }, f); }));
+      drawer.querySelectorAll('[data-resolve]').forEach((b) => (b.onclick = () => act({ action: 'resolve', threadId: Number(b.dataset.resolve), resolved: b.dataset.to === '1' })));
+      drawer.querySelectorAll('[data-del]').forEach((b) => (b.onclick = () => { if (confirm('Delete your comment?')) act({ action: 'delete', commentId: Number(b.dataset.del) }); }));
+    }
+    function threadHtml(t) {
+      const a = t.anchor || {}; const me = viewer && viewer.email;
+      const where = a.quote || a.block;
+      return `<article class="cm-t${t.status === 'resolved' ? ' resolved' : ''}" id="cmt-${t.id}" tabindex="-1">
+        <button type="button" class="cm-where" data-go="${t.id}">${a.section ? `<span class="cm-sec">${escH(a.section)}</span>` : ''}${where ? `“${escH(where.slice(0, 140))}${where.length > 140 ? '…' : ''}”` : 'The page'}</button>
+        ${t._found === false ? '<p class="cm-gone">The text this refers to has changed or moved.</p>' : ''}
+        ${t.comments.map((c) => `<div class="cm-c"><div class="cm-meta"><b>${escH(c.author_name || c.author_email)}</b> · ${escH(when(c.created_at))}${me && c.author_email === me ? ` · <button type="button" class="cm-l" data-del="${c.id}">Delete</button>` : ''}</div><div class="cm-body">${escH(c.body)}</div></div>`).join('')}
+        ${t.status === 'resolved' ? `<p class="cm-meta">Resolved${t.resolved_by ? ' by ' + escH(t.resolved_by.split('@')[0]) : ''} · <button type="button" class="cm-l" data-resolve="${t.id}" data-to="0">Reopen</button></p>`
+          : `<form class="cm-reply" data-reply="${t.id}"><label class="cm-sr" for="rp-${t.id}">Reply</label><textarea id="rp-${t.id}" rows="1" placeholder="Reply…" maxlength="4000"></textarea><div class="cm-act"><button type="submit" class="cm-b">Reply</button><button type="button" class="cm-b ghost" data-resolve="${t.id}" data-to="1">✓ Resolve</button></div></form>`}
+      </article>`;
+    }
+    function composer() {
+      const box = drawer.querySelector('.cm-new'); if (!box || !pending) return;
+      box.innerHTML = `<form class="cm-compose"><div class="cm-where static">${pending.section ? `<span class="cm-sec">${escH(pending.section)}</span>` : ''}“${escH((pending.quote || pending.block || '').slice(0, 160))}”</div>
+        <label class="cm-sr" for="cm-body">Comment</label><textarea id="cm-body" rows="3" maxlength="4000" placeholder="Add a comment for the Lean team…"></textarea>
+        <p class="cm-err" role="alert"></p><div class="cm-act"><button type="submit" class="cm-b">Comment</button><button type="button" class="cm-b ghost cm-cancel">Cancel</button></div></form>`;
+      const f = box.querySelector('form'); const ta = f.querySelector('textarea'); setTimeout(() => ta.focus(), 20);
+      f.querySelector('.cm-cancel').onclick = () => { pending = null; box.innerHTML = ''; };
+      f.addEventListener('submit', async (e) => {
+        e.preventDefault(); const err = f.querySelector('.cm-err'); err.textContent = '';
+        if (!ta.value.trim()) { err.textContent = 'Write a comment first.'; ta.focus(); return; }
+        const btn = f.querySelector('[type=submit]'); btn.disabled = true; btn.textContent = 'Posting…';
+        try { await commenter(); const j = await api({ action: 'create', anchor: pending, body: ta.value }); threads = j.threads; pending = null; paint(); focusThread(j.threadId); }
+        catch (x) { err.textContent = x.message; btn.disabled = false; btn.textContent = 'Comment'; }
+      });
+    }
+    async function act(body, form) {
+      try {
+        if (body.action === 'reply' && !body.body.trim()) return;
+        await commenter();
+        const j = await api(body); threads = j.threads; paint();
+        if (body.threadId) focusThread(body.threadId);
+      } catch (x) { toast(x.message); if (form) form.querySelector('textarea').focus(); }
+    }
+    function focusThread(id) { const el = drawer.querySelector('#cmt-' + id); if (el) { el.scrollIntoView({ block: 'nearest' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1500); } }
+    function goTo(id) {
+      const t = threads.find((x) => x.id === id); if (!t) return;
+      if (t.anchor.panel && typeof window.openPanel === 'function') window.openPanel(t.anchor.panel);
+      setTimeout(() => { const el = locate(t.anchor); if (!el) { toast('The text this comment refers to has changed or moved.'); return; } el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('bp-cmt-flash'); setTimeout(() => el.classList.remove('bp-cmt-flash'), 1600); }, t.anchor.panel ? 350 : 0);
+    }
+    const newComment = (anchor) => { pending = anchor; openDrawer(); };
+    // Selecting text offers "Comment"
+    document.addEventListener('mouseup', () => setTimeout(() => {
+      const sel = window.getSelection(); const txt = sel && String(sel).trim();
+      if (!txt || txt.length < 2 || !sel.rangeCount) { bubble.hidden = true; return; }
+      const node = sel.anchorNode && (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement);
+      if (!node || isUi(node)) { bubble.hidden = true; return; }
+      const range = sel.getRangeAt(0);
+      let r = range.getBoundingClientRect();
+      if (!r.width && !r.height) r = [...range.getClientRects()].find((x) => x.width || x.height) || node.getBoundingClientRect(); // some selections report an empty box
+      bubble.style.top = Math.min(window.innerHeight - 52, Math.max(8, r.top - 40)) + 'px'; bubble.style.left = Math.min(window.innerWidth - 130, Math.max(8, r.left + r.width / 2 - 55)) + 'px';  // both kept on screen
+      bubble.hidden = false; bubble._anchor = anchorFor(node, txt);
+    }, 0));
+    document.addEventListener('scroll', () => { bubble.hidden = true; }, true);
+    bubble.onmousedown = (e) => e.preventDefault();
+    bubble.onclick = () => { const a = bubble._anchor; bubble.hidden = true; window.getSelection().removeAllRanges(); if (a) newComment(a); };
+    // "Comment on a section": click any block
+    const hover = (e) => { document.querySelectorAll('.bp-cmt-pickhl').forEach((x) => x.classList.remove('bp-cmt-pickhl')); const el = e.target.closest && e.target.closest(BLOCKS); if (el && !isUi(el)) el.classList.add('bp-cmt-pickhl'); };
+    const pick = (e) => { if (isUi(e.target)) return; const el = e.target.closest && e.target.closest(BLOCKS); if (!el) return; e.preventDefault(); e.stopPropagation(); stopPicking(); newComment(anchorFor(el, '')); };
+    const esc = (e) => { if (e.key === 'Escape') { stopPicking(); paint(); } };
+    function startPicking() { picking = true; document.body.classList.add('bp-cmt-picking'); document.addEventListener('mouseover', hover, true); document.addEventListener('click', pick, true); document.addEventListener('keydown', esc, true); paint(); }
+    function stopPicking() { if (!picking) return; picking = false; document.body.classList.remove('bp-cmt-picking'); document.removeEventListener('mouseover', hover, true); document.removeEventListener('click', pick, true); document.removeEventListener('keydown', esc, true); document.querySelectorAll('.bp-cmt-pickhl').forEach((x) => x.classList.remove('bp-cmt-pickhl')); }
+    load().then(() => { const m = location.hash.match(/^#comment-(\d+)$/); if (m) { openDrawer(); focusThread(Number(m[1])); goTo(Number(m[1])); } });
+  })();
 
   fetch('/api/checklist?token=' + encodeURIComponent(token) + (view ? '&view=' + encodeURIComponent(view) : ''))
     .then((r) => (r.ok ? r.json() : Promise.reject()))

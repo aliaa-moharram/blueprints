@@ -56,6 +56,9 @@ const admin = async (path, opts = {}) => {
 const upload = (body) => admin('/api/admin/blueprints', { method: 'POST', body: JSON.stringify(body) });
 const json = (path, body) => fetch(BASE + path, { method: 'POST', headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify((path === '/api/checklist' || path === '/api/track') && body && body.viewer === undefined ? { ...body, viewer: { email: CLIENT_EMAIL } } : body) });
+// Like a browser: enter an email (returns the signed cookie), then open the page with it.
+const identify = async (token, email) => { const r = await fetch(BASE + '/api/track', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, event: 'identify', email }) }); return { status: r.status, setCookie: r.headers.get('set-cookie') || '', cookie: (r.headers.get('set-cookie') || '').split(';')[0] }; };
+const openAs = async (token, cookie, method = 'GET', extra = '') => { const r = await fetch(`${BASE}/b/${token}${extra}`, { method, headers: cookie ? { cookie } : {} }); const t = method === 'GET' ? await r.text() : ''; const m = t.match(/"visit":"([0-9a-f-]{36})"/); return { status: r.status, html: t, visit: m ? m[1] : null }; };
 let passed = 0;
 const ok = (name) => { passed++; console.log('  ok  ' + name); };
 
@@ -102,29 +105,46 @@ try {
   assert.ok(html.includes('noindex')); ok('adds noindex');
   assert.equal(r.headers.get('cache-control'), 'private, no-store'); ok('blueprint responses are not cached');
 
-  // Visits
-  const session = 'smoke-' + Date.now();
-  assert.equal((await json('/api/track', { token: client.token, session, event: 'open' })).status, 200);
-  assert.equal((await json('/api/track', { token: client.token, session, event: 'open' })).status, 200);
-  assert.equal((await json('/api/track', { token: client.token, session, event: 'beat', seconds: 30 })).status, 200);
-  r = await fetch(BASE + '/api/track', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ token: client.token, session, event: 'leave', seconds: 999 }) });
-  assert.equal(r.status, 200); ok('accepts sendBeacon-style text/plain bodies');
-  assert.equal((await json('/api/track', { token: client.token, session: 'x', event: 'open' })).status, 400); ok('rejects a malformed session id');
+  // Visits: recorded by the server on every page load, against the person in the signed cookie
+  let pg0 = await openAs(client.token, '');
+  assert.ok(pg0.html.includes('id="bp-gate"') && /"needIdentity":true/.test(pg0.html) && !pg0.visit); ok('without an email, the page content is hidden and the page asks who’s viewing');
   let ov = await (await admin('/api/admin/overview')).json();
-  const row = ov.links.find((l) => l.token === client.token);
-  assert.equal(row.views, 1); ok('a repeated "open" for one page load counts once');
-  assert.equal(row.seconds, 10 + 30 + 120); ok('visible time adds up, capped at 120 s per update');
+  assert.equal(ov.links.find((l) => l.token === client.token).views, 0); ok('opening the page without an email records nothing (so link previews never count)');
+  let idr = await identify(client.token, 'not-an-email'); assert.equal(idr.status, 400); ok('an invalid email is refused');
+  idr = await identify(client.token, CLIENT_EMAIL);
+  assert.ok(idr.status === 200 && /bp_viewer=/.test(idr.setCookie) && /HttpOnly/.test(idr.setCookie) && /Max-Age=31536000/.test(idr.setCookie)); ok('entering an email sets a signed, HttpOnly cookie for a year');
+  const clientCookie = idr.cookie;
+  let v1 = await openAs(client.token, clientCookie);
+  assert.ok(v1.visit && !v1.html.includes('id="bp-gate"') && /"viewer":\{"email":"tester@example-client.com","name":"Tester","kind":"client"\}/.test(v1.html)); ok('with the cookie, the page opens and knows who’s viewing');
+  const vis2 = await openAs(client.token, clientCookie);
+  assert.ok(vis2.visit && vis2.visit !== v1.visit); ok('every page load is its own visit');
+  await openAs(client.token, clientCookie, 'HEAD');
+  ov = await (await admin('/api/admin/overview')).json();
+  let row = ov.links.find((l) => l.token === client.token);
+  assert.equal(row.views, 2); ok('two loads are two visits, and a HEAD request isn’t one');
+  assert.equal((await json('/api/track', { token: client.token, visit: v1.visit, event: 'beat', seconds: 30 })).status, 200);
+  r = await fetch(BASE + '/api/track', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ token: client.token, visit: v1.visit, event: 'leave', seconds: 999 }) });
+  assert.equal(r.status, 200); ok('accepts sendBeacon-style text/plain bodies');
+  assert.equal((await json('/api/track', { token: client.token, visit: 'x', event: 'beat', seconds: 5 })).status, 400); ok('rejects a malformed visit id');
+  ov = await (await admin('/api/admin/overview')).json(); row = ov.links.find((l) => l.token === client.token);
+  assert.equal(row.seconds, 30 + 120); ok('visible time adds up on the visit, capped at 120 s per update');
+  const forgedCookie = clientCookie.replace(/\.[^.]+$/, '.' + 'A'.repeat(43));
+  pg0 = await openAs(client.token, forgedCookie);
+  assert.ok(!pg0.visit && pg0.html.includes('id="bp-gate"')); ok('a tampered cookie is ignored: the page asks again and nothing is recorded');
+  const fr = await json('/api/track', { token: client.token, event: 'forget' });
+  assert.ok(/bp_viewer=;/.test(fr.headers.get('set-cookie') || '') && /Max-Age=0/.test(fr.headers.get('set-cookie') || '')); ok('“Not you?” clears the cookie');
 
   // Who's viewing (one client link: the client team, Lean colleagues and anyone else told apart by email)
   const before = slackMessages.length;
-  await json('/api/track', { token: client.token, session: 'viewer-wise-0001', event: 'open', viewer: { email: '  David.Vu@Example-Client.com ' } });
-  await json('/api/track', { token: client.token, session: 'viewer-lean-0001', event: 'open', viewer: { email: 'will.smith@leantech.me' } });
-  await json('/api/track', { token: client.token, session: 'viewer-othr-0001', event: 'open', viewer: { email: 'will.personal@gmail.com' } });
-  await json('/api/track', { token: client.token, session: 'viewer-bad-00001', event: 'open', viewer: { email: 'not-an-email' } });
-  await json('/api/track', { token: client.token, session: 'viewer-none-0001', event: 'open', viewer: null });
+  const davidCookie = (await identify(client.token, '  David.Vu@Example-Client.com ')).cookie;
+  const willCookie = (await identify(client.token, 'will.smith@leantech.me')).cookie;
+  const personalCookie = (await identify(client.token, 'will.personal@gmail.com')).cookie;
+  await openAs(client.token, davidCookie); await openAs(client.token, willCookie); await openAs(client.token, personalCookie); await openAs(client.token, '');
+  const willPage = (await openAs(client.token, willCookie)).html;
+  assert.ok(/"kind":"lean"/.test(willPage)); ok('the server tells the page a Lean colleague is viewing');
   ov = await (await admin('/api/admin/overview')).json();
   const vrow = ov.links.find((l) => l.token === client.token);
-  assert.equal(vrow.views, 2); ok('only the client team’s visits count: Lean colleagues, other emails and visits without an email don’t');
+  assert.equal(vrow.views, 3); ok('only the client team’s visits count: Lean colleagues, other emails and visits without an email don’t');
   const people = Object.fromEntries(vrow.people.map((x) => [x.email, x]));
   assert.ok(people['david.vu@example-client.com'] && people['david.vu@example-client.com'].kind === 'client' && people['david.vu@example-client.com'].name === 'David Vu'); ok('a client team member is recorded by name, from an email on the client domain');
   assert.ok(people['will.smith@leantech.me'].kind === 'lean'); ok('a Lean email is recorded as Lean');
@@ -206,7 +226,7 @@ try {
   assert.equal((await admin('/api/admin/links', { method: 'PATCH', body: JSON.stringify({ token: client.token, revoked: true }) })).status, 200);
   assert.equal((await fetch(`${BASE}/b/${client.token}`)).status, 404); ok('a revoked link stops working');
   assert.equal((await json('/api/checklist', { token: client.token, item: 'sample-1', done: false })).status, 404); ok('a revoked link cannot change the checklist');
-  assert.equal((await json('/api/track', { token: client.token, session: session + 'b', event: 'open' })).status, 404); ok('a revoked link cannot record visits');
+  assert.equal((await json('/api/track', { token: client.token, visit: v1.visit, event: 'beat', seconds: 5 })).status, 404); ok('a revoked link cannot record visits');
   await admin('/api/admin/links', { method: 'PATCH', body: JSON.stringify({ token: client.token, revoked: false }) });
   assert.equal((await fetch(`${BASE}/b/${client.token}`)).status, 200); ok('a restored link works again');
 
@@ -381,7 +401,7 @@ try {
   assert.equal(vstate.mode, 'view'); assert.equal(vstate.teams[0].items['sample-1'].done, true); ok('the view shows the team’s real ticks');
   assert.equal((await json('/api/checklist', { token: client.token, item: 'sample-1', done: false, view: viewParam })).status, 403); ok('a Lean view cannot tick');
   const viewsBefore = (await (await admin('/api/admin/overview')).json()).links.find((l) => l.token === client.token).views;
-  await json('/api/track', { token: client.token, session: 'view-sess-' + Date.now(), event: 'open', view: viewParam });
+  await openAs(client.token, clientCookie, 'GET', `?view=${encodeURIComponent(viewParam)}`);
   const viewsAfter = (await (await admin('/api/admin/overview')).json()).links.find((l) => l.token === client.token).views;
   assert.equal(viewsAfter, viewsBefore); ok('a Lean view is never counted as a visit');
   const forged = viewParam.slice(0, -2) + (viewParam.endsWith('AA') ? 'BB' : 'AA');
@@ -575,7 +595,7 @@ try {
   await upload({ slug: D, html: sample });
   const dl = await (await admin('/api/admin/links', { method: 'POST', body: JSON.stringify({ slug: D, label: 'Delete me', kind: 'client' }) })).json();
   const keep = await (await admin('/api/admin/links', { method: 'POST', body: JSON.stringify({ slug: D, label: 'Keep me', kind: 'internal' }) })).json();
-  await json('/api/track', { token: dl.token, session: 'del-sess-' + Date.now(), event: 'open' });
+  await openAs(dl.token, clientCookie);
   await json('/api/checklist', { token: dl.token, item: 'sample-1', done: true });
   const delLink = (token) => admin('/api/admin/links', { method: 'DELETE', body: JSON.stringify({ token }) });
   r = await delLink(dl.token);
@@ -654,6 +674,40 @@ try {
   assert.equal(pub.status, 200); assert.ok((await (await fetch(BASE + (await dlUrl('html')))).text()).includes('Edited in the form')); ok('after converting, edits are published from the form');
   vl = (await (await admin('/api/admin/versions?slug=' + UP)).json()).versions;
   assert.equal(vl[0].reason, 'Before publish'); ok('publishing from the form keeps the previous version');
+  // ---------- Review comments (Lean only) ----------
+  const cm = (body) => fetch(`${BASE}/api/comments`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  assert.equal((await fetch(`${BASE}/api/comments?token=${client.token}`)).status, 403); ok('a client team’s link can’t read review comments');
+  assert.equal((await cm({ token: client.token, viewer: { email: 'will.smith@leantech.me' }, action: 'create', anchor: {}, body: 'x' })).status, 403); ok('a client team’s link can’t post review comments, even with a Lean email');
+  let cj = await (await fetch(`${BASE}/api/comments?token=${lean.token}`)).json();
+  assert.ok(Array.isArray(cj.threads)); ok('a Lean team link can read review comments');
+  assert.equal((await cm({ token: lean.token, action: 'create', anchor: {}, body: 'x' })).status, 403); ok('commenting needs an email');
+  assert.equal((await cm({ token: lean.token, viewer: { email: 'someone@gmail.com' }, action: 'create', anchor: {}, body: 'x' })).status, 403); ok('only Lean emails can comment');
+  const emailsAt = emails.length;
+  let cr = await cm({ token: lean.token, viewer: { email: 'aliaa.m@leantech.me' }, action: 'create', anchor: { section: 'Launch Plan', block: 'Total implementation time', quote: '~1-2 weeks', panel: 'BAD PANEL!', tag: 'li' }, body: 'Should this say 2 weeks?' });
+  cj = await cr.json();
+  assert.equal(cr.status, 200); const th = cj.threads.find((t) => t.id === cj.threadId);
+  assert.ok(th && th.comments[0].author_name === 'Aliaa M' && th.anchor.quote === '~1-2 weeks' && th.anchor.panel === null); ok('a Lean colleague can comment on a passage, and the anchor is cleaned');
+  let ce = emails.slice(emailsAt);
+  assert.ok(ce.length === 1 && ce[0].to.includes('owner@leantech.me') && !ce[0].to.includes('aliaa.m@leantech.me') && /commented on/.test(ce[0].subject) && ce[0].text.includes(`#comment-${th.id}`)); ok('the blueprint’s owner is emailed a link to the new comment');
+  cj = await (await cm({ token: lean.token, viewer: { email: 'will.smith@leantech.me' }, action: 'reply', threadId: th.id, body: 'Yes, confirmed with Wise.' })).json();
+  ce = emails.slice(emailsAt + 1);
+  assert.ok(ce.length === 1 && ce[0].to.includes('aliaa.m@leantech.me') && !ce[0].to.includes('will.smith@leantech.me') && /replied/.test(ce[0].subject)); ok('a reply emails the thread’s participants, not the person replying');
+  cj = await (await cm({ token: lean.token, viewer: { email: 'aliaa.m@leantech.me' }, action: 'resolve', threadId: th.id, resolved: true })).json();
+  assert.equal(cj.threads.find((t) => t.id === th.id).status, 'resolved'); ok('a thread can be resolved');
+  cj = await (await cm({ token: lean.token, viewer: { email: 'will.smith@leantech.me' }, action: 'reply', threadId: th.id, body: 'One more thing' })).json();
+  assert.equal(cj.threads.find((t) => t.id === th.id).status, 'open'); ok('replying to a resolved thread reopens it');
+  const willsComment = cj.threads.find((t) => t.id === th.id).comments.find((c) => c.author_email === 'will.smith@leantech.me');
+  assert.equal((await cm({ token: lean.token, viewer: { email: 'aliaa.m@leantech.me' }, action: 'delete', commentId: willsComment.id })).status, 403); ok('you can’t delete someone else’s comment');
+  cj = await (await cm({ token: lean.token, viewer: { email: 'will.smith@leantech.me' }, action: 'delete', commentId: willsComment.id })).json();
+  assert.equal(cj.threads.find((t) => t.id === th.id).comments.length, 2); ok('you can delete your own comment');
+  const vp = (await (await admin('/api/admin/view', { method: 'POST', body: JSON.stringify({ token: client.token }) })).json()).url.match(/view=([^&]+)/)[1];
+  assert.equal((await fetch(`${BASE}/api/comments?token=${client.token}&view=${vp}`)).status, 200); ok('the signed Lean view from the admin page can use review comments');
+  const ac = await (await admin('/api/admin/comments?slug=' + SLUG)).json();
+  assert.ok(ac.threads.length === 1 && ac.threads[0].comments.length === 2); ok('the admin page lists review comments');
+  ov = await (await admin('/api/admin/overview')).json();
+  assert.equal(ov.blueprints.find((b) => b.slug === SLUG).open_comments, 1); ok('the admin page counts open comments');
+  const pageC = await (await fetch(`${BASE}/b/${client.token}`)).text();
+  assert.ok(!pageC.includes('Should this say 2 weeks?')); ok('a client’s page never includes review comments');
   console.log(`\n${passed} checks passed.`);
 } catch (err) {
   console.error('\nFAILED after ' + passed + ' checks:', err.message);
