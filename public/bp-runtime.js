@@ -245,6 +245,10 @@
     .bp-req .rq-cancel{font:600 14px system-ui,sans-serif;padding:10px 14px;border-radius:10px;border:1px solid #cfd4da;background:#fff;color:#1c2024;cursor:pointer}
     .bp-req .rq-x:focus-visible,.bp-req .rq-link:focus-visible,.bp-req .rq-cancel:focus-visible,.bp-req textarea:focus-visible{outline:2px solid var(--bright,#3dd68c);outline-offset:2px}
     .bp-journey .j-sent{margin:8px 0 0;padding-left:18px;font:13px/1.5 system-ui,sans-serif;color:#4b5563}
+    .bp-cmt-tip{position:fixed;right:16px;bottom:calc(70px + env(safe-area-inset-bottom,0px));z-index:321;max-width:320px;background:#fff;color:#1c2024;border:1px solid #e0a400;border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.2);padding:14px 16px;font:13.5px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+    .bp-cmt-tip p{margin:4px 0 10px;color:#4b5563}
+    .bp-cmt-tip button{font:700 13px system-ui,sans-serif;padding:7px 14px;border-radius:9px;border:0;background:#1c2024;color:#fff;cursor:pointer}
+    .bp-cmt-tip button:focus-visible{outline:2px solid var(--bright,#3dd68c);outline-offset:2px}
     .bp-cmt-fab{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:320;font:700 13.5px system-ui,sans-serif;padding:10px 16px;border-radius:999px;border:0;background:#1c2024;color:#fff;box-shadow:0 8px 24px rgba(0,0,0,.25);cursor:pointer}
     .bp-cmt-bubble{position:fixed;z-index:360;font:700 13px system-ui,sans-serif;padding:7px 12px;border-radius:999px;border:0;background:#1c2024;color:#fff;box-shadow:0 6px 18px rgba(0,0,0,.25);cursor:pointer}
     .bp-cmt-drawer{position:fixed;top:0;left:0;bottom:0;width:min(380px,100vw);z-index:340;background:#fff;box-shadow:8px 0 30px rgba(0,0,0,.18);overflow:auto;padding:16px 16px 80px;font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;color:#1c2024}
@@ -282,7 +286,7 @@
     .bp-cmt-pickhl{outline:2px dashed #e0a400 !important;outline-offset:2px}
     .bp-cmt-flash{animation:bpCmtFlash 1.6s ease}
     @keyframes bpCmtFlash{0%,100%{box-shadow:none}30%{box-shadow:0 0 0 4px rgba(224,164,0,.55)}}
-    @media print{.bp-cmt-fab,.bp-cmt-drawer,.bp-cmt-bubble,.bp-cmt-badge{display:none !important}}
+    @media print{.bp-cmt-fab,.bp-cmt-drawer,.bp-cmt-bubble,.bp-cmt-badge,.bp-cmt-tip{display:none !important}}
     @media print{.bp-who-ov,.bp-whonote{display:none}}
     .bp-jmain{margin:0 0 30px}
     .bp-jmain .bp-journey{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-radius:16px}
@@ -959,6 +963,15 @@
     const esc = (e) => { if (e.key === 'Escape') { stopPicking(); paint(); } };
     function startPicking() { picking = true; document.body.classList.add('bp-cmt-picking'); document.addEventListener('mouseover', hover, true); document.addEventListener('click', pick, true); document.addEventListener('keydown', esc, true); paint(); }
     function stopPicking() { if (!picking) return; picking = false; document.body.classList.remove('bp-cmt-picking'); document.removeEventListener('mouseover', hover, true); document.removeEventListener('click', pick, true); document.removeEventListener('keydown', esc, true); document.querySelectorAll('.bp-cmt-pickhl').forEach((x) => x.classList.remove('bp-cmt-pickhl')); }
+    // A one-time tip, so reviewers know how to comment
+    try {
+      if (!localStorage.getItem('leanbp-review-tip')) {
+        const tip = document.createElement('div'); tip.className = 'bp-cmt-tip'; tip.setAttribute('role', 'note');
+        tip.innerHTML = '<b>Review mode</b><p>Select any text and click <b>💬 Comment</b>, or open <b>💬 Comments</b> (bottom right) to comment on a section, image or guide step. Only the Lean team sees comments: clients never do.</p><button type="button">Got it</button>';
+        tip.querySelector('button').onclick = () => { tip.remove(); try { localStorage.setItem('leanbp-review-tip', '1'); } catch {} };
+        document.body.appendChild(tip);
+      }
+    } catch {}
     load().then(() => { const m = location.hash.match(/^#comment-(\d+)$/); if (m) { openDrawer(); focusThread(Number(m[1])); goTo(Number(m[1])); } });
   })();
 

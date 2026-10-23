@@ -708,6 +708,24 @@ try {
   assert.equal(ov.blueprints.find((b) => b.slug === SLUG).open_comments, 1); ok('the admin page counts open comments');
   const pageC = await (await fetch(`${BASE}/b/${client.token}`)).text();
   assert.ok(!pageC.includes('Should this say 2 weeks?')); ok('a client’s page never includes review comments');
+  // ---------- Uploading a copy that has the page script built in (the GitHub Pages index.html) ----------
+  const standalone = sample.replace('</body>', '<!-- leanbp-standalone: checkboxes and progress for this copy, saved in this browser -->\n<script>window.__LEAN_BP={"local":true,"persist":true,"slug":"x"};</script>\n<script>/* runtime */ const x = `[data-check="${CSS.escape(a.check)}"]`; // data-check="<key>"\n</script>\n</body>');
+  const SA = 'standalone-' + Date.now().toString(36);
+  r = await upload({ slug: SA, html: standalone });
+  assert.equal(r.status, 201); ok('a copy with the page script built in can be uploaded');
+  const saPage = await (await fetch(BASE + (await (await admin('/api/admin/download', { method: 'POST', body: JSON.stringify({ slug: SA, format: 'html' }) })).json()).url)).text();
+  assert.ok(!saPage.includes('leanbp-standalone') && !saPage.includes('window.__LEAN_BP={"local"')); ok('its built-in page script is removed, so the page doesn’t run it twice');
+  assert.equal(saPage, sample); ok('what’s left is exactly the blueprint itself');
+  r = await upload({ slug: SA + 'b', html: sample.replace('</body>', '<script>const k = `[data-check="${x}"]`;</script></body>') });
+  assert.equal(r.status, 201); ok('code that mentions data-check inside a script isn’t mistaken for a checklist step');
+  // Uploading a file that has the page script inside it (the GitHub Pages copy, or a page saved from the browser)
+  const rtSrc = await readFile(new URL('../public/bp-runtime.js', import.meta.url), 'utf8');
+  const withRuntime = sample.replace('</body>', `<!-- leanbp-standalone: x -->\n<script>window.__LEAN_BP={"local":true};</script>\n<script>${rtSrc}</script>\n<div>${rtSrc.slice(0, 400)}</div></body>`);
+  const UR = 'rt-' + Date.now().toString(36);
+  let ur = await upload({ slug: UR, html: withRuntime });
+  assert.equal(ur.status, 201); ok('a file with the page script inside it uploads without false checklist key errors');
+  const urHtml = await (await fetch(BASE + (await (await admin('/api/admin/download', { method: 'POST', body: JSON.stringify({ slug: UR, format: 'html' }) })).json()).url)).text();
+  assert.ok(!urHtml.includes('window.__LEAN_BP=') && !/<script>\s*\/\/ Injected into every blueprint/.test(urHtml)); ok('the built-in page script is removed on upload, since the site adds its own');
   console.log(`\n${passed} checks passed.`);
 } catch (err) {
   console.error('\nFAILED after ' + passed + ' checks:', err.message);

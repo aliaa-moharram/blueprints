@@ -562,6 +562,7 @@ function renderDetail(bp) {
     <div class="metaline">
       <p class="sub">${bp.published ? (lastClient ? `Last opened by ${esc(lastClient.label)}, ${esc(when(lastClient.opened_at))}. ` : 'Not opened by a client yet. ') : ''}${stateLine}</p>
       ${built ? `<button class="primary" id="editBp" style="height:36px">Edit blueprint</button>` : `${bp.published ? `<button class="primary" id="importBp" style="height:36px">Edit in form</button>` : ''}<button class="ghost" id="renameBp">Rename</button><label class="ghost" style="margin:0;cursor:pointer">Replace file<input id="replaceFile" type="file" accept=".html,.htm,text/html" hidden></label>`}
+      ${bp.published ? `<button class="ghost" id="reviewBp" title="Open a Lean-only copy where reviewers can comment">💬 Review &amp; comment</button>` : ''}
       ${bp.published ? `<button class="ghost" data-dl="html" title="The published page as an HTML file">Download HTML</button><button class="ghost" data-dl="pdf" title="Opens a print-ready version: choose Save as PDF">Download PDF</button>` : ''}
     </div>
     ${built && bp.unpublished_changes && bp.published ? '<div class="warnbox">This blueprint has saved changes that aren’t published yet. Clients still see the last published version.</div>' : ''}
@@ -650,12 +651,25 @@ function renderDetail(bp) {
     } catch (err) { if (w) w.close(); status(err.message); }
   };
   document.querySelectorAll('[data-dl]').forEach((b) => b.addEventListener('click', () => download(b.dataset.dl)));
+  // Review & comment: opens the Lean-only review copy, creating a "Lean review" team link the first time.
+  if ($('reviewBp')) $('reviewBp').addEventListener('click', async () => {
+    const w = window.open('', '_blank'); // opened now, so the browser doesn't block it
+    try {
+      let lean = allLinks.find((l) => l.kind === 'internal' && !l.revoked_at);
+      if (!lean) lean = await api('/api/admin/links', { method: 'POST', body: JSON.stringify({ slug: bp.slug, label: 'Lean review', kind: 'internal', createdBy: localStorage.getItem('leanbp-by') || undefined }) });
+      const url = lean.url || `${location.origin}/b/${lean.token}`;
+      if (w) w.location = url; else window.open(url, '_blank');
+      try { await navigator.clipboard.writeText(url); } catch {}
+      await load();
+      status(`Review copy opened, and its link copied: send it to reviewers. Only the Lean team can comment, and clients never see comments.`);
+    } catch (err) { if (w) w.close(); status(err.message); }
+  });
   // Review comments (Lean only): listed here, added and answered on a Lean team link
   const loadComments = async () => {
     try {
       const { threads } = await api('/api/admin/comments?slug=' + encodeURIComponent(bp.slug));
       const lean = allLinks.find((l) => l.kind === 'internal' && !l.revoked_at);
-      $('commentsList').innerHTML = `<p class="by">Lean-only comments for reviewing the blueprint before it’s shared. Clients never see them. ${lean ? `Add and answer comments on a Lean team link, for example <a href="${esc(lean.url || ('/b/' + lean.token))}" target="_blank" rel="noopener">${esc(lean.label)}</a>.` : 'Create a Lean team link and share it with reviewers to add comments.'}</p>` +
+      $('commentsList').innerHTML = `<p class="by">Lean-only comments for reviewing the blueprint before it’s shared. Clients never see them. ${lean ? `Click 💬 Review &amp; comment above, or open <a href="${esc(lean.url || ('/b/' + lean.token))}" target="_blank" rel="noopener">${esc(lean.label)}</a>, to add and answer comments.` : 'Click 💬 Review &amp; comment above to open a review copy, then send its link to reviewers.'}</p>` +
         (threads.length ? `<ul class="clist">${threads.map((t) => `<li class="${t.status}"><div class="cq">${t.anchor.section ? `<b>${esc(t.anchor.section)}</b> · ` : ''}“${esc((t.anchor.quote || t.anchor.block || '').slice(0, 140))}”</div>${t.comments.map((c) => `<div class="cc"><b>${esc(c.author)}</b> <span class="by">${esc(when(c.at))}</span><div>${esc(c.body)}</div></div>`).join('')}<div class="by">${t.status === 'resolved' ? `Resolved${t.resolved_by ? ' by ' + esc(t.resolved_by) : ''}` : 'Open'}</div></li>`).join('')}</ul>` : '<p class="by">No comments yet.</p>');
     } catch (err) { $('commentsList').innerHTML = `<p class="by">${esc(err.message)}</p>`; }
   };

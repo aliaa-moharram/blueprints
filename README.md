@@ -251,7 +251,7 @@ Pages not made from the Lean template can't be read into the form. Download them
 For reviewing a blueprint before it's shared: for example, SolEng writes it, and Sales reviews it.
 
 **Review:**
-1. In `/admin`, create a **Lean team** link, for example "Sales review", and send it to the reviewers. The admin page's **Open** view works too.
+1. In `/admin`, click **💬 Review & comment** on the blueprint. It opens the Lean-only review copy, creating a "Lean review" team link the first time, and copies its link so you can send it to reviewers. Any Lean team link, and the admin page's **Open** view, work too. Review copies show a one-time tip on how to comment.
 2. Reviewers comment in either of two ways:
    - **Select any text,** then click **💬 Comment**.
    - **Use Comment on a section** in the comments drawer, then click any block: a paragraph, table row, journey card, image, or a step inside a guide.
@@ -273,3 +273,6 @@ For reviewing a blueprint before it's shared: for example, SolEng writes it, and
 - **Each email links** straight to the comment.
 
 **In `/admin`:** the sidebar shows open comments per blueprint, and the blueprint page lists every thread under **Review comments**.
+
+
+**Uploading files with the page script inside.** The GitHub Pages copy (`index.html`), or a page saved from the browser, can be uploaded as is. The built-in page script is removed, since the site adds its own. Checklist steps are read from the page's actual elements, so code or text that mentions `data-check` is never mistaken for a step.
