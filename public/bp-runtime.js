@@ -14,19 +14,25 @@
     : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12);
 
   // ---------- Who's viewing (client links only) ----------
-  // Asked once per browser: a Lean email gets the read-only Lean view on the same link; anyone else is the
-  // client team. Not verified: it tells teammates apart, it isn't access control.
+  // Asked once per browser, and required. A Lean email gets the read-only Lean view; an email on the link's
+  // client domains is the client team; any other email is read only. The server applies the same rule to
+  // every tick and request. Not verified: it tells people apart, it isn't access control.
   const askWho = !view && !local && cfg.kind === 'client';
   const leanDomains = (cfg.leanDomains || ['leantech.me']).map((d) => String(d).toLowerCase().replace(/^@/, ''));
   const whoKey = 'leanbp-viewer:' + token;
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const kindOf = (email) => { const d = String(email || '').toLowerCase().split('@')[1] || ''; return leanDomains.some((x) => d === x || d.endsWith('.' + x)) ? 'lean' : 'client'; };
+  const clientDomains = (cfg.clientDomains || []).map((d) => String(d).toLowerCase().replace(/^@/, ''));
+  const within = (d, list) => list.some((x) => d === x || d.endsWith('.' + x));
+  const kindOf = (email) => { const d = String(email || '').toLowerCase().split('@')[1] || ''; return within(d, leanDomains) ? 'lean' : within(d, clientDomains) ? 'client' : 'other'; };
   const nameOf = (email) => String(email).split('@')[0].split(/[._-]+/).filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
   let viewer = null;
   try { const v = JSON.parse(localStorage.getItem(whoKey) || 'null'); if (v && EMAIL_RE.test(v.email)) viewer = { email: v.email, name: v.name || nameOf(v.email) }; } catch {}
-  let whoResolved = !askWho || !!viewer || sessionStorage.getItem(whoKey + ':skip') === '1';
+  let whoResolved = !askWho || !!viewer;
   const whoWaiters = [];
   const leanViewer = () => !!viewer && kindOf(viewer.email) === 'lean';
+  // On a client link, only someone on the client team can tick or request production access.
+  const clientViewer = () => !askWho || (!!viewer && kindOf(viewer.email) === 'client');
+  const viewerPayload = () => (viewer ? { email: viewer.email } : undefined);
 
   function whoDialog({ switching } = {}) {
     const ov = document.createElement('div');
@@ -35,9 +41,8 @@
       '<h2 id="bpWhoT">' + (switching ? 'Who’s viewing?' : 'Welcome to your integration blueprint') + '</h2>' +
       '<p id="bpWhoD">Enter your work email to continue. You’ll only be asked once on this device.</p>' +
       '<form novalidate><label for="bpWhoE">Work email</label><input id="bpWhoE" type="email" autocomplete="email" inputmode="email" required>' +
-      '<p class="bp-who-err" role="alert"></p><div class="bp-who-act"><button type="submit" class="bp-who-go">Continue</button>' +
-      '<button type="button" class="bp-who-skip">Skip for now</button></div>' +
-      '<p class="bp-who-small">Only the Lean team can see your email.</p></form></div>';
+      '<p class="bp-who-err" role="alert"></p><div class="bp-who-act"><button type="submit" class="bp-who-go">Continue</button></div>' +
+      '</form></div>';
     document.body.appendChild(ov);
     const input = ov.querySelector('input'), err = ov.querySelector('.bp-who-err');
     const prevFocus = document.activeElement;
@@ -53,12 +58,8 @@
       if (switching) { location.reload(); return; }
       close(); done(); applyWho();
     });
-    ov.querySelector('.bp-who-skip').addEventListener('click', () => {
-      try { sessionStorage.setItem(whoKey + ':skip', '1'); } catch {}
-      close(); if (switching) { location.reload(); return; } done();
-    });
     ov.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') { e.preventDefault(); ov.querySelector('.bp-who-skip').click(); }
+      if (e.key === 'Escape') { e.preventDefault(); } // the email is required: Escape doesn't dismiss it
       if (e.key === 'Tab') { // keep focus inside the dialog
         const f = [...ov.querySelectorAll('input,button')]; const first = f[0], last = f[f.length - 1];
         if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
@@ -71,7 +72,9 @@
     if (!askWho || !viewer) return;
     let n = document.querySelector('.bp-whonote');
     if (!n) { n = document.createElement('div'); n.className = 'bp-whonote'; n.setAttribute('role', 'note'); document.body.appendChild(n); }
-    n.innerHTML = (leanViewer() ? '<b>Lean view:</b> read only, not counted as the client team’s visit. ' : '') + 'Viewing as <span></span> · <button type="button">Not you?</button>';
+    const k = kindOf(viewer.email);
+    n.innerHTML = (k === 'lean' ? '<b>Lean view:</b> read only, not counted as the client team’s visit. '
+      : k === 'other' ? '<b>Read only:</b> this email can’t update the blueprint. ' : '') + 'Viewing as <span></span> · <button type="button">Not you?</button>';
     n.querySelector('span').textContent = viewer.name || viewer.email;
     n.querySelector('button').onclick = () => { try { localStorage.removeItem(whoKey); } catch {} whoDialog({ switching: true }); };
   }
@@ -247,11 +250,36 @@
     .bp-who .bp-who-err:empty{display:none}
     .bp-who-act{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
     .bp-who-go{font:700 14px system-ui,sans-serif;padding:10px 18px;border-radius:10px;border:1px solid #1c2024;background:#1c2024;color:#fff;cursor:pointer}
-    .bp-who-skip{font:600 14px system-ui,sans-serif;padding:10px 14px;border-radius:10px;border:1px solid #cfd4da;background:#fff;color:#1c2024;cursor:pointer}
-    .bp-who .bp-who-small{font-size:12px;color:#6b7280;margin:12px 0 0}
     .bp-whonote{position:fixed;left:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:300;background:#fff;color:#1c2024;border:1px solid #e5e7eb;box-shadow:0 6px 20px rgba(0,0,0,.12);font:500 12.5px/1.4 system-ui,sans-serif;padding:7px 12px;border-radius:999px;max-width:calc(100vw - 24px)}
     .bp-whonote button{background:none;border:0;padding:0;font:inherit;font-weight:700;color:#1c2024;text-decoration:underline;text-decoration-color:var(--bright,#3dd68c);text-underline-offset:2px;cursor:pointer}
     .bp-whonote button:focus-visible{outline:2px solid var(--bright,#3dd68c);outline-offset:2px;border-radius:3px}
+    .bp-req{max-width:620px;max-height:calc(100vh - 40px);overflow:auto;position:relative}
+    .bp-req .rq-x{position:absolute;top:14px;right:14px;width:32px;height:32px;border-radius:9px;border:1px solid #e5e7eb;background:#fff;cursor:pointer;font-size:14px}
+    .bp-req .rq-lead{margin:0 0 18px}
+    .bp-req fieldset{border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px 6px;margin:0 0 14px}
+    .bp-req legend{font:800 14px system-ui,-apple-system,"Segoe UI",sans-serif;padding:0 6px;color:#1c2024}
+    .bp-req .rq-opt{font-weight:500;color:#6b7280}
+    .bp-req .rq-hint{font-size:13px;color:#6b7280;margin:0 0 10px}
+    .bp-req .rq-f{margin:0 0 12px}
+    .bp-req .rq-f label{display:block;font-weight:700;font-size:13px;margin-bottom:5px}
+    .bp-req textarea{width:100%;box-sizing:border-box;font:15px system-ui,sans-serif;padding:10px 12px;border:1px solid #cfd4da;border-radius:10px;resize:vertical}
+    .bp-req [aria-invalid="true"]{border-color:#b3261e;box-shadow:0 0 0 1px #b3261e}
+    .bp-req .rq-err{color:#b3261e;font-weight:600;font-size:13px;margin:6px 0 0}
+    .bp-req .rq-err:empty{display:none}
+    .bp-req .rq-filein{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
+    .bp-req .rq-drop{display:flex;flex-direction:column;align-items:center;gap:2px;padding:18px;border:1.5px dashed #aeb7c2;border-radius:12px;cursor:pointer;text-align:center;font-size:14px;color:#4b5563}
+    .bp-req .rq-drop b{color:#1c2024}
+    .bp-req .rq-drop.over,.bp-req .rq-filein:focus-visible+.rq-drop{border-color:var(--bright,#3dd68c);background:color-mix(in srgb,var(--bright,#3dd68c) 8%,#fff)}
+    .bp-req .rq-up{border:1px solid #e5e7eb;border-radius:12px;padding:12px 14px;font-size:14px}
+    .bp-req .rq-bar{height:8px;border-radius:999px;background:#e5e7eb;overflow:hidden;margin:8px 0 0}
+    .bp-req .rq-bar i{display:block;height:100%;width:0;background:var(--bright,#3dd68c);transition:width .2s}
+    .bp-req .rq-upact{display:flex;gap:14px;margin-top:8px}
+    .bp-req .rq-link{background:none;border:0;padding:0;font:700 13px system-ui,sans-serif;color:#1c2024;text-decoration:underline;text-decoration-color:var(--bright,#3dd68c);text-underline-offset:2px;cursor:pointer}
+    .bp-req .rq-na{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;margin:12px 0 8px;cursor:pointer}
+    .bp-req .rq-na input{width:18px;height:18px}
+    .bp-req .rq-cancel{font:600 14px system-ui,sans-serif;padding:10px 14px;border-radius:10px;border:1px solid #cfd4da;background:#fff;color:#1c2024;cursor:pointer}
+    .bp-req .rq-x:focus-visible,.bp-req .rq-link:focus-visible,.bp-req .rq-cancel:focus-visible,.bp-req textarea:focus-visible{outline:2px solid var(--bright,#3dd68c);outline-offset:2px}
+    .bp-journey .j-sent{margin:8px 0 0;padding-left:18px;font:13px/1.5 system-ui,sans-serif;color:#4b5563}
     @media print{.bp-who-ov,.bp-whonote{display:none}}
     .bp-jmain{margin:0 0 30px}
     .bp-jmain .bp-journey{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-radius:16px}
@@ -436,7 +464,11 @@
   }
   function accessAction(step) {
     if (step.state !== 'open') {
-      if (step.state === 'waiting') return `<p class="j-help">Lean will upgrade your application and switch this blueprint to Production. You’ll see it here, and the production steps will unlock.${production.note ? `</p><p class="j-help"><b>Your note:</b> ${escH(production.note)}` : ''}</p>`;
+      if (step.state === 'waiting') {
+        const sm = production.summary;
+        const sent = sm ? `<ul class="j-sent"><li><b>Recording:</b> ${sm.video ? escH(sm.video.name) : `not applicable (${escH(sm.videoNaReason || '')})`}</li><li><b>Settlement Account:</b> ${escH(sm.accountHolderName || '')}, IBAN ${escH(sm.iban || '')}</li></ul>` : '';
+        return `<p class="j-help">Lean will review your request, upgrade your application and switch this blueprint to Production. You’ll see it here, and the production steps will unlock.</p>${sent}${production.note ? `<p class="j-help"><b>Your note:</b> ${escH(production.note)}</p>` : ''}`;
+      }
       return '';
     }
     if (!canRequest) return `<p class="j-help">${local ? 'Requests are sent from the client team’s blueprint link.' : 'The client team requests this from their blueprint link.'}</p>`;
@@ -482,26 +514,176 @@
         '<div class="j-live" role="status" aria-live="polite"></div>';
     }
   }
+  // ---------- The production access request ----------
+  // A dialog with the demo recording (or why it doesn't apply), the production Settlement Account details and a note.
+  // The recording uploads as soon as it's chosen. Values are kept in memory while the page is open, never stored.
+  const VIDEO_MAX = 100 * 1024 * 1024; // sized for Vercel's free plan (1 GB of storage in total)
+  const draft = { videoNa: false, videoNaReason: '', accountHolderName: '', tradeLicenseNumber: '', iban: '', accountNumber: '', bankAddress: '', note: '', video: null };
+  const ibanCheck = (raw) => {
+    const iban = String(raw || '').replace(/[\s-]+/g, '').toUpperCase();
+    if (!/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(iban)) return 'Enter a full IBAN, for example AE07 0331 2345 6789 0123 456.';
+    if (iban.startsWith('AE') && iban.length !== 23) return 'A UAE IBAN has 23 characters, starting with AE.';
+    let rem = 0; for (const ch of iban.slice(4) + iban.slice(0, 4)) { const v = /[A-Z]/.test(ch) ? String(ch.charCodeAt(0) - 55) : ch; for (const d of v) rem = (rem * 10 + Number(d)) % 97; }
+    return rem === 1 ? '' : 'This IBAN doesn’t check out. Check for a mistyped character.';
+  };
+  const RULES = {
+    accountHolderName: (v) => (v.trim().length < 2 ? 'Enter the account holder’s name, as the bank has it.' : ''),
+    tradeLicenseNumber: (v) => (v.trim().length < 3 ? 'Enter the trade licence number.' : ''),
+    iban: ibanCheck,
+    accountNumber: (v) => (/^[A-Z0-9]{4,34}$/i.test(v.replace(/[\s-]+/g, '')) ? '' : 'Enter the account number: letters and digits only.'),
+    bankAddress: (v) => (v.trim().length < 5 ? 'Enter the bank’s address.' : ''),
+  };
+  const fmtMB = (b) => (b >= 10485760 ? Math.round(b / 1048576) : (b / 1048576).toFixed(1)) + ' MB';
+
+  function uploadVideo(file, onProgress) {
+    const email = viewer && viewer.email;
+    if (cfg.uploadMode === 'local') { // development and tests: the server stores the file
+      return new Promise((resolve, reject) => {
+        const x = new XMLHttpRequest();
+        x.open('POST', `/api/upload?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email || '')}&name=${encodeURIComponent(file.name)}`);
+        x.setRequestHeader('Content-Type', file.type || 'video/mp4');
+        x.upload.onprogress = (e) => e.lengthComputable && onProgress(Math.round((e.loaded / e.total) * 100));
+        x.onload = () => { let j = {}; try { j = JSON.parse(x.responseText); } catch {} x.status === 200 ? resolve({ url: j.url, name: j.name, bytes: j.bytes }) : reject(new Error(j.error || 'The upload didn’t finish.')); };
+        x.onerror = () => reject(new Error('The upload didn’t finish. Check your connection and try again.'));
+        x.send(file);
+      });
+    }
+    return import('/blob-client.js').then(({ upload }) => {
+      const safe = file.name.replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+/, '').slice(-80) || 'recording';
+      return upload(`production-requests/${token}/${safe}`, file, {
+        access: 'public', handleUploadUrl: '/api/upload', clientPayload: JSON.stringify({ token, email, bytes: file.size }),
+        multipart: false, contentType: file.type || undefined, // one upload operation per recording
+        onUploadProgress: (e) => onProgress(Math.round(e.percentage)),
+      });
+    }).then((r) => ({ url: r.url, name: file.name, bytes: file.size }))
+      .catch((err) => { throw new Error(/not set up yet|storage is full|over 100 MB/i.test(err.message || '') ? err.message : (err.message || 'The upload didn’t finish.') + ' Try again, or tick Not applicable.'); });
+  }
+
+  // A replaced or removed recording is deleted straight away, so storage stays within the free plan.
+  const discardVideo = (v) => { if (!v) return; fetch('/api/upload', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete', token, email: viewer && viewer.email, url: v.url }) }).catch(() => {}); };
+
   function openRequestForm(btn) {
-    const box = btn.closest('.j-access');
     requestFormOpen = true;
-    box.innerHTML = '<form class="j-form"><label>Anything Lean should know? (optional)<textarea maxlength="1000" rows="3" placeholder="For example, your target go-live date"></textarea></label>' +
-      '<div class="j-act"><button type="submit" class="j-btn primary">Send request</button><button type="button" class="j-btn" data-jcancel>Cancel</button></div><p class="j-err" role="alert"></p></form>';
-    const form = box.querySelector('form'); form.querySelector('textarea').focus();
-    form.querySelector('[data-jcancel]').addEventListener('click', () => { requestFormOpen = false; paintJourney(); });
-    form.addEventListener('submit', async (e) => {
+    const ov = document.createElement('div');
+    ov.className = 'bp-who-ov bp-req-ov';
+    const field = (id, label, hint, attrs = '') => `<div class="rq-f" data-f="${id}"><label for="rq-${id}">${label}</label>${hint ? `<p class="rq-hint" id="rq-${id}-h">${hint}</p>` : ''}` +
+      (id === 'bankAddress' || id === 'note' ? `<textarea id="rq-${id}" rows="${id === 'note' ? 2 : 3}" ${attrs}></textarea>` : `<input id="rq-${id}" ${attrs}>`) + `<p class="rq-err" id="rq-${id}-e"></p></div>`;
+    ov.innerHTML = `<div class="bp-who bp-req" role="dialog" aria-modal="true" aria-labelledby="rqT"><button type="button" class="rq-x" aria-label="Close">&#10005;</button>
+      <h2 id="rqT">Request production access</h2><p class="rq-lead">Lean reviews this, upgrades your application and switches this blueprint to Production.</p>
+      <form novalidate>
+        <fieldset><legend>1. Demo recording</legend>
+          <p class="rq-hint">A screen recording of your integration working end to end in Sandbox. Video, up to 100 MB: a few minutes at 720p fits easily.</p>
+          <div class="rq-video"><input type="file" id="rq-file" accept="video/*" class="rq-filein"><label for="rq-file" class="rq-drop"><b>Choose a video</b><span>or drop it here</span></label>
+            <div class="rq-up" hidden><div class="rq-upname"></div><div class="rq-bar" role="progressbar" aria-label="Upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div><div class="rq-upact"><button type="button" class="rq-link" data-rq="replace">Replace</button><button type="button" class="rq-link" data-rq="remove">Remove</button></div></div></div>
+          <label class="rq-na"><input type="checkbox" id="rq-na"> Not applicable for this integration</label>
+          <div class="rq-f" data-f="videoNaReason" hidden><label for="rq-videoNaReason">Why doesn’t a recording apply?</label><input id="rq-videoNaReason" maxlength="500"><p class="rq-err" id="rq-videoNaReason-e"></p></div>
+          <p class="rq-err" id="rq-video-e" role="alert"></p>
+        </fieldset>
+        <fieldset><legend>2. Production Settlement Account</legend>
+          <p class="rq-hint">The bank account that receives your funds in production. Lean uses these details to set it up.</p>
+          ${field('accountHolderName', 'Account holder name', '', 'autocomplete="organization" maxlength="140"')}
+          ${field('tradeLicenseNumber', 'Trade licence number', '', 'maxlength="60" autocomplete="off"')}
+          ${field('iban', 'IBAN', '', 'maxlength="42" autocomplete="off" spellcheck="false" inputmode="text"')}
+          ${field('accountNumber', 'Account number', '', 'maxlength="40" autocomplete="off" spellcheck="false"')}
+          ${field('bankAddress', 'Bank address', '', 'maxlength="400"')}
+        </fieldset>
+        <fieldset><legend>3. Anything else? <span class="rq-opt">(optional)</span></legend>${field('note', 'Note for Lean', 'For example, your target go-live date.', 'maxlength="1000"')}</fieldset>
+        <p class="rq-err rq-formerr" role="alert"></p>
+        <div class="bp-who-act"><button type="submit" class="bp-who-go">Send request</button><button type="button" class="rq-cancel">Cancel</button></div>
+      </form></div>`;
+    document.body.appendChild(ov);
+    const $ = (sel) => ov.querySelector(sel);
+    const prevFocus = btn;
+    const close = () => { ov.remove(); requestFormOpen = false; paintJourney(); if (prevFocus && document.contains(prevFocus)) prevFocus.focus(); };
+    const setErr = (id, msg) => {
+      const e = $(`#rq-${id}-e`); if (e) e.textContent = msg || '';
+      const inp = $(`#rq-${id}`); if (inp) { inp.setAttribute('aria-invalid', msg ? 'true' : 'false'); inp.setAttribute('aria-describedby', [`rq-${id}-h`, `rq-${id}-e`].filter((x) => ov.querySelector('#' + x)).join(' ')); }
+    };
+    // restore the draft
+    for (const k of Object.keys(RULES).concat(['note', 'videoNaReason'])) { const el = $(`#rq-${k}`); if (el) el.value = draft[k]; }
+    $('#rq-na').checked = draft.videoNa;
+    let uploading = false;
+    const paintVideo = () => {
+      const na = $('#rq-na').checked; draft.videoNa = na;
+      $('.rq-video').hidden = na; $('[data-f="videoNaReason"]').hidden = !na;
+      const up = $('.rq-up'), drop = $('.rq-drop');
+      if (draft.video && !uploading) { up.hidden = false; drop.hidden = true; $('.rq-upname').textContent = `✓ ${draft.video.name} · ${fmtMB(draft.video.bytes)}`; $('.rq-bar').hidden = true; }
+      else if (!uploading) { up.hidden = true; drop.hidden = false; }
+    };
+    paintVideo();
+    const startUpload = (file) => {
+      setErr('video', '');
+      if (!file) return;
+      if (!/^video\//.test(file.type || '') && !/\.(mp4|mov|webm|mkv|avi|mpeg|m4v)$/i.test(file.name)) { $('#rq-video-e').textContent = 'Choose a video file.'; return; }
+      if (file.size > VIDEO_MAX) { $('#rq-video-e').textContent = `This video is ${fmtMB(file.size)}: the limit is 100 MB. Trim it, or export it at 720p.`; return; }
+      uploading = true; discardVideo(draft.video); draft.video = null;
+      const up = $('.rq-up'), bar = $('.rq-bar');
+      up.hidden = false; $('.rq-drop').hidden = true; bar.hidden = false; $('.rq-upact').hidden = true;
+      $('.rq-upname').textContent = `Uploading ${file.name} · ${fmtMB(file.size)}`;
+      const prog = (pc) => { bar.querySelector('i').style.width = pc + '%'; bar.setAttribute('aria-valuenow', String(pc)); };
+      prog(0);
+      uploadVideo(file, prog).then((v) => { draft.video = v; uploading = false; $('.rq-upact').hidden = false; paintVideo(); })
+        .catch((err) => { uploading = false; $('.rq-upact').hidden = false; paintVideo(); $('#rq-video-e').textContent = err.message; });
+    };
+    $('#rq-file').addEventListener('change', (e) => startUpload(e.target.files[0]));
+    const drop = $('.rq-drop');
+    drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
+    drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+    drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('over'); startUpload(e.dataTransfer.files[0]); });
+    ov.addEventListener('click', (e) => {
+      const a = e.target.closest('[data-rq]'); if (!a) return;
+      if (a.dataset.rq === 'replace') $('#rq-file').click();
+      if (a.dataset.rq === 'remove') { discardVideo(draft.video); draft.video = null; $('#rq-file').value = ''; paintVideo(); }
+    });
+    $('#rq-na').addEventListener('change', () => { setErr('video', ''); paintVideo(); if (draft.videoNa) $('#rq-videoNaReason').focus(); });
+    for (const k of Object.keys(RULES)) {
+      const el = $(`#rq-${k}`);
+      el.addEventListener('input', () => { draft[k] = el.value; if (el.getAttribute('aria-invalid') === 'true') setErr(k, RULES[k](el.value)); });
+      el.addEventListener('blur', () => { if (el.value) setErr(k, RULES[k](el.value)); });
+    }
+    $('#rq-note').addEventListener('input', (e) => { draft.note = e.target.value; });
+    $('#rq-videoNaReason').addEventListener('input', (e) => { draft.videoNaReason = e.target.value; if (e.target.value.trim().length >= 3) setErr('video', ''); });
+    $('.rq-x').addEventListener('click', close);
+    $('.rq-cancel').addEventListener('click', close);
+    ov.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); close(); }
+      if (e.key === 'Tab') {
+        const f = [...ov.querySelectorAll('input:not([hidden]),textarea,button,label.rq-drop')].filter((x) => x.offsetParent !== null);
+        const first = f[0], last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    });
+    setTimeout(() => $('#rq-file').focus(), 30);
+    $('form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const send = form.querySelector('[type=submit]'); send.disabled = true; send.textContent = 'Sending…';
+      $('.rq-formerr').textContent = '';
+      let firstBad = null;
+      for (const k of Object.keys(RULES)) { const msg = RULES[k]($(`#rq-${k}`).value); setErr(k, msg); if (msg && !firstBad) firstBad = $(`#rq-${k}`); }
+      if (uploading) { $('#rq-video-e').textContent = 'Wait for the upload to finish.'; firstBad = firstBad || $('#rq-file'); }
+      else if (draft.videoNa ? draft.videoNaReason.trim().length < 3 : !draft.video) {
+        $('#rq-video-e').textContent = draft.videoNa ? 'Say briefly why a recording doesn’t apply.' : 'Upload the recording, or tick Not applicable.';
+        firstBad = firstBad || (draft.videoNa ? $('#rq-videoNaReason') : $('#rq-file'));
+      }
+      if (firstBad) { firstBad.focus(); return; }
+      const send = $('.bp-who-go'); send.disabled = true; send.textContent = 'Sending…';
       try {
-        const r = await fetch('/api/production', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, note: form.querySelector('textarea').value }) });
+        const body = { token, viewer: viewerPayload(), note: draft.note, videoNa: draft.videoNa, videoNaReason: draft.videoNaReason, video: draft.videoNa ? null : draft.video,
+          accountHolderName: draft.accountHolderName, tradeLicenseNumber: draft.tradeLicenseNumber, iban: draft.iban, accountNumber: draft.accountNumber, bankAddress: draft.bankAddress };
+        const r = await fetch('/api/production', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         const j = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error(j.error || 'The request couldn’t be sent.');
-        production = { ...production, requestedAt: j.requestedAt, note: j.note };
-        requestFormOpen = false; paintAll();
+        if (!r.ok) {
+          if (j.fields) { let f = null; for (const [k, msg] of Object.entries(j.fields)) { setErr(k, msg); if (k === 'video') $('#rq-video-e').textContent = msg; f = f || $(`#rq-${k}`) || $('#rq-file'); } if (f) f.focus(); }
+          throw new Error(j.error || 'The request couldn’t be sent.');
+        }
+        production = { ...production, requestedAt: j.requestedAt, note: j.note, summary: j.summary };
+        for (const k of Object.keys(draft)) draft[k] = typeof draft[k] === 'boolean' ? false : k === 'video' ? null : '';
+        ov.remove(); requestFormOpen = false; paintAll();
         document.querySelectorAll('.bp-jwrap .j-live').forEach((el) => { el.textContent = 'Request sent. Lean has been notified.'; });
+        const focusTo = document.querySelector('.bp-jmain .j-step.waiting') || document.querySelector('.bp-jwrap'); if (focusTo) { focusTo.setAttribute('tabindex', '-1'); focusTo.focus(); }
       } catch (err) {
         send.disabled = false; send.textContent = 'Send request';
-        form.querySelector('.j-err').textContent = (err.message || 'The request couldn’t be sent.') + ' Try again.';
+        $('.rq-formerr').textContent = (err.message || 'The request couldn’t be sent.') + (err.message && /highlighted/.test(err.message) ? '' : ' Try again.');
       }
     });
   }
@@ -577,7 +759,7 @@
         const r = await fetch('/api/checklist', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token, item: key, done: next }),
+          body: JSON.stringify({ token, item: key, done: next, viewer: viewerPayload() }),
         });
         if (!r.ok) throw new Error();
         const saved = await r.json();
@@ -617,11 +799,11 @@
     .then((r) => (r.ok ? r.json() : Promise.reject()))
     .then((data) => {
       if (data.mode === 'edit') {
-        readOnly = leanViewer(); // a Lean colleague on the client link sees it read only
+        readOnly = !clientViewer(); // Lean colleagues and other emails see it read only
         state = data.items || {};
         environment = data.environment || 'sandbox';
         production = data.production || {};
-        canRequest = !view && !leanViewer();
+        canRequest = !view && clientViewer();
       } else {
         readOnly = true;
         teams = data.teams || [];
@@ -633,7 +815,7 @@
       paintEnvironment();
       paintAll();
       // When someone answers "who's viewing" after the page loaded, apply it straight away.
-      applyWho = () => { readOnly = data.mode !== 'edit' || leanViewer(); canRequest = data.mode === 'edit' && !view && !leanViewer(); paintAll(); whoNote(); };
+      applyWho = () => { readOnly = data.mode !== 'edit' || !clientViewer(); canRequest = data.mode === 'edit' && !view && clientViewer(); paintAll(); whoNote(); };
       whoNote();
     })
     .catch(() => {

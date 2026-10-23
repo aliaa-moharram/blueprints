@@ -10,14 +10,18 @@ const BASE = `http://localhost:${PORT}`;
 const ADMIN = 'test-admin-password-123';
 const MOCK_PORT = 3998;
 const env = { ...process.env, PORT: String(PORT), ADMIN_PASSWORD: ADMIN, SLACK_WEBHOOK_URL: `http://localhost:3998/slack`,
+  BLOB_BUDGET_MB: '50', RESEND_API_KEY: 're_test', RESEND_API_URL: 'http://localhost:3998/email', NOTIFY_EMAIL: 'owner@leantech.me', UPLOAD_MODE: 'local',
+  BLOB_READ_WRITE_TOKEN: 'vercel_blob_rw_teststore123_abcdefghijklmnopqrstuvwxyz0123456789',
   ANTHROPIC_API_KEY: 'test-key', ANTHROPIC_BASE_URL: `http://localhost:${MOCK_PORT}`, ANTHROPIC_MODEL: 'test-model' };
 // Stand-in for the Claude API: records the request and replies with a canned draft.
 const http = await import('node:http');
 let lastClaudeRequest = null;
 const slackMessages = [];
+const emails = [];
 const mock = http.createServer(async (req, res) => {
   let body = ''; for await (const c of req) body += c;
   if (req.url === '/slack') { slackMessages.push(JSON.parse(body)); res.writeHead(200); return res.end('ok'); }
+  if (req.url === '/email') { emails.push({ auth: req.headers.authorization, ...JSON.parse(body) }); res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end('{"id":"em_1"}'); }
   lastClaudeRequest = { headers: req.headers, body: JSON.parse(body), url: req.url };
   const draft = { subtitle: 'How Nova maps to Lean.', summary: 'Nova wants pay-ins from UAE banks.', market: 'UAE', vertical: 'Wallet',
     painPoints: [{ group: 'business', pain: 'Card fees on top-ups.', solve: 'Lean **Pay by Bank**.', advantage: 'Lower costs.' }],
@@ -35,11 +39,23 @@ execFileSync('node', ['scripts/migrate.js'], { env, stdio: 'inherit' });
 const server = spawn('node', ['dev/server.js'], { env, stdio: ['ignore', 'pipe', 'inherit'] });
 await new Promise((resolve) => server.stdout.once('data', resolve));
 
-const admin = (path, opts = {}) => fetch(BASE + path, {
+// Test client teams use the domain example-client.com: every new client link gets it as its client domain,
+// and test ticks and requests carry an email on it, like a real client team member.
+const CLIENT_EMAIL = 'tester@example-client.com';
+const rawAdmin = (path, opts = {}) => fetch(BASE + path, {
   ...opts, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + ADMIN, ...(opts.headers || {}) },
 });
+const admin = async (path, opts = {}) => {
+  const r = await rawAdmin(path, opts);
+  if (path === '/api/admin/links' && opts.method === 'POST' && r.ok) {
+    const body = await r.clone().json();
+    if (body && body.kind === 'client' && body.token) await rawAdmin('/api/admin/links', { method: 'PATCH', body: JSON.stringify({ token: body.token, clientDomains: 'example-client.com' }) });
+  }
+  return r;
+};
 const upload = (body) => admin('/api/admin/blueprints', { method: 'POST', body: JSON.stringify(body) });
-const json = (path, body) => fetch(BASE + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+const json = (path, body) => fetch(BASE + path, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify((path === '/api/checklist' || path === '/api/track') && body && body.viewer === undefined ? { ...body, viewer: { email: CLIENT_EMAIL } } : body) });
 let passed = 0;
 const ok = (name) => { passed++; console.log('  ok  ' + name); };
 
@@ -99,24 +115,42 @@ try {
   assert.equal(row.views, 1); ok('a repeated "open" for one page load counts once');
   assert.equal(row.seconds, 10 + 30 + 120); ok('visible time adds up, capped at 120 s per update');
 
-  // Who's viewing (one client link, Lean colleagues told apart by email)
+  // Who's viewing (one client link: the client team, Lean colleagues and anyone else told apart by email)
   const before = slackMessages.length;
-  await json('/api/track', { token: client.token, session: 'viewer-wise-0001', event: 'open', viewer: { email: '  David.Vu@Wise.com ' } });
-  await json('/api/track', { token: client.token, session: 'viewer-lean-0001', event: 'open', viewer: { email: 'will.smith@leantech.me', kind: 'client' } });
+  await json('/api/track', { token: client.token, session: 'viewer-wise-0001', event: 'open', viewer: { email: '  David.Vu@Example-Client.com ' } });
+  await json('/api/track', { token: client.token, session: 'viewer-lean-0001', event: 'open', viewer: { email: 'will.smith@leantech.me' } });
+  await json('/api/track', { token: client.token, session: 'viewer-othr-0001', event: 'open', viewer: { email: 'will.personal@gmail.com' } });
   await json('/api/track', { token: client.token, session: 'viewer-bad-00001', event: 'open', viewer: { email: 'not-an-email' } });
+  await json('/api/track', { token: client.token, session: 'viewer-none-0001', event: 'open', viewer: null });
   ov = await (await admin('/api/admin/overview')).json();
   const vrow = ov.links.find((l) => l.token === client.token);
-  assert.equal(vrow.views, 3); ok('a Lean colleague’s visit on the client link doesn’t count as the client team’s');
+  assert.equal(vrow.views, 2); ok('only the client team’s visits count: Lean colleagues, other emails and visits without an email don’t');
   const people = Object.fromEntries(vrow.people.map((x) => [x.email, x]));
-  assert.ok(people['david.vu@wise.com'] && people['david.vu@wise.com'].kind === 'client' && people['david.vu@wise.com'].name === 'David Vu'); ok('a client viewer is recorded by name, worked out from their email');
-  assert.ok(people['will.smith@leantech.me'] && people['will.smith@leantech.me'].kind === 'lean'); ok('a Lean email is recorded as Lean, decided by the server whatever the page says');
+  assert.ok(people['david.vu@example-client.com'] && people['david.vu@example-client.com'].kind === 'client' && people['david.vu@example-client.com'].name === 'David Vu'); ok('a client team member is recorded by name, from an email on the client domain');
+  assert.ok(people['will.smith@leantech.me'].kind === 'lean'); ok('a Lean email is recorded as Lean');
+  assert.ok(people['will.personal@gmail.com'].kind === 'other'); ok('an email outside the client’s domains is never counted as the client team');
   assert.ok(!vrow.people.some((x) => x.email === 'not-an-email')); ok('an invalid email is ignored');
   const namedVisit = ov.recent.find((v) => v.viewer_name === 'Will Smith');
   assert.ok(namedVisit && namedVisit.viewer_kind === 'lean'); ok('recent visits show who viewed');
   const alerts = slackMessages.slice(before).map((m) => m.text);
-  assert.ok(!alerts.some((t) => /Will Smith/.test(t))); ok('a Lean colleague opening the client link never triggers the first-view alert');
+  assert.ok(!alerts.some((t) => /Will/.test(t))); ok('only the client team triggers the first-view alert');
   const page0 = await (await fetch(`${BASE}/b/${client.token}`)).text();
-  assert.ok(/"kind":"client"/.test(page0) && /"leanDomains":\["leantech\.me"\]/.test(page0)); ok('the page knows it’s a client link and which domains are Lean');
+  assert.ok(/"kind":"client"/.test(page0) && /"leanDomains":\["leantech\.me"\]/.test(page0) && /"clientDomains":\["example-client\.com"\]/.test(page0)); ok('the page knows it’s a client link, and the Lean and client domains');
+  // Only the client team can tick
+  const tickAs = (email) => fetch(`${BASE}/api/checklist`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: client.token, item: 'sample-1', done: true, viewer: email === undefined ? undefined : { email } }) });
+  assert.equal((await tickAs(undefined)).status, 403); ok('a tick without an email is refused');
+  assert.equal((await tickAs('will.smith@leantech.me')).status, 403); ok('a Lean colleague can’t tick on the client link');
+  assert.equal((await tickAs('will.personal@gmail.com')).status, 403); ok('an email outside the client’s domains can’t tick');
+  assert.equal((await tickAs('can.ozdemir@example-client.com')).status, 200); ok('a client team member can tick');
+  // Setting the client domains
+  const setDom = (v) => admin('/api/admin/links', { method: 'PATCH', body: JSON.stringify({ token: client.token, clientDomains: v }) });
+  assert.equal((await setDom('leantech.me')).status, 400); ok('a Lean domain can’t be a client domain');
+  assert.equal((await setDom('not a domain!')).status, 400); ok('anything that isn’t a domain is refused');
+  const dj = await (await setDom(' @Example-Client.com, https://second-client.com/x ')).json();
+  assert.deepEqual(dj.client_domains, ['example-client.com', 'second-client.com']); ok('client domains are cleaned up: case, @, addresses');
+  await setDom('');
+  assert.equal((await tickAs('can.ozdemir@example-client.com')).status, 403); ok('with no client domains set, nobody can tick');
+  await setDom('example-client.com');
 
   // Checklist
   r = await json('/api/checklist', { token: client.token, item: 'sample-1', done: true });
@@ -238,12 +272,71 @@ try {
   assert.equal(r.status, 401); ok('only Lean can change the environment');
   await admin('/api/admin/links', { method: 'PATCH', body: JSON.stringify({ token: built.token, environment: 'sandbox' }) });
   // Requesting production access
-  const prodReq = (body) => fetch(`${BASE}/api/production`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  r = await prodReq({ token: built.token, note: '  Target go-live 1 Dec \u0007 ' });
+  // A complete, valid request; tests override parts of it.
+  const DETAILS = { accountHolderName: 'Acme Remit LLC', tradeLicenseNumber: 'TL-778899', iban: 'AE07 0331 2345 6789 0123 456', accountNumber: '1234567890123456', bankAddress: 'Main Branch, Sheikh Zayed Road, Dubai', videoNa: true, videoNaReason: 'Server-to-server only, no customer screens' };
+  const prodReq = (body) => fetch(`${BASE}/api/production`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...DETAILS, ...(body.viewer === undefined ? { ...body, viewer: { email: CLIENT_EMAIL } } : body) }) });
+  // Validation: every field is checked by the server
+  const bad = async (over) => { const rr = await prodReq({ token: built.token, ...over }); return { status: rr.status, j: await rr.json() }; };
+  let bj = await bad({ accountHolderName: '', tradeLicenseNumber: '', iban: '', accountNumber: '', bankAddress: '' });
+  assert.equal(bj.status, 400); assert.deepEqual(Object.keys(bj.j.fields).sort(), ['accountHolderName', 'accountNumber', 'bankAddress', 'iban', 'tradeLicenseNumber']); ok('every Settlement Account field is required, with a message for each');
+  bj = await bad({ iban: 'AE07 0331 2345 6789 0123 457' }); assert.ok(/doesn’t check out/.test(bj.j.fields.iban)); ok('a mistyped IBAN is caught by its check digits');
+  bj = await bad({ iban: 'AE07 0331 2345' }); assert.ok(bj.j.fields.iban); ok('a short IBAN is refused');
+  bj = await bad({ videoNa: false, video: null }); assert.ok(/Upload the recording, or tick Not applicable/.test(bj.j.fields.video)); ok('a recording or Not applicable is required');
+  bj = await bad({ videoNa: true, videoNaReason: '' }); assert.ok(/why a recording doesn’t apply/.test(bj.j.fields.video)); ok('Not applicable needs a reason');
+  bj = await bad({ videoNa: false, video: { url: 'https://evil.example.com/x.mp4', name: 'x.mp4' } }); assert.ok(bj.j.fields.video); ok('a recording from anywhere but the team’s own upload is refused');
+  bj = await bad({ videoNa: false, video: { url: `https://abc.public.blob.vercel-storage.com/production-requests/someone-else/x.mp4` } }); assert.ok(bj.j.fields.video); ok('a recording in another team’s folder is refused');
+  // Uploads
+  const upLocal = (email, type = 'video/mp4', bytes = 2048) => fetch(`${BASE}/api/upload?token=${built.token}&email=${encodeURIComponent(email)}&name=demo.mp4`, { method: 'POST', headers: { 'Content-Type': type }, body: Buffer.alloc(bytes, 7) });
+  assert.equal((await upLocal('will.smith@leantech.me')).status, 403); ok('a Lean colleague can’t upload a recording to the client’s request');
+  assert.equal((await upLocal('someone@gmail.com')).status, 403); ok('an email outside the client’s domains can’t upload');
+  const upd = await (await upLocal(CLIENT_EMAIL)).json();
+  assert.ok(upd.url && upd.bytes === 2048); ok('the client team can upload a recording');
+  assert.equal((await fetch(upd.url)).status, 200); ok('the uploaded recording can be opened');
+  const MB = 1024 * 1024;
+  const tokenReq = (pathname, email, bytes = 5 * MB) => fetch(`${BASE}/api/upload`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'blob.generate-client-token', payload: { pathname, callbackUrl: 'https://example.com/api/upload', clientPayload: JSON.stringify({ token: built.token, email, bytes }), multipart: false } }) });
+  assert.equal((await tokenReq(`production-requests/${built.token}/demo.mp4`, CLIENT_EMAIL, 0)).status, 400); ok('an empty file gets no upload token');
+  assert.equal((await tokenReq(`production-requests/${built.token}/demo.mp4`, CLIENT_EMAIL, 101 * MB)).status, 413); ok('a recording over 100 MB gets no upload token');
+  let tr = await tokenReq(`production-requests/${built.token}/demo.mp4`, CLIENT_EMAIL); let tj = await tr.json();
+  assert.equal(tr.status, 200); assert.ok(tj.type === 'blob.generate-client-token' && tj.clientToken && tj.clientToken.startsWith('vercel_blob_client_')); ok('a direct upload to Vercel Blob gets a short-lived token, for the client team only');
+  assert.equal((await tokenReq(`production-requests/${built.token}/demo.mp4`, 'will.smith@leantech.me')).status, 403); ok('a Lean colleague gets no upload token');
+  assert.equal((await tokenReq(`production-requests/other-team/demo.mp4`, CLIENT_EMAIL)).status, 400); ok('an upload token is only for the team’s own folder');
+  const { getPayloadFromClientToken } = await import('@vercel/blob/client');
+  const payload = getPayloadFromClientToken(tj.clientToken);
+  assert.ok(payload.maximumSizeInBytes === 5 * MB + 64 * 1024 && payload.allowedContentTypes.includes('video/mp4') && payload.addRandomSuffix); ok('the upload token allows only a video of that size, with an unguessable name');
+  // The storage budget (50 MB here; 900 MB by default, of the free plan's 1 GB)
+  assert.equal((await tokenReq(`production-requests/${built.token}/big.mp4`, CLIENT_EMAIL, 40 * MB)).status, 200);
+  tr = await tokenReq(`production-requests/${built.token}/big2.mp4`, CLIENT_EMAIL, 40 * MB); tj = await tr.json();
+  assert.equal(tr.status, 409); assert.ok(/storage is full/i.test(tj.error) && /Not applicable/.test(tj.error)); ok('an upload that would exceed the storage budget is refused, and the client is told what to do');
+  let st = await (await admin('/api/admin/recordings')).json();
+  assert.ok(st.usedBytes >= 45 * MB && st.budgetBytes === 50 * MB); ok('reserved uploads count towards storage until they expire');
+  // Replacing a recording deletes the old one
+  const spare = await (await upLocal(CLIENT_EMAIL)).json();
+  r = await fetch(`${BASE}/api/upload`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete', token: built.token, email: CLIENT_EMAIL, url: spare.url }) });
+  assert.ok((await r.json()).deleted); assert.equal((await fetch(spare.url)).status, 404); ok('a replaced or removed recording is deleted');
+  r = await fetch(`${BASE}/api/upload`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete', token: built.token, email: 'someone@gmail.com', url: upd.url }) });
+  assert.equal(r.status, 403); ok('only the client team can delete their recordings');
+  const leftover = await (await upLocal(CLIENT_EMAIL)).json();
+  const emailsBefore = emails.length;
+  r = await prodReq({ token: built.token, note: '  Target go-live 1 Dec \u0007 ', videoNa: false, videoNaReason: '', video: { url: upd.url, name: 'demo.mp4', bytes: upd.bytes } });
   let pj = await r.json();
   assert.equal(r.status, 200); assert.ok(pj.requestedAt); assert.equal(pj.note, 'Target go-live 1 Dec'); ok('a client team can request production access, with an optional note');
   const sm = slackMessages.find((m) => /requested production access/.test(m.text));
   assert.ok(sm && /Sandbox setup: \d+ of \d+/.test(sm.text) && /End-to-end test: \d+ of \d+/.test(sm.text) && sm.text.includes('Target go-live 1 Dec') && sm.text.includes('/admin')); ok('Lean is notified in Slack, with readiness from the server, the note and a link to the admin page');
+  assert.equal((await fetch(leftover.url)).status, 404); assert.equal((await fetch(upd.url)).status, 200); ok('sending the request deletes other recordings from that attempt, and keeps the sent one');
+  const em = emails.slice(emailsBefore);
+  assert.equal(em.length, 1); assert.deepEqual(em[0].to, ['owner@leantech.me']); assert.equal(em[0].reply_to, CLIENT_EMAIL); assert.equal(em[0].auth, 'Bearer re_test'); ok('the blueprint owner is emailed, and Reply goes to the client');
+  assert.ok(/requested production access/.test(em[0].subject) && em[0].text.includes('Target go-live 1 Dec') && em[0].text.includes(upd.url) && em[0].text.includes('Acme Remit LLC')); ok('the email has the request, the note and a link to the recording');
+  assert.ok(!em[0].text.includes('AE070331234567890123456') && em[0].text.includes('•••• 3456') && !em[0].text.includes('1234567890123456') && !em[0].html.includes('AE070331234567890123456')); ok('the email masks the IBAN and account number');
+  assert.ok(!slackMessages.some((m) => m.text.includes('AE070331234567890123456'))); ok('Slack never gets the bank details');
+  ov = await (await admin('/api/admin/overview')).json();
+  const prq = ov.links.find((l) => l.token === built.token).production_request;
+  assert.ok(prq && prq.iban === 'AE070331234567890123456' && prq.account_number === '1234567890123456' && prq.video_url === upd.url && prq.requested_by === CLIENT_EMAIL); ok('the admin page has the full request');
+  st = await (await admin('/api/admin/recordings', { method: 'POST', body: JSON.stringify({ url: upd.url }) })).json();
+  assert.ok(st.deleted); assert.equal((await fetch(upd.url)).status, 404); ok('Lean can delete a recording once reviewed, and its link stops working');
+  ov = await (await admin('/api/admin/overview')).json();
+  assert.ok(ov.links.find((l) => l.token === built.token).production_request.video_deleted_at && ov.storage.budgetBytes === 50 * MB); ok('the admin page shows the recording as deleted, and the storage used');
+  envr = await (await fetch(`${BASE}/api/checklist?token=${built.token}`)).json();
+  assert.ok(envr.production.summary && envr.production.summary.iban === '•••• 3456' && !JSON.stringify(envr).includes('AE070331234567890123456')); ok('the page only ever gets the bank details masked');
   r = await prodReq({ token: built.token, note: 'again' }); pj = await r.json();
   assert.equal(r.status, 200); assert.ok(pj.alreadyRequested && pj.note === 'Target go-live 1 Dec'); assert.equal(slackMessages.filter((m) => /requested production access/.test(m.text)).length, 1); ok('asking twice is harmless and doesn’t notify again');
   envr = await (await fetch(`${BASE}/api/checklist?token=${built.token}`)).json();
@@ -251,7 +344,11 @@ try {
   ov = await (await admin('/api/admin/overview')).json();
   assert.ok(ov.links.find((l) => l.token === built.token).production_requested_at); ok('the admin page lists the request');
   r = await prodReq({ token: 'nope' }); assert.equal(r.status, 404); ok('unknown links can’t request');
+  assert.equal((await admin('/api/admin/blueprints', { method: 'PATCH', body: JSON.stringify({ slug: B, notifyEmail: 'not-an-email' }) })).status, 400); ok('a bad notification email is refused');
+  const ne = await (await admin('/api/admin/blueprints', { method: 'PATCH', body: JSON.stringify({ slug: B, notifyEmail: ' Aliaa@leantech.me, will@leantech.me ' }) })).json();
+  assert.equal(ne.notifyEmail, 'aliaa@leantech.me, will@leantech.me'); ok('each blueprint can have its own notification emails');
   r = await prodReq({ token: lean.token }); assert.equal(r.status, 403); ok('Lean team links can’t request production access');
+  r = await prodReq({ token: built.token, viewer: { email: 'will.smith@leantech.me' } }); assert.equal(r.status, 403); ok('a Lean colleague can’t request production access on the client link');
   await admin('/api/admin/links', { method: 'PATCH', body: JSON.stringify({ token: built.token, environment: 'production' }) });
   envr = await (await fetch(`${BASE}/api/checklist?token=${built.token}`)).json();
   assert.ok(envr.production.grantedAt); ok('setting the team to Production grants it, and the page is told');
@@ -507,6 +604,56 @@ try {
   assert.equal((await fetch(BASE + '/theme.js')).status, 200); ok('theme script loads');
   assert.equal((await fetch(BASE + '/bp-runtime.js')).status, 200); ok('runtime script loads');
 
+  // ---------- Download, version history, and editing an uploaded blueprint in the form ----------
+  const { renderBlueprint } = await import('../lib/render.js');
+  const { fromTemplate } = await import('../lib/templates.js');
+  const { DEFAULT_VERTICALS } = await import('../lib/verticals.js');
+  const tplContent = fromTemplate('Orbit Pay', DEFAULT_VERTICALS[0]);
+  const tplHtml = renderBlueprint(tplContent).html;
+  const UP = 'orbit-' + Date.now().toString(36);
+  assert.equal((await upload({ slug: UP, html: tplHtml })).status, 201);
+  // downloads
+  const dlUrl = async (format, version) => (await (await admin('/api/admin/download', { method: 'POST', body: JSON.stringify({ slug: UP, format, version }) })).json()).url;
+  let durl = await dlUrl('html');
+  let dr = await fetch(BASE + durl);
+  assert.equal(dr.status, 200); assert.ok(/attachment; filename="orbit-[a-z0-9]+-blueprint\.html"/.test(dr.headers.get('content-disposition'))); assert.equal(await dr.text(), tplHtml); ok('Download HTML gives the exact published file');
+  assert.equal((await fetch(BASE + durl.replace(/sig=[^&]+/, 'sig=' + 'x'.repeat(43)))).status, 403); ok('a tampered download link is refused');
+  assert.equal((await fetch(BASE + durl.replace('format=html', 'format=pdf'))).status, 403); ok('a download link can’t be switched to another format');
+  assert.equal((await fetch(`${BASE}/api/admin/download`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug: UP, format: 'html' }) })).status, 401); ok('only Lean can create download links');
+  const pdfPage = await (await fetch(BASE + (await dlUrl('pdf')))).text();
+  assert.ok(pdfPage.includes('window.print()') && pdfPage.includes('Implementation guides') && pdfPage.includes('@page{size:A4') && /<title>Orbit Pay blueprint<\/title>/.test(pdfPage)); ok('Download PDF opens a print-ready page with every guide as an appendix');
+  // version history
+  const tplHtml2 = tplHtml.replace('Integration<br>', 'Integration plan<br>');
+  assert.equal((await upload({ slug: UP, html: tplHtml2, replace: true, uploadedBy: 'Aliaa' })).status, 200);
+  let vl = (await (await admin('/api/admin/versions?slug=' + UP)).json()).versions;
+  assert.ok(vl.length === 1 && vl[0].reason === 'Before Replace file' && vl[0].created_by === 'Aliaa'); ok('Replace file keeps the previous version');
+  const vh = await (await fetch(BASE + (await dlUrl('html', vl[0].id)))).text();
+  assert.equal(vh, tplHtml); ok('an earlier version can be downloaded');
+  let rrX = await (await admin('/api/admin/versions', { method: 'POST', body: JSON.stringify({ slug: UP, id: vl[0].id }) })).json();
+  assert.equal(rrX.restored, vl[0].id);
+  assert.equal(await (await fetch(BASE + (await dlUrl('html')))).text(), tplHtml); ok('restoring a version publishes it');
+  vl = (await (await admin('/api/admin/versions?slug=' + UP)).json()).versions;
+  assert.ok(vl.length === 2 && /^Before restoring version/.test(vl[0].reason)); ok('restoring keeps the version it replaced');
+  // edit an uploaded blueprint in the form
+  let ir = await admin('/api/admin/builder', { method: 'POST', body: JSON.stringify({ action: 'import', slug: SLUG }) });
+  assert.equal(ir.status, 422); assert.ok(/wasn’t made from the Lean blueprint template/.test((await ir.json()).error)); ok('a page not made from the template can’t be read into the form, with a clear next step');
+  ir = await admin('/api/admin/builder', { method: 'POST', body: JSON.stringify({ action: 'import', slug: UP }) });
+  let repX = (await ir.json()).report;
+  assert.ok(repX.ok && repX.sections.length >= 4 && repX.sections.every((x) => x.ok)); ok('a template page reads back into the form, and every section matches the published page');
+  const beforeX = await (await fetch(BASE + (await dlUrl('html')))).text();
+  const conv = await (await admin('/api/admin/builder', { method: 'POST', body: JSON.stringify({ action: 'convert', slug: UP, by: 'Aliaa' }) })).json();
+  assert.ok(conv.source === 'builder' && conv.draft && conv.draft.client.name === 'Orbit Pay'); ok('converting makes it a form-built blueprint with the imported content');
+  assert.equal(await (await fetch(BASE + (await dlUrl('html')))).text(), beforeX); ok('converting doesn’t change the published page');
+  ov = await (await admin('/api/admin/overview')).json();
+  assert.ok(!ov.blueprints.find((b) => b.slug === UP).unpublished_changes); ok('a fresh conversion doesn’t show as unpublished changes');
+  vl = (await (await admin('/api/admin/versions?slug=' + UP)).json()).versions;
+  assert.equal(vl[0].reason, 'Before editing in the form'); ok('the uploaded HTML is kept as a version');
+  assert.equal((await admin('/api/admin/builder', { method: 'POST', body: JSON.stringify({ action: 'convert', slug: UP }) })).status, 409); ok('a form-built blueprint can’t be converted again');
+  const edited = { ...conv.draft, summary: 'Edited in the form' };
+  const pub = await admin('/api/admin/builder', { method: 'POST', body: JSON.stringify({ action: 'publish', slug: UP, content: edited, by: 'Aliaa' }) });
+  assert.equal(pub.status, 200); assert.ok((await (await fetch(BASE + (await dlUrl('html')))).text()).includes('Edited in the form')); ok('after converting, edits are published from the form');
+  vl = (await (await admin('/api/admin/versions?slug=' + UP)).json()).versions;
+  assert.equal(vl[0].reason, 'Before publish'); ok('publishing from the form keeps the previous version');
   console.log(`\n${passed} checks passed.`);
 } catch (err) {
   console.error('\nFAILED after ' + passed + ' checks:', err.message);

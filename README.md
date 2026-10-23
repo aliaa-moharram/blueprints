@@ -159,26 +159,87 @@ Then open http://localhost:3000/admin. `npm test` runs the end-to-end checks aga
 - **Two people editing one blueprint at once.** The last save wins.
 
 
-**Requesting production access.** The Developer portal setup and End-to-end test guides open with **Your path to production**, a four-step tracker:
+**Requesting production access.** "Your path to production", a four-step tracker, is shown on the main page (above Delivery phases) and in the Developer portal setup and End-to-end test guides:
 
-1. **Sandbox setup:** not started, in progress (x of y) or complete.
-2. **End-to-end test.**
-3. **Production access:** not requested, requested and waiting for Lean, or granted.
-4. **Production setup:** locked until production access is granted.
+1. Sandbox setup.
+2. End-to-end test.
+3. Production access.
+4. Production setup, locked until access is granted.
 
-When steps 1 and 2 are complete, step 3's **Request production access** is the main action. Before that, it shows what's left and offers **Request anyway**. The client team can add a note. Only the client team's own link can send a request; Lean views show the status read-only.
+Only someone on the client team (an email on the link's client domains) can send a request. It opens a form with three parts:
 
-A request is saved on the team's link and shows in the admin page in two places: a **Production requested** badge on the blueprint in the sidebar, and the request, with its note, on the team's row in the links table. It's also sent to Slack if `SLACK_WEBHOOK_URL` is set, with the team's sandbox and end-to-end progress and a link to the admin page. To grant it, set the team's Environment to **Production**. The client's page then shows the request as granted and unlocks Production setup.
+1. **Demo recording:** a screen recording of the integration working end to end in Sandbox, uploaded straight from the browser to Vercel Blob, with progress. It can be up to 100 MB, in common video formats. Or the client ticks **Not applicable for this integration** and says why.
+2. **Production Settlement Account:** account holder name, trade licence number, IBAN (check digits verified), account number and bank address.
+3. **An optional note.**
+
+The server checks everything again before saving.
+
+When a request is sent:
+- **The blueprint's owner is emailed.** Set **Notify by email** on the blueprint in the admin page, or `NOTIFY_EMAIL` as the default. The email has who sent it, their progress, the recording link or the N/A reason, and the bank details **masked**. Reply goes to the client.
+- **Slack** gets a short message if `SLACK_WEBHOOK_URL` is set. It never includes bank details.
+- **The admin page** shows the full request on the team's row, with copy buttons.
+- **The client's page** shows only a masked summary.
+
+To grant access, set the team's Environment to **Production**.
+
+**Setup for requests:**
+- **Video storage:** in Vercel, open **Storage**, choose **Create Database**, then **Blob**, and connect it to this project. That adds `BLOB_READ_WRITE_TOKEN`. Recordings are stored with unguessable addresses. Without it, the form explains that uploads aren't set up and the client can tick Not applicable.
+- **Email:**
+  1. Create a free account at resend.com and an API key.
+  2. Add `RESEND_API_KEY` and `NOTIFY_EMAIL` (your address) in Vercel, then redeploy.
+
+  Until you verify a sending domain in Resend, it only delivers to the email address of the Resend account, so use that address as `NOTIFY_EMAIL`. Optionally, set `EMAIL_FROM`, for example `Lean blueprints <blueprints@yourdomain>`, once a domain is verified.
 
 
 **Vercel's Hobby plan allows 12 serverless functions per deployment.** Every file in `api/` is one function, so the admin endpoints share one: `api/admin.js` routes each `/api/admin/<name>` request (rewritten in `vercel.json`) to its handler in `lib/admin/`. The site uses 5 functions. Add new admin endpoints to `lib/admin/` and the router, not as new files in `api/`.
 
 
-**Who's viewing a client link.** The first time someone opens a client team's link in a browser, the page asks for their work email. They can skip, and are then asked again on their next visit.
-- **Lean emails** (`@leantech.me`, or the domains in `LEAN_EMAIL_DOMAINS`, comma-separated) get a read-only view on the same link. Their visits don't count as the client team's and never trigger the first-view alert.
-- **Anyone else** is the client team, as before.
-- **Lean or client is decided on the server,** from the email's domain.
-- **Each visit records the person,** so the admin page lists who has viewed each client link, client people and Lean people separately, and names them in Recent visits.
+**Who's viewing a client link.** The first time someone opens a client team's link in a browser, the page asks for their work email. It's required: there's no skip.
+
+| Email | View | Counted as the client team? |
+|---|---|---|
+| A Lean domain (`@leantech.me`, or the domains in `LEAN_EMAIL_DOMAINS`) | Read-only Lean view | Never |
+| One of the link's **client email domains** | Normal: can tick and request production access | Yes |
+| Anything else | Read-only | Never |
+
+- **Client email domains** are set per client link in the admin page, for example `wise.com, transferwise.com`. Lean domains are refused. Until they're set, nobody can tick, so nothing is ever misattributed.
+- **The server applies these rules** to every visit, tick and production request, whatever the page sends.
+- **Each tick records who made it,** so the Progress section shows "Oct 23 · David Vu".
+- **Visits without a valid email** are stored as unknown and never counted.
 - **A "Viewing as … · Not you?" note** lets someone switch.
 
-The email isn't verified: this tells teammates apart, it isn't access control. Existing links keep working, and visits from before this change stay under the team's name.
+The email isn't verified, so it prevents mistakes, not deliberate impersonation: someone could still type a fake address on a client domain. Existing links keep working, and visits from before this change stay under the team's name.
+
+
+## Staying within Vercel's free (Hobby) plan
+
+**Use:** the Hobby plan is for personal, non-commercial projects. A site for Lean's client integrations is commercial use, so for production it belongs on a Lean team account (Pro).
+
+**Usage:** the site is built to fit Hobby's limits:
+
+| Limit on Hobby | How the site stays within it |
+|---|---|
+| 12 serverless functions per deployment | 6 functions: the admin endpoints share one router (`api/admin.js`). |
+| 300 s maximum function duration | The longest is 120 s (drafting from notes). |
+| 4.5 MB request body | Recordings upload straight from the browser to Blob, never through a function. |
+| Blob: 1 GB storage in total (Blob is switched off for 30 days if exceeded) | Recordings are capped at 100 MB each, and the total at a budget, `BLOB_BUDGET_MB`, default 900 MB. The server reserves each file's size before issuing an upload token, the token only allows that size, and uploads that would go over are refused with a clear message. Replaced and leftover recordings are deleted automatically. Delete reviewed recordings from the admin page, which shows storage used. |
+| Blob: 2,000 upload operations a month | One operation per recording: no multipart uploads, and no listing of the store. |
+| Blob: 10 GB downloads a month | Only Lean watches recordings, from the admin page or the email link. |
+| Resend free plan: 3,000 emails a month, 100 a day | One email per production request. |
+
+
+## Downloading, version history, and editing uploaded blueprints in the form
+
+**Download.** Every published blueprint has **Download HTML** and **Download PDF** in the admin page.
+- **HTML** is the exact published file.
+- **PDF** opens a print-ready version in a new tab, then the browser's print dialog: choose **Save as PDF**. It keeps the desktop layout, scaled to A4, and adds every implementation guide at the end. The browser makes the PDF, so it costs nothing on the server and stays within Vercel's free plan.
+- **Links:** downloads use signed links that expire after 10 minutes.
+
+**Version history.** Each blueprint keeps its previous version before every Replace file, publish, restore and switch to the form, up to the latest 20. Open **Version history** on the blueprint to download any version as HTML or PDF, or **Restore** it. Restoring keeps the current version too, so you can switch back. Clients' ticks stay as they are.
+
+**Edit in form.** Uploaded blueprints made from the Lean template, like Wise, can be switched to the form, so anyone can edit them without code.
+1. **Read and check.** **Edit in form** reads the published page into the form, then checks the result: it renders the form version and compares it with the published page, section by section (text and images).
+2. **Review.** The dialog shows each section as matched or not, with what differs, and anything worth checking, such as a logo converted from an inline graphic.
+3. **Switch,** or keep it as an uploaded file. Switching doesn't change the published page until someone publishes from the form, and the uploaded HTML is kept in Version history. Links, ticks, visits and production requests are unaffected.
+
+Pages not made from the Lean template can't be read into the form. Download them, edit the file, then use Replace file.

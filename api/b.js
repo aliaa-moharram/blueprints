@@ -3,6 +3,7 @@
 import { handler, getQuery, send } from '../lib/http.js';
 import { findActiveLink, loadBlueprint } from '../lib/blueprints.js';
 import { checkViewParam } from '../lib/viewsig.js';
+import { leanDomains } from '../lib/viewer.js';
 
 const NOT_FOUND = `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow">
@@ -29,8 +30,7 @@ export default handler(['GET', 'HEAD'], async (req, res) => {
     viewParam = view;
   }
 
-  const leanDomains = String(process.env.LEAN_EMAIL_DOMAINS || 'leantech.me').split(',').map((d) => d.trim().toLowerCase()).filter(Boolean);
-  const config = JSON.stringify({ token: link.token, slug: bp.slug, kind: link.kind, leanDomains, view: viewParam, team: viewParam ? link.label : undefined }).replace(/</g, '\\u003c');
+  const config = JSON.stringify({ token: link.token, slug: bp.slug, kind: link.kind, leanDomains: leanDomains(), clientDomains: link.kind === 'client' ? link.client_domains || [] : [], uploadMode: process.env.UPLOAD_MODE === 'local' ? 'local' : 'blob', view: viewParam, team: viewParam ? link.label : undefined }).replace(/</g, '\\u003c');
   let html = bp.html.replace(/<\/head>/i, '<meta name="robots" content="noindex, nofollow">\n</head>');
   const runtime = `<script>window.__LEAN_BP=${config};</script>\n<script src="/bp-runtime.js" defer></script>\n`;
   const at = html.toLowerCase().lastIndexOf('</body>');

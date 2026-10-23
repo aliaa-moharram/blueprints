@@ -96,5 +96,62 @@ BEGIN
   ALTER TABLE views ADD COLUMN IF NOT EXISTS viewer_email TEXT;
   ALTER TABLE views ADD COLUMN IF NOT EXISTS viewer_name TEXT;
   ALTER TABLE views ADD COLUMN IF NOT EXISTS viewer_kind TEXT;
+
+  -- The client team's email domains, who requested production, and who ticked each item (added in the viewer update).
+  ALTER TABLE links ADD COLUMN IF NOT EXISTS client_domains TEXT[];
+  ALTER TABLE links ADD COLUMN IF NOT EXISTS production_requested_by TEXT;
+  ALTER TABLE team_checklist ADD COLUMN IF NOT EXISTS updated_by TEXT;
+
+  -- Production access requests from client teams: the demo recording (or why it doesn't apply) and the
+  -- production Settlement Account details. The latest one per link is shown in the admin page.
+  CREATE TABLE IF NOT EXISTS production_requests (
+    id SERIAL PRIMARY KEY,
+    token TEXT NOT NULL REFERENCES links(token) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    requested_by TEXT,
+    note TEXT,
+    video_url TEXT, video_name TEXT, video_bytes BIGINT,
+    video_na_reason TEXT,
+    account_holder_name TEXT NOT NULL,
+    trade_license_number TEXT NOT NULL,
+    iban TEXT NOT NULL,
+    account_number TEXT NOT NULL,
+    bank_address TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS production_requests_token_idx ON production_requests (token, created_at DESC);
+  -- Who's emailed when a client team requests production access (falls back to NOTIFY_EMAIL).
+  ALTER TABLE blueprints ADD COLUMN IF NOT EXISTS notify_email TEXT;
+
+  -- Every recording upload, so the free plan's 1 GB Blob storage is never exceeded (Blob is switched off for
+  -- 30 days if it is). A row is reserved before an upload token is issued, stored when the upload completes,
+  -- and deleted when the recording is replaced, cleaned up or deleted by Lean.
+  CREATE TABLE IF NOT EXISTS blob_uploads (
+    id SERIAL PRIMARY KEY,
+    token TEXT NOT NULL REFERENCES links(token) ON DELETE CASCADE,
+    pathname TEXT,
+    url TEXT UNIQUE,
+    bytes BIGINT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'reserved',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    completed_at TIMESTAMPTZ,
+    deleted_at TIMESTAMPTZ
+  );
+  CREATE INDEX IF NOT EXISTS blob_uploads_token_idx ON blob_uploads (token);
+  ALTER TABLE production_requests ADD COLUMN IF NOT EXISTS video_deleted_at TIMESTAMPTZ;
+
+  -- Earlier versions of each blueprint, kept before every Replace file, publish, restore and conversion to the
+  -- form, so any of them can be viewed, downloaded or restored. The latest 20 per blueprint are kept.
+  CREATE TABLE IF NOT EXISTS blueprint_versions (
+    id SERIAL PRIMARY KEY,
+    slug TEXT NOT NULL REFERENCES blueprints(slug) ON DELETE CASCADE,
+    html TEXT NOT NULL,
+    draft JSONB,
+    source TEXT,
+    size_bytes INTEGER,
+    reason TEXT,
+    created_by TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+  CREATE INDEX IF NOT EXISTS blueprint_versions_slug_idx ON blueprint_versions (slug, created_at DESC);
 END
 $$;

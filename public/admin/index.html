@@ -79,6 +79,37 @@ td .who{font-weight:700}
 .envsel{display:flex;align-items:center;gap:6px;margin:8px 0 0;font-size:12.5px;font-weight:600;color:var(--muted)}
 .prodreq{margin:8px 0 0;padding:8px 10px;border-radius:8px;background:#fff8e6;border:1px solid #f3d27a;font-size:12.5px;color:#5c4100;max-width:340px}
 .prodnote{margin-top:4px;font-style:italic;color:#6b5200;white-space:pre-wrap}
+.domsel{margin:8px 0 0;font-size:12.5px;font-weight:600;color:var(--muted);max-width:340px}
+.domsel label{display:block;margin-bottom:4px}
+.domrow{display:flex;gap:6px}
+.domrow input{flex:1;min-width:0;font:inherit;font-weight:500;color:var(--ink);padding:5px 8px;border:1px solid var(--line);border-radius:7px}
+.versions{margin:10px 0 4px;font-size:13px;max-width:720px}
+.versions>summary{cursor:pointer;font-weight:700;color:var(--ink)}
+.vlist{list-style:none;margin:6px 0 0;padding:0}
+.vlist li{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:7px 0;border-top:1px solid var(--line)}
+.vlist .va{display:flex;gap:6px;flex-shrink:0}
+.importdlg{max-width:620px;width:calc(100vw - 40px);border:0;border-radius:14px;padding:22px 24px;box-shadow:0 24px 70px rgba(0,0,0,.35)}
+.importdlg::backdrop{background:rgba(15,18,22,.5)}
+.importdlg h3{margin:0 0 6px;font-size:19px}
+.importdlg .ichecks{list-style:none;padding:0;margin:12px 0}
+.importdlg .ichecks>li{padding:8px 10px;border-radius:9px;margin:0 0 6px;font-size:13.5px}
+.importdlg .ichecks>li.ok{background:#effaf4}
+.importdlg .ichecks>li.bad{background:#fff4f2}
+.importdlg .ichecks ul{margin:6px 0 0;padding-left:18px;color:#5c2a24}
+.importdlg .inotes{background:#fff8e6;border:1px solid #f3d27a;border-radius:9px;padding:9px 12px;font-size:13px;margin:0 0 10px}
+.importdlg .inotes ul{margin:4px 0 0;padding-left:18px}
+.importdlg .iact{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.notifyform{margin:14px 0 4px;font-size:12.5px;font-weight:600;color:var(--muted);max-width:520px}
+.notifyform label{display:block;margin-bottom:4px}
+.notifyform .by{margin:4px 0 0;font-weight:500}
+.by.storage{font-size:12.5px;margin:2px 0 8px}
+.reqbox{margin:8px 0 0;min-width:280px;max-width:420px;border:1px solid var(--line);border-radius:9px;background:#fff;font-size:12.5px}
+.reqbox>summary{cursor:pointer;padding:8px 10px;font-weight:700;color:var(--ink)}
+.reqbox .rqrow{display:grid;grid-template-columns:1fr auto;grid-template-areas:"k b" "v b";column-gap:10px;align-items:center;padding:7px 10px;border-top:1px solid var(--line)}
+.reqbox .k{grid-area:k;color:var(--muted);font-weight:600;font-size:11.5px}
+.reqbox .v{grid-area:v;color:var(--ink);overflow-wrap:anywhere;white-space:pre-wrap;font-size:13px}
+.reqbox .rqrow>button{grid-area:b}
+.ghost.mini{padding:2px 8px;font-size:11.5px;height:auto}
 .people{margin:8px 0 0;font-size:12.5px;color:var(--ink);max-width:360px;line-height:1.5}
 .people .pk{font-weight:700;color:var(--muted)}
 .people .pv{color:var(--muted)}
@@ -302,6 +333,15 @@ const device = (ua) => {
 const SLUG_OK = /^[a-z0-9][a-z0-9-]{0,62}$/;
 const slugify = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 63);
 
+// A client team's production access request, in full (admin only).
+function requestDetails(r) {
+  const mbs = (b) => (b ? ` · ${b >= 10485760 ? Math.round(b / 1048576) : (b / 1048576).toFixed(1)} MB` : '');
+  const row = (k, v, copy) => `<div class="rqrow"><span class="k">${k}</span><span class="v">${esc(v)}</span>${copy ? `<button type="button" class="ghost mini" data-copy="${esc(v)}" aria-label="Copy ${k}">Copy</button>` : ''}</div>`;
+  return `<details class="reqbox"><summary>Production request · ${esc(when(r.created_at))}${r.requested_by ? ` · ${esc(r.requested_by)}` : ''}</summary>
+    <div class="rqrow"><span class="k">Recording</span><span class="v">${r.video_url && r.video_deleted_at ? `${esc(r.video_name || 'Recording')} · deleted ${esc(when(r.video_deleted_at))}` : r.video_url ? `<a href="${esc(r.video_url)}" target="_blank" rel="noopener">${esc(r.video_name || 'Watch the recording')}</a>${esc(mbs(Number(r.video_bytes)))}` : `Not applicable: ${esc(r.video_na_reason || '')}`}</span>${r.video_url && !r.video_deleted_at ? `<button type="button" class="ghost mini danger" data-delrec="${esc(r.video_url)}">Delete</button>` : ''}</div>
+    ${row('Account holder', r.account_holder_name, true)}${row('Trade licence', r.trade_license_number, true)}${row('IBAN', r.iban, true)}${row('Account number', r.account_number, true)}${row('Bank address', r.bank_address, true)}
+    ${r.note ? `<div class="rqrow"><span class="k">Note</span><span class="v">“${esc(r.note)}”</span></div>` : ''}</details>`;
+}
 const clientTeams = (slug) => data.links.filter((l) => l.slug === slug && l.kind === 'client' && !l.revoked_at);
 const nameOf = (b) => b.name || b.title;
 function sideLine(b) {
@@ -514,10 +554,14 @@ function renderDetail(bp) {
     <h2>${esc(nameOf(bp))}</h2>
     <div class="metaline">
       <p class="sub">${bp.published ? (lastClient ? `Last opened by ${esc(lastClient.label)}, ${esc(when(lastClient.opened_at))}. ` : 'Not opened by a client yet. ') : ''}${stateLine}</p>
-      ${built ? `<button class="primary" id="editBp" style="height:36px">Edit blueprint</button>` : `<button class="ghost" id="renameBp">Rename</button><label class="ghost" style="margin:0;cursor:pointer">Replace file<input id="replaceFile" type="file" accept=".html,.htm,text/html" hidden></label>`}
+      ${built ? `<button class="primary" id="editBp" style="height:36px">Edit blueprint</button>` : `${bp.published ? `<button class="primary" id="importBp" style="height:36px">Edit in form</button>` : ''}<button class="ghost" id="renameBp">Rename</button><label class="ghost" style="margin:0;cursor:pointer">Replace file<input id="replaceFile" type="file" accept=".html,.htm,text/html" hidden></label>`}
+      ${bp.published ? `<button class="ghost" data-dl="html" title="The published page as an HTML file">Download HTML</button><button class="ghost" data-dl="pdf" title="Opens a print-ready version: choose Save as PDF">Download PDF</button>` : ''}
     </div>
     ${built && bp.unpublished_changes && bp.published ? '<div class="warnbox">This blueprint has saved changes that aren’t published yet. Clients still see the last published version.</div>' : ''}
     <div id="replaceMsg"></div>
+    ${bp.published ? `<details class="versions" id="versionsBox"><summary>Version history</summary><div id="versionsList"><p class="by">Loading…</p></div></details>` : ''}
+    <form class="notifyform" id="notifyForm"><label for="notifyEmail">Notify by email when a client requests production access</label><div class="domrow"><input id="notifyEmail" type="text" value="${esc(bp.notify_email || '')}" placeholder="${esc(data.defaultNotify || 'you@leantech.me')}" autocomplete="email" spellcheck="false"><button class="ghost" type="submit">Save</button></div><p class="by">${bp.notify_email ? 'Comma-separate up to 5 addresses.' : 'Empty: the site-wide default is used (NOTIFY_EMAIL).'}</p></form>
+    ${data.storage ? `<p class="by storage">Recording storage: ${Math.round(data.storage.usedBytes / 1048576)} MB of ${Math.round(data.storage.budgetBytes / 1048576)} MB used. Delete recordings once you’ve reviewed them to keep within the free plan.</p>` : ''}
     ${bp.published ? `
     <section class="blk">
       <h3>Share a team link</h3>
@@ -539,8 +583,11 @@ function renderDetail(bp) {
         <tbody>${links.map((l) => `
           <tr class="${l.revoked_at ? 'revoked' : ''}">
             <td><div class="who">${esc(l.label)}</div><div class="by">${l.created_by ? 'Created by ' + esc(l.created_by) + ', ' : 'Created '}${esc(when(l.created_at))}${l.revoked_at ? ', revoked' : ''}</div>
-              ${l.kind === 'client' && !l.revoked_at ? `<label class="envsel">Environment <select data-env="${esc(l.token)}" aria-label="Environment for ${esc(l.label)}"><option value="sandbox"${l.environment !== 'production' ? ' selected' : ''}>Sandbox</option><option value="production"${l.environment === 'production' ? ' selected' : ''}>Production</option></select></label>` : ''}
-              ${l.kind === 'client' && l.production_requested_at && l.environment !== 'production' ? `<div class="prodreq" role="note"><b>Production requested</b> ${esc(when(l.production_requested_at))}. Set Environment to Production to grant it.${l.production_request_note ? `<div class="prodnote">“${esc(l.production_request_note)}”</div>` : ''}</div>` : ''}
+              ${l.kind === 'client' && !l.revoked_at ? `<label class="envsel">Environment <select data-env="${esc(l.token)}" aria-label="Environment for ${esc(l.label)}"><option value="sandbox"${l.environment !== 'production' ? ' selected' : ''}>Sandbox</option><option value="production"${l.environment === 'production' ? ' selected' : ''}>Production</option></select></label>
+              <form class="domsel" data-domform="${esc(l.token)}"><label for="dom-${esc(l.token)}">Client email domains</label><div class="domrow"><input id="dom-${esc(l.token)}" value="${esc((l.client_domains || []).join(', '))}" placeholder="wise.com, transferwise.com" autocomplete="off" spellcheck="false"><button class="ghost" type="submit">Save</button></div></form>
+              ${(l.client_domains || []).length ? '' : `<div class="prodreq" role="note"><b>Set the client’s email domains.</b> Only emails on these domains count as ${esc(l.label)} and can tick. Until then, nobody can tick, so nothing is misattributed.</div>`}` : ''}
+              ${l.kind === 'client' && l.production_requested_at && l.environment !== 'production' ? `<div class="prodreq" role="note"><b>Production requested</b> ${esc(when(l.production_requested_at))}. Review it below, then set Environment to Production to grant it.</div>` : ''}
+              ${l.kind === 'client' && l.production_request ? requestDetails(l.production_request) : ''}
               ${l.kind === 'client' && l.environment === 'production' && l.environment_changed_at ? `<div class="by">Production since ${esc(when(l.environment_changed_at))}${l.production_requested_at ? `, requested ${esc(when(l.production_requested_at))}` : ''}</div>` : ''}
               ${l.kind === 'client' && (l.people || []).length ? `<div class="people">${['client', 'lean'].map((k) => { const ps = (l.people || []).filter((x) => (x.kind || 'client') === k); return ps.length ? `<div><span class="pk">${k === 'lean' ? 'Lean' : esc(l.label)}:</span> ${ps.map((x) => `<span title="${esc(x.email)}">${esc(x.name || x.email)}</span> <span class="pv">(${x.visits} ${x.visits === 1 ? 'visit' : 'visits'}, ${esc(when(x.last))})</span>`).join(', ')}</div>` : ''; }).join('')}</div>` : ''}</td>
             <td><span class="tag ${l.kind}">${l.kind === 'client' ? 'Client' : 'Lean'}</span></td>
@@ -585,6 +632,59 @@ function renderDetail(bp) {
     try { await api('/api/admin/blueprints', { method: 'PATCH', body: JSON.stringify({ slug: bp.slug, name: name.trim() }) }); await load(); status('Renamed'); }
     catch (err) { status(err.message); }
   });
+  // Downloads open a signed, short-lived link (a new tab can't carry the admin password).
+  const download = async (format, version) => {
+    const w = format === 'pdf' ? window.open('', '_blank') : null;
+    try {
+      const r = await api('/api/admin/download', { method: 'POST', body: JSON.stringify({ slug: bp.slug, format, version }) });
+      if (w) w.location = r.url; else { const a = document.createElement('a'); a.href = r.url; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove(); }
+      status(format === 'pdf' ? 'Opening the print-ready version: choose Save as PDF' : 'Downloading the HTML file');
+    } catch (err) { if (w) w.close(); status(err.message); }
+  };
+  document.querySelectorAll('[data-dl]').forEach((b) => b.addEventListener('click', () => download(b.dataset.dl)));
+  // Version history
+  if ($('versionsBox')) $('versionsBox').addEventListener('toggle', async () => {
+    if (!$('versionsBox').open) return;
+    try {
+      const { versions } = await api('/api/admin/versions?slug=' + encodeURIComponent(bp.slug));
+      $('versionsList').innerHTML = versions.length ? `<p class="by">Kept before every Replace file, publish, restore and switch to the form. The latest 20 are kept.</p><ul class="vlist">${versions.map((v) => `<li><span class="vt"><b>${esc(when(v.created_at))}</b> · ${esc(v.reason || 'Earlier version')}${v.created_by ? ` · ${esc(v.created_by)}` : ''} · ${Math.round((v.size_bytes || 0) / 1024)} KB</span><span class="va"><button class="ghost mini" data-vdl="html" data-v="${v.id}">HTML</button><button class="ghost mini" data-vdl="pdf" data-v="${v.id}">PDF</button><button class="ghost mini" data-vrestore="${v.id}">Restore</button></span></li>`).join('')}</ul>` : '<p class="by">No earlier versions yet. One is kept each time this blueprint is replaced, published or restored.</p>';
+      $('versionsList').querySelectorAll('[data-vdl]').forEach((b) => b.addEventListener('click', () => download(b.dataset.vdl, b.dataset.v)));
+      $('versionsList').querySelectorAll('[data-vrestore]').forEach((b) => b.addEventListener('click', async () => {
+        if (!confirm('Restore this version? Clients see it straight away. The current version is kept, so you can switch back.')) return;
+        try { const r = await api('/api/admin/versions', { method: 'POST', body: JSON.stringify({ slug: bp.slug, id: b.dataset.vrestore }) }); await load(); status(r.missingTicks.length ? `Restored. ${r.missingTicks.length} ticked step(s) aren’t in this version, so they’re hidden until a version with them is published.` : 'Restored'); }
+        catch (err) { status(err.message); }
+      }));
+    } catch (err) { $('versionsList').innerHTML = `<p class="by">${esc(err.message)}</p>`; }
+  });
+  // Edit an uploaded blueprint in the form: check first, then switch only if the person reviewing agrees.
+  if (!built && $('importBp')) $('importBp').addEventListener('click', async () => {
+    const btn = $('importBp'); btn.disabled = true; btn.textContent = 'Checking…';
+    try {
+      const { report } = await api('/api/admin/builder', { method: 'POST', body: JSON.stringify({ action: 'import', slug: bp.slug }) });
+      reviewImport(report);
+    } catch (err) { status(err.message); }
+    btn.disabled = false; btn.textContent = 'Edit in form';
+  });
+  function reviewImport(report) {
+    const dlg = document.createElement('dialog'); dlg.className = 'importdlg';
+    const bad = report.sections.filter((x) => !x.ok);
+    dlg.innerHTML = `<h3>${report.ok ? 'Ready to edit in the form' : 'Some content can’t be carried over'}</h3>
+      <p>${report.ok ? 'Every section was read into the form and checked against the published page: they match.' : 'The sections marked below differ from the published page. If you continue, the form version replaces them when you next publish.'}</p>
+      <ul class="ichecks">${report.sections.map((x) => `<li class="${x.ok ? 'ok' : 'bad'}"><b>${x.ok ? '✓' : '!'} ${esc(x.name)}</b>${x.issues.length ? `<ul>${x.issues.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>` : ''}</li>`).join('')}</ul>
+      ${report.notes.length ? `<div class="inotes"><b>Worth checking</b><ul>${report.notes.map((n) => `<li>${esc(n.section)}: ${esc(n.note)}</li>`).join('')}</ul></div>` : ''}
+      <p class="by">The published page doesn’t change until you publish from the form, and the current version is kept in Version history.</p>
+      <div class="iact"><button class="primary" id="iGo">${report.ok ? 'Open in the form' : `Continue anyway (${bad.length} section${bad.length === 1 ? '' : 's'} differ)`}</button><button class="ghost" id="iNo">Keep it as an uploaded file</button></div>`;
+    document.body.appendChild(dlg); dlg.showModal();
+    dlg.querySelector('#iNo').onclick = () => { dlg.close(); dlg.remove(); };
+    dlg.addEventListener('close', () => dlg.remove());
+    dlg.querySelector('#iGo').onclick = async () => {
+      const go = dlg.querySelector('#iGo'); go.disabled = true; go.textContent = 'Switching…';
+      try {
+        const row = await api('/api/admin/builder', { method: 'POST', body: JSON.stringify({ action: 'convert', slug: bp.slug, acceptDifferences: !report.ok }) });
+        dlg.close(); await load(); status('Now edited in the form. Nothing changes for clients until you publish.'); openEditor(row);
+      } catch (err) { go.disabled = false; go.textContent = 'Try again'; status(err.message); }
+    };
+  }
   if (built) $('editBp').addEventListener('click', async () => {
     try { openEditor(await api('/api/admin/builder?slug=' + encodeURIComponent(bp.slug))); } catch (err) { status(err.message); }
   });
@@ -616,6 +716,27 @@ function renderDetail(bp) {
     if (env === 'production' && !confirm('Set this client team to Production? Their page will show Production, and their production steps will be marked as applying now.')) { el.value = 'sandbox'; return; }
     try { await api('/api/admin/links', { method: 'PATCH', body: JSON.stringify({ token: el.dataset.env, environment: env }) }); await load(); status(env === 'production' ? 'Set to Production' : 'Set to Sandbox'); }
     catch (err) { status(err.message); el.value = env === 'production' ? 'sandbox' : 'production'; }
+  }));
+  $('notifyForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button'); btn.disabled = true;
+    try { const r = await api('/api/admin/blueprints', { method: 'PATCH', body: JSON.stringify({ slug: bp.slug, notifyEmail: $('notifyEmail').value }) }); await load(); status(r.notifyEmail ? `Production requests are emailed to ${r.notifyEmail}` : 'Using the default email'); }
+    catch (err) { status(err.message); btn.disabled = false; }
+  });
+  document.querySelectorAll('[data-delrec]').forEach((b) => b.addEventListener('click', async () => {
+    if (!confirm('Delete this recording? It frees storage (the free plan has 1 GB in total). It can’t be undone, and the link stops working.')) return;
+    try { const r = await api('/api/admin/recordings', { method: 'POST', body: JSON.stringify({ url: b.dataset.delrec }) }); await load(); status(`Recording deleted. Storage: ${Math.round(r.usedBytes / 1048576)} MB of ${Math.round(r.budgetBytes / 1048576)} MB`); }
+    catch (err) { status(err.message); }
+  }));
+  document.querySelectorAll('[data-copy]').forEach((b) => b.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(b.dataset.copy); const t = b.textContent; b.textContent = 'Copied'; setTimeout(() => { b.textContent = t; }, 1400); } catch { status('Copy failed: select the text instead'); }
+  }));
+  document.querySelectorAll('[data-domform]').forEach((form) => form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const input = form.querySelector('input'), btn = form.querySelector('button');
+    btn.disabled = true;
+    try { const r = await api('/api/admin/links', { method: 'PATCH', body: JSON.stringify({ token: form.dataset.domform, clientDomains: input.value }) }); await load(); status(r.client_domains && r.client_domains.length ? `Client domains saved: ${r.client_domains.join(', ')}` : 'Client domains cleared'); }
+    catch (err) { status(err.message); btn.disabled = false; input.focus(); }
   }));
   document.querySelectorAll('[data-dellink]').forEach((el) => el.addEventListener('click', async () => {
     const n = Number(el.dataset.views);
@@ -973,7 +1094,7 @@ async function loadProgress(bp) {
   const short = (iso) => iso ? new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : '';
   const lastAt = Object.values(ticks).filter((t) => t.done).map((t) => t.at).sort().pop();
   const bar = (d, n) => `<div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="${n}" aria-valuenow="${d}"><i style="width:${n ? Math.round((d / n) * 100) : 0}%"></i></div>`;
-  const itemList = (items) => `<ul class="pg-items">${items.map((i) => `<li class="${isDone(i.key) ? 'done' : ''}"><span class="mk" aria-label="${isDone(i.key) ? 'Done' : 'Not done'}">${isDone(i.key) ? '✓' : ''}</span><span class="tx">${esc(i.text)}</span><span class="dt">${isDone(i.key) ? esc(short(ticks[i.key].at)) : ''}</span></li>`).join('')}</ul>`;
+  const itemList = (items) => `<ul class="pg-items">${items.map((i) => `<li class="${isDone(i.key) ? 'done' : ''}"><span class="mk" aria-label="${isDone(i.key) ? 'Done' : 'Not done'}">${isDone(i.key) ? '✓' : ''}</span><span class="tx">${esc(i.text)}</span><span class="dt">${isDone(i.key) ? esc(short(ticks[i.key].at)) + (ticks[i.key].by ? ` · ${esc(ticks[i.key].by)}` : '') : ''}</span></li>`).join('')}</ul>`;
   const guide = (id) => { const p = st.panels[id]; const c = p.items.filter(counts); const extra = p.items.filter((i) => !counts(i)); const d = c.filter((i) => isDone(i.key)).length;
     return `<details class="pg-guide"><summary><span class="nm">${esc(p.name)}</span>${bar(d, c.length)}<span class="n">${d} of ${c.length}</span></summary>${itemList(c)}${extra.length ? `<div class="pg-none" style="margin-top:12px"><b>Production</b>, not counted in progress:</div>${itemList(extra)}` : ''}</details>`; };
   const phaseCard = (title, ids, extra) => {
