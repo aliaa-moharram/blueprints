@@ -33,11 +33,11 @@
     ov.className = 'bp-who-ov';
     ov.innerHTML = '<div class="bp-who" role="dialog" aria-modal="true" aria-labelledby="bpWhoT" aria-describedby="bpWhoD">' +
       '<h2 id="bpWhoT">' + (switching ? 'Who’s viewing?' : 'Welcome to your integration blueprint') + '</h2>' +
-      '<p id="bpWhoD">Enter your work email so the page shows the right view. Lean team members get a read-only copy, so your team’s progress stays accurate. You’re only asked once on this device.</p>' +
+      '<p id="bpWhoD">Enter your work email to continue. You’ll only be asked once on this device.</p>' +
       '<form novalidate><label for="bpWhoE">Work email</label><input id="bpWhoE" type="email" autocomplete="email" inputmode="email" required>' +
       '<p class="bp-who-err" role="alert"></p><div class="bp-who-act"><button type="submit" class="bp-who-go">Continue</button>' +
       '<button type="button" class="bp-who-skip">Skip for now</button></div>' +
-      '<p class="bp-who-small">Only Lean sees it, next to your visits.</p></form></div>';
+      '<p class="bp-who-small">Only the Lean team can see your email.</p></form></div>';
     document.body.appendChild(ov);
     const input = ov.querySelector('input'), err = ov.querySelector('.bp-who-err');
     const prevFocus = document.activeElement;
