@@ -13,6 +13,74 @@
     ? crypto.randomUUID()
     : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12);
 
+  // ---------- Who's viewing (client links only) ----------
+  // Asked once per browser: a Lean email gets the read-only Lean view on the same link; anyone else is the
+  // client team. Not verified: it tells teammates apart, it isn't access control.
+  const askWho = !view && !local && cfg.kind === 'client';
+  const leanDomains = (cfg.leanDomains || ['leantech.me']).map((d) => String(d).toLowerCase().replace(/^@/, ''));
+  const whoKey = 'leanbp-viewer:' + token;
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const kindOf = (email) => { const d = String(email || '').toLowerCase().split('@')[1] || ''; return leanDomains.some((x) => d === x || d.endsWith('.' + x)) ? 'lean' : 'client'; };
+  const nameOf = (email) => String(email).split('@')[0].split(/[._-]+/).filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
+  let viewer = null;
+  try { const v = JSON.parse(localStorage.getItem(whoKey) || 'null'); if (v && EMAIL_RE.test(v.email)) viewer = { email: v.email, name: v.name || nameOf(v.email) }; } catch {}
+  let whoResolved = !askWho || !!viewer || sessionStorage.getItem(whoKey + ':skip') === '1';
+  const whoWaiters = [];
+  const leanViewer = () => !!viewer && kindOf(viewer.email) === 'lean';
+
+  function whoDialog({ switching } = {}) {
+    const ov = document.createElement('div');
+    ov.className = 'bp-who-ov';
+    ov.innerHTML = '<div class="bp-who" role="dialog" aria-modal="true" aria-labelledby="bpWhoT" aria-describedby="bpWhoD">' +
+      '<h2 id="bpWhoT">' + (switching ? 'Who’s viewing?' : 'Welcome to your integration blueprint') + '</h2>' +
+      '<p id="bpWhoD">Enter your work email so the page shows the right view. Lean team members get a read-only copy, so your team’s progress stays accurate. You’re only asked once on this device.</p>' +
+      '<form novalidate><label for="bpWhoE">Work email</label><input id="bpWhoE" type="email" autocomplete="email" inputmode="email" required>' +
+      '<p class="bp-who-err" role="alert"></p><div class="bp-who-act"><button type="submit" class="bp-who-go">Continue</button>' +
+      '<button type="button" class="bp-who-skip">Skip for now</button></div>' +
+      '<p class="bp-who-small">Only Lean sees it, next to your visits.</p></form></div>';
+    document.body.appendChild(ov);
+    const input = ov.querySelector('input'), err = ov.querySelector('.bp-who-err');
+    const prevFocus = document.activeElement;
+    setTimeout(() => input.focus(), 30);
+    const close = () => { ov.remove(); if (prevFocus && prevFocus.focus) prevFocus.focus(); };
+    const done = () => { whoResolved = true; whoWaiters.splice(0).forEach((f) => f()); };
+    ov.querySelector('form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const email = input.value.trim();
+      if (!EMAIL_RE.test(email)) { err.textContent = 'Enter a full email address, for example name@company.com.'; input.focus(); return; }
+      viewer = { email, name: nameOf(email) };
+      try { localStorage.setItem(whoKey, JSON.stringify(viewer)); } catch {}
+      if (switching) { location.reload(); return; }
+      close(); done(); applyWho();
+    });
+    ov.querySelector('.bp-who-skip').addEventListener('click', () => {
+      try { sessionStorage.setItem(whoKey + ':skip', '1'); } catch {}
+      close(); if (switching) { location.reload(); return; } done();
+    });
+    ov.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); ov.querySelector('.bp-who-skip').click(); }
+      if (e.key === 'Tab') { // keep focus inside the dialog
+        const f = [...ov.querySelectorAll('input,button')]; const first = f[0], last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    });
+  }
+  // "Viewing as …", with a way to switch
+  function whoNote() {
+    if (!askWho || !viewer) return;
+    let n = document.querySelector('.bp-whonote');
+    if (!n) { n = document.createElement('div'); n.className = 'bp-whonote'; n.setAttribute('role', 'note'); document.body.appendChild(n); }
+    n.innerHTML = (leanViewer() ? '<b>Lean view:</b> read only, not counted as the client team’s visit. ' : '') + 'Viewing as <span></span> · <button type="button">Not you?</button>';
+    n.querySelector('span').textContent = viewer.name || viewer.email;
+    n.querySelector('button').onclick = () => { try { localStorage.removeItem(whoKey); } catch {} whoDialog({ switching: true }); };
+  }
+  let applyWho = () => whoNote();
+  if (askWho && !whoResolved) {
+    const start = () => whoDialog();
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+  }
+
   // ---------- Visit tracking (never in a Lean view or local mode) ----------
   if (!view && !local) {
     const OPEN_AFTER = 10; // seconds visible before a visit counts
@@ -47,10 +115,10 @@
       tick();
       const total = Math.floor(visibleMs / 1000);
       if (!opened) {
-        if (total >= OPEN_AFTER) {
+        if (total >= OPEN_AFTER && whoResolved) { // wait for "who's viewing" so the visit is recorded against the right person
           opened = true;
           reported = OPEN_AFTER;
-          post({ event: 'open' });
+          post({ event: 'open', viewer: viewer ? { email: viewer.email } : undefined });
         }
         return;
       }
@@ -168,6 +236,23 @@
     .bp-journey .j-err:empty{display:none}
     .bp-jwrap .j-live{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
     .bp-mile.wait{background:#fff8e6;border-color:#e0a400;color:#8a5a00}
+    .bp-who-ov{position:fixed;inset:0;z-index:600;background:rgba(15,18,22,.55);display:flex;align-items:center;justify-content:center;padding:20px}
+    .bp-who{background:#fff;border-radius:16px;max-width:440px;width:100%;padding:26px 26px 20px;box-shadow:0 24px 70px rgba(0,0,0,.35);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;color:#1c2024}
+    .bp-who h2{font:800 19px/1.3 system-ui,-apple-system,"Segoe UI",sans-serif;margin:0 0 8px}
+    .bp-who p{margin:0 0 14px;color:#4b5563;font-size:14px}
+    .bp-who label{display:block;font-weight:700;font-size:13px;margin-bottom:6px}
+    .bp-who input{width:100%;box-sizing:border-box;font:15px system-ui,sans-serif;padding:10px 12px;border:1px solid #cfd4da;border-radius:10px}
+    .bp-who input:focus-visible,.bp-who button:focus-visible{outline:2px solid var(--bright,#3dd68c);outline-offset:2px}
+    .bp-who .bp-who-err{color:#b3261e;font-weight:600;font-size:13px;margin:8px 0 0}
+    .bp-who .bp-who-err:empty{display:none}
+    .bp-who-act{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+    .bp-who-go{font:700 14px system-ui,sans-serif;padding:10px 18px;border-radius:10px;border:1px solid #1c2024;background:#1c2024;color:#fff;cursor:pointer}
+    .bp-who-skip{font:600 14px system-ui,sans-serif;padding:10px 14px;border-radius:10px;border:1px solid #cfd4da;background:#fff;color:#1c2024;cursor:pointer}
+    .bp-who .bp-who-small{font-size:12px;color:#6b7280;margin:12px 0 0}
+    .bp-whonote{position:fixed;left:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:300;background:#fff;color:#1c2024;border:1px solid #e5e7eb;box-shadow:0 6px 20px rgba(0,0,0,.12);font:500 12.5px/1.4 system-ui,sans-serif;padding:7px 12px;border-radius:999px;max-width:calc(100vw - 24px)}
+    .bp-whonote button{background:none;border:0;padding:0;font:inherit;font-weight:700;color:#1c2024;text-decoration:underline;text-decoration-color:var(--bright,#3dd68c);text-underline-offset:2px;cursor:pointer}
+    .bp-whonote button:focus-visible{outline:2px solid var(--bright,#3dd68c);outline-offset:2px;border-radius:3px}
+    @media print{.bp-who-ov,.bp-whonote{display:none}}
     .bp-jmain{margin:0 0 30px}
     .bp-jmain .bp-journey{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-radius:16px}
     .bp-jmain .bp-journey .j-step{border-top:0;border-left:1px solid #eef0f2;padding:16px}
@@ -532,11 +617,11 @@
     .then((r) => (r.ok ? r.json() : Promise.reject()))
     .then((data) => {
       if (data.mode === 'edit') {
-        readOnly = false;
+        readOnly = leanViewer(); // a Lean colleague on the client link sees it read only
         state = data.items || {};
         environment = data.environment || 'sandbox';
         production = data.production || {};
-        canRequest = !view;
+        canRequest = !view && !leanViewer();
       } else {
         readOnly = true;
         teams = data.teams || [];
@@ -547,6 +632,9 @@
       }
       paintEnvironment();
       paintAll();
+      // When someone answers "who's viewing" after the page loaded, apply it straight away.
+      applyWho = () => { readOnly = data.mode !== 'edit' || leanViewer(); canRequest = data.mode === 'edit' && !view && !leanViewer(); paintAll(); whoNote(); };
+      whoNote();
     })
     .catch(() => {
       paintAll();

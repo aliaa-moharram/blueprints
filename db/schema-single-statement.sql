@@ -91,5 +91,10 @@ BEGIN
   -- A client team's request for production access (added in the production request update).
   ALTER TABLE links ADD COLUMN IF NOT EXISTS production_requested_at TIMESTAMPTZ;
   ALTER TABLE links ADD COLUMN IF NOT EXISTS production_request_note TEXT;
+
+  -- Who viewed a client link (added in the viewer update). Not verified.
+  ALTER TABLE views ADD COLUMN IF NOT EXISTS viewer_email TEXT;
+  ALTER TABLE views ADD COLUMN IF NOT EXISTS viewer_name TEXT;
+  ALTER TABLE views ADD COLUMN IF NOT EXISTS viewer_kind TEXT;
 END
 $$;

@@ -172,3 +172,13 @@ A request is saved on the team's link and shows in the admin page in two places:
 
 
 **Vercel's Hobby plan allows 12 serverless functions per deployment.** Every file in `api/` is one function, so the admin endpoints share one: `api/admin.js` routes each `/api/admin/<name>` request (rewritten in `vercel.json`) to its handler in `lib/admin/`. The site uses 5 functions. Add new admin endpoints to `lib/admin/` and the router, not as new files in `api/`.
+
+
+**Who's viewing a client link.** The first time someone opens a client team's link in a browser, the page asks for their work email. They can skip, and are then asked again on their next visit.
+- **Lean emails** (`@leantech.me`, or the domains in `LEAN_EMAIL_DOMAINS`, comma-separated) get a read-only view on the same link. Their visits don't count as the client team's and never trigger the first-view alert.
+- **Anyone else** is the client team, as before.
+- **Lean or client is decided on the server,** from the email's domain.
+- **Each visit records the person,** so the admin page lists who has viewed each client link, client people and Lean people separately, and names them in Recent visits.
+- **A "Viewing as … · Not you?" note** lets someone switch.
+
+The email isn't verified: this tells teammates apart, it isn't access control. Existing links keep working, and visits from before this change stay under the team's name.

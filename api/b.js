@@ -29,7 +29,8 @@ export default handler(['GET', 'HEAD'], async (req, res) => {
     viewParam = view;
   }
 
-  const config = JSON.stringify({ token: link.token, slug: bp.slug, view: viewParam, team: viewParam ? link.label : undefined }).replace(/</g, '\\u003c');
+  const leanDomains = String(process.env.LEAN_EMAIL_DOMAINS || 'leantech.me').split(',').map((d) => d.trim().toLowerCase()).filter(Boolean);
+  const config = JSON.stringify({ token: link.token, slug: bp.slug, kind: link.kind, leanDomains, view: viewParam, team: viewParam ? link.label : undefined }).replace(/</g, '\\u003c');
   let html = bp.html.replace(/<\/head>/i, '<meta name="robots" content="noindex, nofollow">\n</head>');
   const runtime = `<script>window.__LEAN_BP=${config};</script>\n<script src="/bp-runtime.js" defer></script>\n`;
   const at = html.toLowerCase().lastIndexOf('</body>');

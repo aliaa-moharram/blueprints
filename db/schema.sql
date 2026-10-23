@@ -29,6 +29,12 @@ CREATE TABLE IF NOT EXISTS views (
 CREATE INDEX IF NOT EXISTS views_token_idx ON views (token, opened_at DESC);
 CREATE INDEX IF NOT EXISTS views_slug_idx ON views (slug, opened_at DESC);
 
+-- Who viewed: the work email entered once per browser on a client link. Lean emails are 'lean' and
+-- don't count as the client team's visits. Not verified.
+ALTER TABLE views ADD COLUMN IF NOT EXISTS viewer_email TEXT;
+ALTER TABLE views ADD COLUMN IF NOT EXISTS viewer_name TEXT;
+ALTER TABLE views ADD COLUMN IF NOT EXISTS viewer_kind TEXT;
+
 -- Checklist state, one row per blueprint item.
 CREATE TABLE IF NOT EXISTS checklist (
   slug        TEXT NOT NULL,

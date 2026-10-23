@@ -99,6 +99,25 @@ try {
   assert.equal(row.views, 1); ok('a repeated "open" for one page load counts once');
   assert.equal(row.seconds, 10 + 30 + 120); ok('visible time adds up, capped at 120 s per update');
 
+  // Who's viewing (one client link, Lean colleagues told apart by email)
+  const before = slackMessages.length;
+  await json('/api/track', { token: client.token, session: 'viewer-wise-0001', event: 'open', viewer: { email: '  David.Vu@Wise.com ' } });
+  await json('/api/track', { token: client.token, session: 'viewer-lean-0001', event: 'open', viewer: { email: 'will.smith@leantech.me', kind: 'client' } });
+  await json('/api/track', { token: client.token, session: 'viewer-bad-00001', event: 'open', viewer: { email: 'not-an-email' } });
+  ov = await (await admin('/api/admin/overview')).json();
+  const vrow = ov.links.find((l) => l.token === client.token);
+  assert.equal(vrow.views, 3); ok('a Lean colleague’s visit on the client link doesn’t count as the client team’s');
+  const people = Object.fromEntries(vrow.people.map((x) => [x.email, x]));
+  assert.ok(people['david.vu@wise.com'] && people['david.vu@wise.com'].kind === 'client' && people['david.vu@wise.com'].name === 'David Vu'); ok('a client viewer is recorded by name, worked out from their email');
+  assert.ok(people['will.smith@leantech.me'] && people['will.smith@leantech.me'].kind === 'lean'); ok('a Lean email is recorded as Lean, decided by the server whatever the page says');
+  assert.ok(!vrow.people.some((x) => x.email === 'not-an-email')); ok('an invalid email is ignored');
+  const namedVisit = ov.recent.find((v) => v.viewer_name === 'Will Smith');
+  assert.ok(namedVisit && namedVisit.viewer_kind === 'lean'); ok('recent visits show who viewed');
+  const alerts = slackMessages.slice(before).map((m) => m.text);
+  assert.ok(!alerts.some((t) => /Will Smith/.test(t))); ok('a Lean colleague opening the client link never triggers the first-view alert');
+  const page0 = await (await fetch(`${BASE}/b/${client.token}`)).text();
+  assert.ok(/"kind":"client"/.test(page0) && /"leanDomains":\["leantech\.me"\]/.test(page0)); ok('the page knows it’s a client link and which domains are Lean');
+
   // Checklist
   r = await json('/api/checklist', { token: client.token, item: 'sample-1', done: true });
   assert.equal((await r.json()).done, true); ok('a client team can tick an item');

@@ -79,6 +79,9 @@ td .who{font-weight:700}
 .envsel{display:flex;align-items:center;gap:6px;margin:8px 0 0;font-size:12.5px;font-weight:600;color:var(--muted)}
 .prodreq{margin:8px 0 0;padding:8px 10px;border-radius:8px;background:#fff8e6;border:1px solid #f3d27a;font-size:12.5px;color:#5c4100;max-width:340px}
 .prodnote{margin-top:4px;font-style:italic;color:#6b5200;white-space:pre-wrap}
+.people{margin:8px 0 0;font-size:12.5px;color:var(--ink);max-width:360px;line-height:1.5}
+.people .pk{font-weight:700;color:var(--muted)}
+.people .pv{color:var(--muted)}
 .prodbadge{display:inline-block;margin-top:5px;font-size:11px;font-weight:700;padding:1px 8px;border-radius:999px;background:#fff8e6;border:1px solid #e0a400;color:#8a5a00}
 .pg-mile.wait{background:#fff8e6;border-color:#e0a400;color:#8a5a00}
 .envsel select{height:30px;width:auto;padding:0 8px;font-size:12.5px}
@@ -504,7 +507,7 @@ function renderDetail(bp) {
   const links = showRevoked ? allLinks : allLinks.filter((l) => !l.revoked_at);
   const activeClient = allLinks.find((l) => l.kind === 'client' && !l.revoked_at);
   const visits = data.recent.filter((v) => v.slug === bp.slug);
-  const lastClient = visits.find((v) => v.kind === 'client');
+  const lastClient = visits.find((v) => v.kind === 'client' && v.viewer_kind !== 'lean');
   const built = bp.source === 'builder';
   const stateLine = !bp.published ? 'Not published yet.' : built ? `Published ${esc(when(bp.published_at))}${bp.uploaded_by ? ' by ' + esc(bp.uploaded_by) : ''}.` : `File ${bp.uploaded_by ? 'uploaded by ' + esc(bp.uploaded_by) + ', ' : 'updated '}${esc(when(bp.updated_at))}.`;
   $('main').innerHTML = `
@@ -538,7 +541,8 @@ function renderDetail(bp) {
             <td><div class="who">${esc(l.label)}</div><div class="by">${l.created_by ? 'Created by ' + esc(l.created_by) + ', ' : 'Created '}${esc(when(l.created_at))}${l.revoked_at ? ', revoked' : ''}</div>
               ${l.kind === 'client' && !l.revoked_at ? `<label class="envsel">Environment <select data-env="${esc(l.token)}" aria-label="Environment for ${esc(l.label)}"><option value="sandbox"${l.environment !== 'production' ? ' selected' : ''}>Sandbox</option><option value="production"${l.environment === 'production' ? ' selected' : ''}>Production</option></select></label>` : ''}
               ${l.kind === 'client' && l.production_requested_at && l.environment !== 'production' ? `<div class="prodreq" role="note"><b>Production requested</b> ${esc(when(l.production_requested_at))}. Set Environment to Production to grant it.${l.production_request_note ? `<div class="prodnote">“${esc(l.production_request_note)}”</div>` : ''}</div>` : ''}
-              ${l.kind === 'client' && l.environment === 'production' && l.environment_changed_at ? `<div class="by">Production since ${esc(when(l.environment_changed_at))}${l.production_requested_at ? `, requested ${esc(when(l.production_requested_at))}` : ''}</div>` : ''}</td>
+              ${l.kind === 'client' && l.environment === 'production' && l.environment_changed_at ? `<div class="by">Production since ${esc(when(l.environment_changed_at))}${l.production_requested_at ? `, requested ${esc(when(l.production_requested_at))}` : ''}</div>` : ''}
+              ${l.kind === 'client' && (l.people || []).length ? `<div class="people">${['client', 'lean'].map((k) => { const ps = (l.people || []).filter((x) => (x.kind || 'client') === k); return ps.length ? `<div><span class="pk">${k === 'lean' ? 'Lean' : esc(l.label)}:</span> ${ps.map((x) => `<span title="${esc(x.email)}">${esc(x.name || x.email)}</span> <span class="pv">(${x.visits} ${x.visits === 1 ? 'visit' : 'visits'}, ${esc(when(x.last))})</span>`).join(', ')}</div>` : ''; }).join('')}</div>` : ''}</td>
             <td><span class="tag ${l.kind}">${l.kind === 'client' ? 'Client' : 'Lean'}</span></td>
             <td class="num">${l.views}</td>
             <td class="num">${l.views ? `${dur(l.seconds)}<div class="by">${dur(Math.round(l.seconds / l.views))} per visit</div>` : ''}</td>
@@ -562,7 +566,7 @@ function renderDetail(bp) {
       ${visits.length ? `<div class="list">${visits.slice(0, 40).map((v) => `
         <div class="visit">
           <time datetime="${esc(v.opened_at)}" title="${esc(full(v.opened_at))}">${esc(full(v.opened_at))}</time>
-          <div><strong>${esc(v.label)}</strong> ${v.kind === 'internal' ? '<span class="tag">Lean</span>' : ''}<div class="d">${esc([device(v.user_agent), v.country].filter(Boolean).join(', '))}</div></div>
+          <div><strong>${v.viewer_name ? `${esc(v.viewer_name)}</strong> <span class="d" style="display:inline">via ${esc(v.label)}</span>` : `${esc(v.label)}</strong>`} ${v.kind === 'internal' || v.viewer_kind === 'lean' ? '<span class="tag">Lean</span>' : ''}<div class="d">${esc([device(v.user_agent), v.country].filter(Boolean).join(', '))}</div></div>
           <div class="num d">${dur(v.seconds_visible)} on page</div>
         </div>`).join('')}</div>`
         : '<div class="empty">No visits yet. A visit is recorded once someone keeps the page open for 10 seconds.</div>'}
