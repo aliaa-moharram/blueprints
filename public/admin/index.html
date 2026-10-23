@@ -333,7 +333,7 @@ function paintMe() {
 function askMe(changing) {
   if (!changing && myEmail()) return;
   const dlg = document.createElement('dialog'); dlg.className = 'importdlg';
-  dlg.innerHTML = `<h3>${changing ? 'Who’s using the admin page?' : 'Before you start'}</h3><p>Blueprints you create or upload are owned by you: production requests and review comments for them are emailed to you.</p>
+  dlg.innerHTML = `<h3>${changing ? 'Who’s using the admin page?' : 'Before you start'}</h3><p>So the admin page knows which blueprints are yours: blueprints you create or upload are owned by you, and their production requests and review comments show in your <b>What’s new</b>${data && data.emailReady ? ' and are emailed to you' : ''}.</p>
     <form method="dialog" class="meform"><label>Your name<input name="n" autocomplete="name" required></label><label>Your Lean email<input name="e" type="email" autocomplete="email" required placeholder="name@leantech.me"></label><p class="err"></p><div class="iact"><button class="primary" value="ok">Save</button>${changing ? '<button class="ghost" value="cancel" formnovalidate>Cancel</button>' : ''}</div></form>`;
   document.body.appendChild(dlg);
   const f = dlg.querySelector('form'); f.n.value = byName(); f.e.value = myEmail();
@@ -668,7 +668,7 @@ function renderDetail(bp) {
     ${bp.published ? `<details class="versions" id="commentsBox"${bp.open_comments ? ' open' : ''}><summary>Review comments${bp.open_comments ? ` · ${bp.open_comments} open` : ''}</summary><div id="commentsList"><p class="by">Loading…</p></div></details>` : ''}
     ${bp.published ? `<details class="versions" id="versionsBox"><summary>Version history</summary><div id="versionsList"><p class="by">Loading…</p></div></details>` : ''}
     <p class="ownerline">${bp.owner_email ? `Owner: <b>${esc(bp.owner_name || bp.owner_email)}</b> (${esc(bp.owner_email)}) · <button type="button" class="linkish" id="ownerChange">Change owner</button>` : `No owner yet, so emails go to ${data.defaultNotify ? esc(data.defaultNotify) : 'nobody'}. <button type="button" class="linkish" id="ownerMe">Make me the owner</button>`}</p>
-    <form class="notifyform" id="notifyForm"><label for="notifyEmail">Also notify (optional): production requests and review comments always go to the owner</label><div class="domrow"><input id="notifyEmail" type="text" value="${esc(bp.notify_email || '')}" placeholder="${esc(data.defaultNotify || 'you@leantech.me')}" autocomplete="email" spellcheck="false"><button class="ghost" type="submit">Save</button></div><p class="by">Comma-separate up to 5 addresses, for example Sales colleagues reviewing this blueprint.</p>
+    <form class="notifyform" id="notifyForm"><label for="notifyEmail">Also notify by email (optional, once email is set up): the owner is always included</label><div class="domrow"><input id="notifyEmail" type="text" value="${esc(bp.notify_email || '')}" placeholder="${esc(data.defaultNotify || 'you@leantech.me')}" autocomplete="email" spellcheck="false"><button class="ghost" type="submit">Save</button></div><p class="by">Comma-separate up to 5 addresses, for example Sales colleagues reviewing this blueprint.</p>
       ${data.emailReady ? '' : `<p class="by">Email notifications are off: new production requests and review comments show in <b>What’s new</b>.</p>`}
       ${data.emailReady && !bp.owner_email && !bp.notify_email && !data.defaultNotify ? `<div class="prodreq" role="note"><b>No one to email.</b> Set an owner, add an address above, or set <code>NOTIFY_EMAIL</code> in Vercel.</div>` : ''}</form>
     ${data.storage ? `<p class="by storage">Recording storage: ${Math.round(data.storage.usedBytes / 1048576)} MB of ${Math.round(data.storage.budgetBytes / 1048576)} MB used. Delete recordings once you’ve reviewed them to keep within the free plan.</p>` : ''}
@@ -857,7 +857,7 @@ function renderDetail(bp) {
   };
   if ($('ownerMe')) $('ownerMe').addEventListener('click', () => { if (!myEmail()) return askMe(true); setOwner(myEmail(), byName()); });
   if ($('ownerChange')) $('ownerChange').addEventListener('click', () => {
-    const email = prompt('The new owner’s Lean email. Production requests and review comments for this blueprint go to them.', bp.owner_email || '');
+    const email = prompt('The new owner’s Lean email. Production requests and review comments for this blueprint will show in their What’s new.', bp.owner_email || '');
     if (email && email.trim() && email.trim().toLowerCase() !== bp.owner_email) setOwner(email.trim(), email.trim().toLowerCase() === myEmail() ? byName() : undefined);
   });
   $('notifyForm').addEventListener('submit', async (e) => {
