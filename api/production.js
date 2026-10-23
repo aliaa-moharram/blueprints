@@ -58,7 +58,7 @@ export default handler(['POST'], async (req, res) => {
          WHERE id = (SELECT id FROM blob_uploads WHERE token = $1 AND url IS NULL AND status = 'reserved' AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1)`, [link.token, v.video.url]);
     }
   }
-  await cleanupExcept(link.token, v.video && v.video.url);
+  await cleanupExcept(link.token, v.video && v.video.url, req);
 
   // Readiness from the team's own ticks, worked out here rather than taken from the page.
   const { rows: ticks } = await query('SELECT item FROM team_checklist WHERE token = $1 AND done', [link.token]);

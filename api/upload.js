@@ -6,7 +6,8 @@
 // - replaced or removed recordings are deleted, and so is anything left over once the request is sent.
 // Checked before any token: an active client team link, a client team email, a video.
 // UPLOAD_MODE=local (development and tests only): files are stored on the server instead.
-import { handleUpload } from '@vercel/blob/client';
+import { handleUpload, handleUploadPresigned } from '@vercel/blob/client';
+import { issueSignedToken } from '@vercel/blob';
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import path from 'node:path';
@@ -15,7 +16,7 @@ import { query } from '../lib/db.js';
 import { findActiveLink } from '../lib/blueprints.js';
 import { classify, viewerFromRequest } from '../lib/viewer.js';
 import { VIDEO_MAX_BYTES, VIDEO_TYPES, uploadPrefix, budgetBytes } from '../lib/prodrequest.js';
-import { LOCAL_DIR, usedBytes, deleteUpload } from '../lib/blobstore.js';
+import { LOCAL_DIR, usedBytes, deleteUpload, blobToken, blobMode, blobAuth, blobStoreId } from '../lib/blobstore.js';
 
 const MB = 1024 * 1024;
 
@@ -66,33 +67,52 @@ export default handler(['POST', 'GET'], async (req, res) => {
   const body = await readJson(req);
   if (body.action === 'check') { // asked before an upload starts, so the page can show the real reason if it can't
     await mayUpload(req, body.token, body.email);
-    if (!process.env.BLOB_READ_WRITE_TOKEN && !local) throw httpError(422, 'Video uploads aren’t set up yet. Tick Not applicable for now and send the recording to Lean another way.');
+    if (!blobMode() && !local) throw httpError(422, 'Video uploads aren’t set up yet. Tick Not applicable for now and send the recording to Lean another way.');
     await checkRoom(Math.ceil(Number(body.bytes) || 0));
-    return send(res, 200, { ok: true });
+    // The page uses the upload method that matches how the store is connected.
+    return send(res, 200, { ok: true, method: local ? 'local' : blobMode() === 'oidc' ? 'presigned' : 'token' });
   }
   if (body.action === 'delete') { // the client replaced or removed a recording
     await mayUpload(req, body.token, body.email);
     const { rows } = await query(`SELECT url FROM blob_uploads WHERE token = $1 AND url = $2 AND deleted_at IS NULL`, [body.token, String(body.url || '')]);
-    if (rows.length) await deleteUpload(rows[0].url);
+    if (rows.length) await deleteUpload(rows[0].url, req);
     return send(res, 200, { deleted: rows.length > 0 });
   }
-  if (!process.env.BLOB_READ_WRITE_TOKEN) throw httpError(422, 'Video uploads aren’t set up yet. Tick Not applicable for now and send the recording to Lean another way.');
+  if (!blobMode()) throw httpError(422, 'Video uploads aren’t set up yet. Tick Not applicable for now and send the recording to Lean another way.');
+  // Checked before anything is issued, whichever upload method is used. Returns the upload's constraints.
+  const allow = async (pathname, clientPayload) => {
+    let p = {}; try { p = JSON.parse(clientPayload || '{}'); } catch {}
+    await mayUpload(req, p.token, p.email);
+    if (!String(pathname).startsWith(uploadPrefix(p.token))) throw httpError(400, 'Wrong upload folder.');
+    const bytes = Math.ceil(Number(p.bytes) || 0);
+    await checkRoom(bytes);
+    const { rows } = await query(`INSERT INTO blob_uploads (token, pathname, bytes) VALUES ($1, $2, $3) RETURNING id`, [p.token, pathname, bytes]);
+    return { maximumSizeInBytes: Math.min(VIDEO_MAX_BYTES, bytes + 64 * 1024), validUntil: Date.now() + 60 * 60 * 1000, tokenPayload: JSON.stringify({ token: p.token, reservation: rows[0].id }) };
+  };
+  const completed = async ({ blob, tokenPayload }) => { // Vercel calls this when the upload finishes
+    let t = {}; try { t = JSON.parse(tokenPayload || '{}'); } catch {}
+    if (t.reservation) await query(`UPDATE blob_uploads SET status = 'stored', url = $2, completed_at = now() WHERE id = $1 AND deleted_at IS NULL`, [t.reservation, blob.url]);
+  };
+  // A store connected with BLOB_STORE_ID (OIDC): presigned uploads, scoped to one pathname, size and video types.
+  if (body.type === 'blob.generate-presigned-url' || (body.type === 'blob.upload-completed' && blobMode() === 'oidc')) {
+    const result = await handleUploadPresigned({
+      body, request: req,
+      getSignedToken: async (pathname, clientPayload) => {
+        const c = await allow(pathname, clientPayload);
+        const token = await issueSignedToken({ ...blobAuth(req), pathname, operations: ['put'], allowedContentTypes: VIDEO_TYPES, maximumSizeInBytes: c.maximumSizeInBytes, validUntil: c.validUntil });
+        return { token, urlOptions: { allowedContentTypes: VIDEO_TYPES, maximumSizeInBytes: c.maximumSizeInBytes, addRandomSuffix: true, validUntil: c.validUntil, tokenPayload: c.tokenPayload } };
+      },
+      onUploadCompleted: completed,
+    });
+    return send(res, 200, result);
+  }
   const result = await handleUpload({
-    body, request: req,
+    body, request: req, token: blobToken(),
     onBeforeGenerateToken: async (pathname, clientPayload) => {
-      let p = {}; try { p = JSON.parse(clientPayload || '{}'); } catch {}
-      await mayUpload(req, p.token, p.email);
-      if (!String(pathname).startsWith(uploadPrefix(p.token))) throw httpError(400, 'Wrong upload folder.');
-      const bytes = Math.ceil(Number(p.bytes) || 0);
-      await checkRoom(bytes);
-      const { rows } = await query(`INSERT INTO blob_uploads (token, pathname, bytes) VALUES ($1, $2, $3) RETURNING id`, [p.token, pathname, bytes]);
-      return { allowedContentTypes: VIDEO_TYPES, maximumSizeInBytes: Math.min(VIDEO_MAX_BYTES, bytes + 64 * 1024), addRandomSuffix: true,
-        validUntil: Date.now() + 60 * 60 * 1000, tokenPayload: JSON.stringify({ token: p.token, reservation: rows[0].id }) };
+      const c = await allow(pathname, clientPayload);
+      return { allowedContentTypes: VIDEO_TYPES, maximumSizeInBytes: c.maximumSizeInBytes, addRandomSuffix: true, validUntil: c.validUntil, tokenPayload: c.tokenPayload };
     },
-    onUploadCompleted: async ({ blob, tokenPayload }) => { // Vercel calls this when the upload finishes
-      let t = {}; try { t = JSON.parse(tokenPayload || '{}'); } catch {}
-      if (t.reservation) await query(`UPDATE blob_uploads SET status = 'stored', url = $2, completed_at = now() WHERE id = $1 AND deleted_at IS NULL`, [t.reservation, blob.url]);
-    },
+    onUploadCompleted: completed,
   });
   send(res, 200, result);
 });

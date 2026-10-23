@@ -183,7 +183,11 @@ When a request is sent:
 To grant access, set the team's Environment to **Production**.
 
 **Setup for requests:**
-- **Video storage:** in Vercel, open **Storage**, choose **Create Database**, then **Blob**, and connect it to this project. That adds `BLOB_READ_WRITE_TOKEN`. Recordings are stored with unguessable addresses. Without it, the form explains that uploads aren't set up and the client can tick Not applicable.
+- **Video storage:** in Vercel, open **Storage**, choose **Create Database**, then **Blob**, connect it to this project, then redeploy. The site works with both ways Vercel connects a store:
+  - **Newer stores** add `BLOB_STORE_ID` and `BLOB_WEBHOOK_PUBLIC_KEY`, and use the deployment's own identity (OIDC). Uploads then use presigned URLs, scoped to one file, its size and video types.
+  - **Older stores** add `BLOB_READ_WRITE_TOKEN`, or `<PREFIX>_READ_WRITE_TOKEN`. Uploads then use client tokens.
+
+  Either way, the same checks run before any upload: client team only, 100 MB, the team's own folder, and the storage budget. Recordings are stored with unguessable addresses. Without it, the form explains that uploads aren't set up and the client can tick Not applicable.
 - **Email:**
   1. Create a free account at resend.com and an API key.
   2. Add `RESEND_API_KEY` and `NOTIFY_EMAIL` (your address) in Vercel, then redeploy.

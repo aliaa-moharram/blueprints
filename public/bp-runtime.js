@@ -558,10 +558,12 @@
     }
     // Ask the site first: Vercel's upload library replaces the site's reason with a generic message.
     return fetch('/api/upload', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'check', token, email, bytes: file.size }) })
-      .then((r) => r.json().catch(() => ({})).then((j) => { if (!r.ok) { const e = new Error(j.error || 'The upload couldn’t start.'); e.final = true; throw e; } }))
-      .then(() => import('/blob-client.js')).then(({ upload }) => {
+      .then((r) => r.json().catch(() => ({})).then((j) => { if (!r.ok) { const e = new Error(j.error || 'The upload couldn’t start.'); e.final = true; throw e; } return j; }))
+      .then((j) => import('/blob-client.js').then((lib) => ({ lib, method: j.method }))).then(({ lib, method }) => {
       const safe = file.name.replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+/, '').slice(-80) || 'recording';
-      return upload(`production-requests/${token}/${safe}`, file, {
+      // A store connected with BLOB_STORE_ID uses presigned uploads; one with a read-write token, client tokens.
+      const send = method === 'presigned' ? lib.uploadPresigned : lib.upload;
+      return send(`production-requests/${token}/${safe}`, file, {
         access: 'public', handleUploadUrl: '/api/upload', clientPayload: JSON.stringify({ token, email, bytes: file.size }),
         multipart: false, contentType: file.type || undefined, // one upload operation per recording
         onUploadProgress: (e) => onProgress(Math.round(e.percentage)),
@@ -569,7 +571,7 @@
     }).then((r) => ({ url: r.url, name: file.name, bytes: file.size }))
       .catch((err) => {
         if (err.final) throw err; // the site's own reason, already clear
-        const generic = /client token|failed to fetch|network/i.test(err.message || '');
+        const generic = /client token|presigned|failed to fetch|network/i.test(err.message || '');
         throw new Error(generic ? 'The upload couldn’t start. Check your connection and try again, or tick Not applicable.' : (err.message || 'The upload didn’t finish.') + ' Try again, or tick Not applicable.');
       });
   }

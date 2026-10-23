@@ -310,7 +310,7 @@ try {
   const upCheck = (email, bytes) => fetch(`${BASE}/api/upload`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'check', token: built.token, email, bytes }) });
   let uc = await upCheck('someone@gmail.com', 1000); assert.equal(uc.status, 403); assert.ok(/Only the client team/.test((await uc.json()).error)); ok('the pre-upload check gives the real reason a person can’t upload');
   uc = await upCheck(CLIENT_EMAIL, 101 * 1024 * 1024); assert.equal(uc.status, 413); ok('the pre-upload check catches a recording over 100 MB');
-  assert.equal((await upCheck(CLIENT_EMAIL, 1000)).status, 200); ok('the pre-upload check passes for the client team');
+  uc = await upCheck(CLIENT_EMAIL, 1000); assert.equal(uc.status, 200); assert.equal((await uc.json()).method, 'local'); ok('the pre-upload check passes for the client team, and names the upload method');
   assert.equal((await upLocal('will.smith@leantech.me')).status, 403); ok('a Lean colleague can’t upload a recording to the client’s request');
   assert.equal((await upLocal('someone@gmail.com')).status, 403); ok('an email outside the client’s domains can’t upload');
   const upd = await (await upLocal(CLIENT_EMAIL)).json();
